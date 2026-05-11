@@ -8,6 +8,11 @@ name: Release
 # ../ttyview/crates/ttyview-core, so this workflow checks out the
 # ttyview repo alongside before building. Pin the ttyview ref with
 # the TTYVIEW_REF environment variable below.
+#
+# Linux targets build on ubuntu-22.04 (glibc 2.35) so the binaries
+# run on Debian 12 bookworm (2.36) and later distros — cross-rs is
+# avoided because its Docker container can't see the sibling ttyview
+# checkout that Cargo needs for the path dependency.
 
 on:
   push:
@@ -30,12 +35,13 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-22.04
             archive: tar.gz
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-22.04
             archive: tar.gz
-            cross: true
+            cross_linker: aarch64-linux-gnu-gcc
+            apt_pkgs: gcc-aarch64-linux-gnu
           - target: x86_64-apple-darwin
             os: macos-latest
             archive: tar.gz
@@ -66,18 +72,16 @@ jobs:
           workspaces: mobile-cc
           key: release-${{ matrix.target }}-ttyview-${{ env.TTYVIEW_REF }}
 
-      - name: Install cross (linux aarch64)
-        if: matrix.cross == true
-        run: cargo install cross --locked
+      - name: Install cross-compile toolchain (linux aarch64)
+        if: matrix.apt_pkgs != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt_pkgs }}
 
-      - name: Build (cross)
-        if: matrix.cross == true
+      - name: Build
         working-directory: mobile-cc
-        run: cross build --release --target ${{ matrix.target }} --bin mobile-cc
-
-      - name: Build (cargo)
-        if: matrix.cross != true
-        working-directory: mobile-cc
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.cross_linker }}
         run: cargo build --release --target ${{ matrix.target }} --bin mobile-cc
 
       - name: Package
