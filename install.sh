@@ -7,6 +7,9 @@
 #   MOBILE_CC_BIND       — address:port to bind (default 127.0.0.1:7800)
 #   MOBILE_CC_VERSION    — release tag to install (default: latest)
 #   MOBILE_CC_PREFIX     — where to install the binary (default $HOME/.local/bin)
+#   MOBILE_CC_BASE_URL   — install source base URL
+#                          (default https://mobile-cc.dev, falls back to
+#                           https://mobile-cc.pages.dev if the apex 404s)
 #   MOBILE_CC_SKIP_UNIT  — set to 1 to skip the systemd user unit
 #   MOBILE_CC_BIN_FILE   — install this local file instead of downloading
 #                          (skips network entirely; for offline / test installs)
@@ -21,7 +24,7 @@ set -euo pipefail
 BIND="${MOBILE_CC_BIND:-127.0.0.1:7800}"
 PREFIX="${MOBILE_CC_PREFIX:-$HOME/.local/bin}"
 UNIT_DIR="$HOME/.config/systemd/user"
-GH_REPO="eyalev/mobile-cc"
+BASE_URL="${MOBILE_CC_BASE_URL:-}"
 
 mkdir -p "$PREFIX"
 
@@ -45,22 +48,40 @@ else
     *) echo "mobile-cc: unsupported platform $OS-$ARCH" >&2; exit 1 ;;
   esac
 
+  # resolve base URL with fallback (apex CNAME may not be wired yet)
+  resolve_base_url() {
+    if [ -n "$BASE_URL" ]; then echo "$BASE_URL"; return; fi
+    # try the apex first, then pages.dev as fallback
+    for url in "https://mobile-cc.dev" "https://mobile-cc.pages.dev"; do
+      if curl -fsSL --max-time 4 -o /dev/null "$url/latest.txt"; then
+        echo "$url"
+        return
+      fi
+    done
+    echo ""
+  }
+  BASE_URL=$(resolve_base_url)
+  if [ -z "$BASE_URL" ]; then
+    echo "mobile-cc: cannot reach either mobile-cc.dev or mobile-cc.pages.dev" >&2
+    echo "           set MOBILE_CC_BASE_URL=<url> to an install mirror" >&2
+    exit 1
+  fi
+
   # resolve version
   if [ -z "${MOBILE_CC_VERSION:-}" ]; then
-    MOBILE_CC_VERSION=$(curl -fsSL "https://api.github.com/repos/${GH_REPO}/releases/latest" \
-      | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+    MOBILE_CC_VERSION=$(curl -fsSL --max-time 5 "$BASE_URL/latest.txt" | tr -d '[:space:]')
   fi
   if [ -z "$MOBILE_CC_VERSION" ]; then
-    echo "mobile-cc: could not resolve latest release tag — pin MOBILE_CC_VERSION=<tag>" >&2
+    echo "mobile-cc: could not resolve latest version from $BASE_URL/latest.txt" >&2
     exit 1
   fi
 
   ASSET="mobile-cc-${MOBILE_CC_VERSION}-${TARGET}.tar.gz"
-  URL="https://github.com/${GH_REPO}/releases/download/${MOBILE_CC_VERSION}/${ASSET}"
+  URL="${BASE_URL}/${MOBILE_CC_VERSION}/${ASSET}"
 
-  echo "[1/3] downloading mobile-cc ${MOBILE_CC_VERSION} (${TARGET})"
+  echo "[1/3] downloading mobile-cc ${MOBILE_CC_VERSION} (${TARGET}) from ${BASE_URL}"
   TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-  curl -fSL "$URL" -o "$TMP/dl.tar.gz"
+  curl -fSL --max-time 60 "$URL" -o "$TMP/dl.tar.gz"
   tar -xzf "$TMP/dl.tar.gz" -C "$TMP"
   BIN_SRC=$(find "$TMP" -maxdepth 2 -type f -perm -u+x ! -name '*.tar.gz' | head -1)
   if [ -z "$BIN_SRC" ]; then
