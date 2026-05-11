@@ -25,6 +25,10 @@ permissions:
 env:
   TTYVIEW_REPO: ttyview/ttyview
   TTYVIEW_REF: v0.1.1   # pinned for reproducible releases
+  # Opt the JS-based actions (checkout, upload-artifact, download-artifact)
+  # into Node.js 24 instead of the deprecated Node.js 20 runtime. Removable
+  # once the actions ship Node 24 by default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:

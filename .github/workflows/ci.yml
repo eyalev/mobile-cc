@@ -10,6 +10,10 @@ on:
 env:
   TTYVIEW_REPO: ttyview/ttyview
   TTYVIEW_REF: main
+  # Opt the JS-based actions (checkout, upload-artifact, etc.) into Node.js
+  # 24 instead of the deprecated Node.js 20 runtime. Removable once the
+  # actions ship Node 24 by default (target: GitHub default flip).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
