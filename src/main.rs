@@ -99,9 +99,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("ttyview-cc.js",              include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-cc.js")),
     ("ttyview-quickkeys.js",       include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-quickkeys.js")),
     ("ttyview-tabs.js",            include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-tabs.js")),
-    // ttyview-image-paste lands in v0.2.0 once ttyview-core publishes
-    // the /api/uploads route + the plugin source (currently both WIP
-    // upstream, not on public ttyview/main).
+    ("ttyview-image-paste.js",     include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-image-paste.js")),
     ("ttyview-terminal-green.js",  include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-terminal-green.js")),
 ];
 
@@ -162,6 +160,8 @@ async fn main() -> Result<()> {
             read_only: false,
             config_dir: Some(config_dir),
             app_name: Some(cli.app_name),
+            uploads_dir: None,
+            allowed_origins: Vec::new(),
         },
     )
     .await

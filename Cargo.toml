@@ -1,6 +1,6 @@
 [package]
 name = "mobile-cc"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT"
 description = "Drive Claude Code from your phone. Mobile-focused packaging of ttyview-core."

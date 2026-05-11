@@ -24,7 +24,7 @@ permissions:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: main   # pin to a tag (e.g. v0.2.0) for reproducible builds
+  TTYVIEW_REF: v0.1.1   # pinned for reproducible releases
 
 jobs:
   build:
