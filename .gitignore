@@ -1,0 +1,8 @@
+/target/
+.DS_Store
+*.swp
+node_modules/
+
+# Agent notes (private, see CLAUDE.md and .claude/)
+CLAUDE.md
+.claude/

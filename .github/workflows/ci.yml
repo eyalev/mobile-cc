@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  TTYVIEW_REPO: ttyview/ttyview
+  TTYVIEW_REF: main
+
+jobs:
+  build:
+    name: cargo check + build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mobile-cc
+        uses: actions/checkout@v4
+        with:
+          path: mobile-cc
+
+      - name: Checkout ttyview (path-dep sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TTYVIEW_REPO }}
+          ref: ${{ env.TTYVIEW_REF }}
+          path: ttyview
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mobile-cc
+
+      - name: cargo check
+        working-directory: mobile-cc
+        run: cargo check --release
+
+      - name: cargo build
+        working-directory: mobile-cc
+        run: cargo build --release
+
+      - name: smoke test (binary boots, --help works)
+        working-directory: mobile-cc
+        run: ./target/release/mobile-cc --help

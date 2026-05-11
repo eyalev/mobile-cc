@@ -1,0 +1,27 @@
+[package]
+name = "mobile-cc"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Drive Claude Code from your phone. Mobile-focused packaging of ttyview-core."
+repository = "https://github.com/eyalev/mobile-cc"
+homepage = "https://mobile-cc.dev"
+authors = ["Eyal Levin <eyalev@gmail.com>"]
+keywords = ["claude", "mobile", "tmux", "terminal", "agent"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "mobile-cc"
+path = "src/main.rs"
+
+[dependencies]
+ttyview-core = { path = "../ttyview/crates/ttyview-core" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+dirs = "5"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
