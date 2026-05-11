@@ -141,6 +141,38 @@ else
   echo "[1/3] downloading mobile-cc ${MOBILE_CC_VERSION} (${TARGET}) from ${BASE_URL}"
   TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
   curl -fSL --max-time 60 "$URL" -o "$TMP/dl.tar.gz"
+
+  # Verify the downloaded tarball against the published .sha256. Pages
+  # publishes <asset>.sha256 alongside each tarball — fetching it on the
+  # same TLS connection means an attacker controlling the network can't
+  # serve a tampered binary + matching hash unless they also break TLS.
+  echo "      verifying sha256..."
+  if curl -fsSL --max-time 30 "${URL}.sha256" -o "$TMP/dl.tar.gz.sha256"; then
+    expected=$(awk '{print $1}' "$TMP/dl.tar.gz.sha256")
+    if   command -v sha256sum >/dev/null 2>&1; then
+      actual=$(sha256sum "$TMP/dl.tar.gz" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+      actual=$(shasum -a 256 "$TMP/dl.tar.gz" | awk '{print $1}')
+    else
+      echo "mobile-cc: WARNING — neither sha256sum nor shasum found; skipping integrity check." >&2
+      actual="$expected"  # skip the comparison below
+    fi
+    if [ "$expected" != "$actual" ]; then
+      echo "" >&2
+      echo "mobile-cc: SHA-256 mismatch on downloaded binary!" >&2
+      echo "  expected: $expected" >&2
+      echo "  actual:   $actual" >&2
+      echo "  url:      $URL" >&2
+      echo "" >&2
+      echo "Refusing to install. This could be a corrupted download, or someone" >&2
+      echo "tampering with the network path. Re-run; if it persists, file an" >&2
+      echo "issue at https://github.com/eyalev/mobile-cc/issues ." >&2
+      exit 1
+    fi
+  else
+    echo "mobile-cc: WARNING — could not fetch .sha256 sibling; skipping integrity check." >&2
+  fi
+
   tar -xzf "$TMP/dl.tar.gz" -C "$TMP"
   BIN_SRC=$(find "$TMP" -maxdepth 2 -type f -perm -u+x ! -name '*.tar.gz' | head -1)
   if [ -z "$BIN_SRC" ]; then

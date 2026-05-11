@@ -1,0 +1,66 @@
+# cargo-deny configuration for mobile-cc.
+#
+# Run locally:  cargo deny check
+# CI:           .github/workflows/ci.yml `audit` job
+
+[graph]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+version = 2
+# Vulnerabilities: deny outright. CI fails on any RUSTSEC-* advisory.
+# unmaintained: warn — we'll see them but won't fail the build. Many
+# transitive deps (small utility crates) are technically unmaintained
+# but harmless.
+yanked = "warn"
+ignore = [
+    # rustls-pemfile 2.2.0 is unmaintained (RUSTSEC-2025-0134). Pulled in
+    # transitively via axum-server → ttyview-core. Not a vulnerability;
+    # upstream rustls split the crate into rustls-pki-types in newer
+    # versions. Will clear when ttyview-core bumps its axum-server pin.
+    "RUSTSEC-2025-0134",
+]
+
+[licenses]
+version = 2
+# Permissive allowlist. Anything outside this list trips CI — by design,
+# so we notice when a dep change pulls in something unexpected (GPL,
+# AGPL, proprietary, etc.).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "CC0-1.0",
+    "Unlicense",
+    "0BSD",
+    "MPL-2.0",                  # mozilla; permissive-enough for our use; revisit if controversial
+    "CDLA-Permissive-2.0",      # webpki-roots ships under this — public-data permissive license
+    "OpenSSL",                  # ring may emit this in some dep chains
+]
+confidence-threshold = 0.8
+exceptions = []
+
+[bans]
+# Upstream deps regularly pull in 2-3 versions of the same crate (especially
+# rand, getrandom, etc.) — that's not something a single downstream binary
+# can fix. Set to "allow" so we don't churn on transitive duplication we
+# don't control. Revisit if we ever take on a deduplication push.
+multiple-versions = "allow"
+wildcards = "deny"
+highlight = "all"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

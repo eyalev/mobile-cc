@@ -9,31 +9,34 @@ on:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: main
-  # Opt the JS-based actions (checkout, upload-artifact, etc.) into Node.js
-  # 24 instead of the deprecated Node.js 20 runtime. Removable once the
-  # actions ship Node 24 by default (target: GitHub default flip).
+  TTYVIEW_REF: v0.1.1   # match release.yml for reproducible CI
+  # Opt the JS-based actions (checkout, upload/download-artifact) into
+  # Node 24 ahead of the GitHub-default flip (target: 2026-06-02).
+  # Removable once the actions ship Node 24 natively.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
-    name: cargo check + build
-    runs-on: ubuntu-latest
+    name: cargo build + test
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout mobile-cc
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           path: mobile-cc
 
       - name: Checkout ttyview (path-dep sibling)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           repository: ${{ env.TTYVIEW_REPO }}
           ref: ${{ env.TTYVIEW_REF }}
           path: ttyview
 
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - name: Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3  # v2.7.7
         with:
           workspaces: mobile-cc
 
@@ -45,6 +48,80 @@ jobs:
         working-directory: mobile-cc
         run: cargo build --release
 
+      - name: cargo test
+        working-directory: mobile-cc
+        run: cargo test --release
+
       - name: smoke test (binary boots, --help works)
         working-directory: mobile-cc
         run: ./target/release/mobile-cc --help
+
+  lint:
+    name: clippy + fmt
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout mobile-cc
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          path: mobile-cc
+
+      - name: Checkout ttyview (path-dep sibling)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: ${{ env.TTYVIEW_REPO }}
+          ref: ${{ env.TTYVIEW_REF }}
+          path: ttyview
+
+      - name: Rust toolchain (stable + rustfmt + clippy)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3  # v2.7.7
+        with:
+          workspaces: mobile-cc
+
+      - name: cargo fmt --check
+        working-directory: mobile-cc
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        working-directory: mobile-cc
+        run: cargo clippy --release --all-targets -- -D warnings
+
+  audit:
+    name: cargo audit + deny
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout mobile-cc
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          path: mobile-cc
+
+      - name: Checkout ttyview (path-dep sibling)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: ${{ env.TTYVIEW_REPO }}
+          ref: ${{ env.TTYVIEW_REF }}
+          path: ttyview
+
+      - name: Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+
+      - name: Install cargo-audit + cargo-deny
+        uses: taiki-e/install-action@c070f87102a1c75b3183910f391c1cb887fe13c8  # v2.77.6
+        with:
+          tool: cargo-audit,cargo-deny
+
+      - name: cargo audit
+        working-directory: mobile-cc
+        # --deny warnings makes unmaintained advisories fail too (not just
+        # vulnerabilities). Ignored IDs match what deny.toml ignores —
+        # the two tools have overlapping but slightly different ranges, so
+        # we mirror the same list.
+        run: cargo audit --deny warnings --ignore RUSTSEC-2025-0134
+
+      - name: cargo deny check
+        working-directory: mobile-cc
+        run: cargo deny check
