@@ -26,6 +26,58 @@ struct Cli {
     /// Holds the bundled plugin manifest + any uploads-staging metadata.
     #[arg(long, value_name = "DIR")]
     config_dir: Option<PathBuf>,
+
+    /// Required when --bind specifies a non-loopback address. mobile-cc has
+    /// no built-in authentication; binding publicly without a fronting
+    /// reverse proxy hands shell access to anyone who finds the port. Setting
+    /// this flag is necessary but not sufficient — the environment variable
+    /// MOBILE_CC_I_UNDERSTAND_THE_RISKS=1 must also be set.
+    #[arg(long)]
+    allow_public_bind: bool,
+}
+
+/// Environment variable required (in addition to --allow-public-bind) to bind
+/// a non-loopback address. Two-factor opt-in: a tutorial-copy-paster has to
+/// notice both, not just one.
+const RISK_ACK_ENV: &str = "MOBILE_CC_I_UNDERSTAND_THE_RISKS";
+
+fn check_bind_safety(addr: SocketAddr, allow_public_bind: bool) -> anyhow::Result<()> {
+    if addr.ip().is_loopback() {
+        return Ok(());
+    }
+    let ack = std::env::var(RISK_ACK_ENV).unwrap_or_default();
+    let ack_ok = ack == "1";
+    if !allow_public_bind || !ack_ok {
+        anyhow::bail!(
+            "\nmobile-cc refuses to bind a non-loopback address ({}) without explicit acknowledgment.\n\
+             \n\
+             Anyone who can reach this port will be able to drive your tmux session.\n\
+             mobile-cc has NO built-in authentication. If you intend to expose mobile-cc\n\
+             publicly, you must put a reverse proxy with auth in front (Caddy, oauth2-proxy,\n\
+             etc.) OR ensure the network is private (Tailscale tailnet, LAN-only).\n\
+             \n\
+             To proceed, supply BOTH of the following:\n  --allow-public-bind  (CLI flag) {}\n  {}=1     (env var) {}\n\
+             \n\
+             Recommended setup instead: bind 127.0.0.1 (the default) and reach mobile-cc\n\
+             from your phone via Tailscale, `ssh -L`, or `cloudflared`.",
+            addr.ip(),
+            if allow_public_bind { "[✓ set]" } else { "[✗ missing]" },
+            RISK_ACK_ENV,
+            if ack_ok { "[✓ set]" } else { "[✗ missing]" },
+        );
+    }
+    // Both acks present — warn loudly, brief countdown, then proceed.
+    eprintln!();
+    eprintln!("  ⚠ mobile-cc bound to {addr} — exposed beyond loopback.");
+    eprintln!("  ⚠ Anyone reaching this port can drive your shell. No built-in auth.");
+    eprintln!("  ⚠ Ensure a fronting reverse proxy with auth, or a private network.");
+    eprintln!();
+    for n in (1..=3).rev() {
+        eprint!("    starting in {n}... \r");
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    eprintln!("                        ");
+    Ok(())
 }
 
 /// The plugin set baked into the binary. Written to
@@ -56,6 +108,8 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    check_bind_safety(cli.bind, cli.allow_public_bind)?;
 
     let config_dir = cli.config_dir.unwrap_or_else(|| {
         dirs::config_dir()

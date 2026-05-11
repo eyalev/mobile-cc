@@ -28,6 +28,37 @@ BASE_URL="${MOBILE_CC_BASE_URL:-}"
 
 mkdir -p "$PREFIX"
 
+# ---------- preflight: warn loudly if binding non-loopback ----------
+# mobile-cc itself refuses to bind non-loopback without --allow-public-bind +
+# an env-var ack. The systemd unit below will pass both through when the user
+# asks for it, but we want them to SEE the warning at install time, not
+# later when they wonder why the daemon refused to start.
+EXTRA_FLAGS=""
+EXTRA_ENV=""
+case "$BIND" in
+  127.0.0.1:*|localhost:*|\[::1\]:*)
+    : # safe default; nothing to do
+    ;;
+  *)
+    cat >&2 <<WARN
+
+  ⚠ WARNING: MOBILE_CC_BIND='$BIND' binds to a non-loopback address.
+  ⚠ Anyone who can reach this port over the network will be able to drive
+  ⚠ your tmux session. mobile-cc has NO built-in authentication.
+  ⚠
+  ⚠ Acceptable only if you have a reverse proxy with auth in front
+  ⚠ (Caddy, oauth2-proxy, cloudflared with access policies), OR the
+  ⚠ network is genuinely private (Tailscale tailnet, LAN-only).
+  ⚠
+  ⚠ Recommended instead: leave the default (127.0.0.1:7800) and tunnel
+  ⚠ to your phone via Tailscale, 'ssh -L', or 'cloudflared'.
+
+WARN
+    EXTRA_FLAGS=" --allow-public-bind"
+    EXTRA_ENV="Environment=MOBILE_CC_I_UNDERSTAND_THE_RISKS=1"
+    ;;
+esac
+
 # ---------- preflight: tmux is a runtime prerequisite ----------
 # mobile-cc attaches to your existing tmux server; it doesn't bundle or start
 # one. If tmux is missing, the daemon still runs but /panes returns empty.
@@ -125,7 +156,8 @@ After=default.target
 
 [Service]
 Type=simple
-ExecStart=$PREFIX/mobile-cc --bind $BIND --app-name "Mobile CC"
+${EXTRA_ENV}
+ExecStart=$PREFIX/mobile-cc --bind $BIND --app-name "Mobile CC"${EXTRA_FLAGS}
 Restart=always
 RestartSec=2
 

@@ -1,5 +1,11 @@
 # mobile-cc
 
+> ⚠️ **Pre-alpha · single maintainer · expect reduced responsiveness through
+> mid-June 2026.** No SLA, no warranty, no incident response. Do not expose
+> the daemon's port to the public internet — mobile-cc has no built-in
+> authentication. The recommended setup is 127.0.0.1 + Tailscale or `ssh -L`.
+> See [SECURITY.md](./SECURITY.md) before deploying.
+
 **Drive Claude Code from your phone.** Open a URL in any mobile browser — no
 SSH client, no copy-paste fights, no app to install on the phone.
 
