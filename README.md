@@ -25,6 +25,10 @@ runtime to install.
 
 ## Install (Linux, x86_64 or arm64)
 
+> **Prerequisite:** `tmux` must be installed on the same host — mobile-cc
+> attaches to your existing tmux server; it doesn't start one or bundle one.
+> `sudo apt install tmux` on Debian/Ubuntu, `brew install tmux` on macOS.
+
 ```bash
 curl -fsSL https://mobile-cc.dev/install.sh | bash
 ```

@@ -28,6 +28,29 @@ BASE_URL="${MOBILE_CC_BASE_URL:-}"
 
 mkdir -p "$PREFIX"
 
+# ---------- preflight: tmux is a runtime prerequisite ----------
+# mobile-cc attaches to your existing tmux server; it doesn't bundle or start
+# one. If tmux is missing, the daemon still runs but /panes returns empty.
+# Warn so users notice before opening the URL on their phone.
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "mobile-cc: warning — tmux is not on PATH."
+  echo "  Without tmux, mobile-cc starts but has nothing to attach to. Install it:"
+  case "$(uname -s)" in
+    Linux)
+      if   command -v apt-get >/dev/null 2>&1; then echo "    sudo apt-get install -y tmux"
+      elif command -v dnf >/dev/null 2>&1;     then echo "    sudo dnf install -y tmux"
+      elif command -v pacman >/dev/null 2>&1;  then echo "    sudo pacman -S tmux"
+      elif command -v apk >/dev/null 2>&1;     then echo "    sudo apk add tmux"
+      else                                          echo "    (use your distro's package manager)"
+      fi
+      ;;
+    Darwin) echo "    brew install tmux" ;;
+    *)      echo "    (install tmux via your platform's package manager)" ;;
+  esac
+  echo "  Continuing — install mobile-cc anyway, then start a tmux session before opening the URL."
+  echo
+fi
+
 # ---------- acquire binary ----------
 if [ -n "${MOBILE_CC_BIN_FILE:-}" ]; then
   if [ ! -f "$MOBILE_CC_BIN_FILE" ]; then
