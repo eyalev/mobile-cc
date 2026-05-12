@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}} — Mobile CC v{{VERSION}}</title>
+<style>
+  :root {
+    --bg: #0e1116; --fg: #d4d4d4; --muted: #8aa0a8;
+    --accent: #4ec9b0; --border: #1f2630; --card-bg: #141a22;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+         max-width: 900px; margin-left: auto; margin-right: auto; }
+  a { color: var(--accent); }
+  header h1 { color: var(--accent); margin: 4px 0 6px; font-size: 24px; }
+  header .sub { color: var(--muted); margin: 0; }
+  .badges { margin: 14px 0 8px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 99px;
+           font-size: 12px; background: rgba(255,255,255,.06); color: var(--fg);
+           margin-right: 6px; }
+  .badge-passed { background: rgba(78,201,176,.18); color: var(--accent); }
+  .badge-failed { background: rgba(244,135,113,.18); color: #f48771; }
+  .description { color: var(--muted); }
+  .layout { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 32px;
+            margin-top: 24px; align-items: start; }
+  @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
+  .player { background: #000; border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; }
+  .player img, .player video { width: 100%; display: block; }
+  .player .links { padding: 10px 12px; background: var(--card-bg); font-size: 13px; }
+  .player .links a { margin-right: 10px; }
+  .timeline ol { margin: 0; padding-left: 20px; }
+  .timeline li { padding: 4px 0; color: var(--muted); }
+  .timeline li b { color: var(--fg); font-weight: 600; }
+  .timeline li .t { display: inline-block; min-width: 60px; color: var(--accent);
+                    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                    font-size: 12px; }
+</style>
+</head>
+<body>
+<p><a href="../">← all demos</a></p>
+<header>
+  <h1>{{TITLE}}</h1>
+  <p class="sub">Mobile CC <code>v{{VERSION}}</code> · workflow <code>{{ID}}</code></p>
+</header>
+<div class="badges">
+  <span class="badge badge-{{VALIDATION}}">{{VALIDATION}}</span>
+  <span class="badge">{{DURATION}}s</span>
+</div>
+<p class="description">{{DESCRIPTION}}</p>
+<div class="layout">
+  <div class="player">
+    <video src="hero.mp4" autoplay muted loop playsinline controls preload="metadata"></video>
+    <div class="links">
+      <a href="hero.mp4">MP4</a>
+      <a href="hero.webm">WebM</a>
+      <a href="hero.gif">GIF</a>
+      <a href="hero-still.png">Still PNG</a>
+      <a href="steps.json">steps.json</a>
+    </div>
+  </div>
+  <div class="timeline">
+    <h3>Timeline</h3>
+    <ol id="steps"></ol>
+  </div>
+</div>
+<script>
+  const steps = {{STEPS_JSON}};
+  const ol = document.getElementById('steps');
+  for (const s of steps) {
+    const li = document.createElement('li');
+    const t = document.createElement('span'); t.className = 't';
+    t.textContent = (s.t_ms / 1000).toFixed(2) + 's';
+    const b = document.createElement('b'); b.textContent = ' ' + s.label;
+    li.appendChild(t); li.appendChild(b);
+    ol.appendChild(li);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "mobile-cc-demos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node runner/run-all.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.0"
+  }
+}
