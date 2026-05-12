@@ -7,8 +7,14 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-05-12
+
 ### Added
 
+- Bundles the new `ttyview-session-manager` plugin (settingsTab —
+  create / rename / kill tmux sessions from the web UI). Pulls in
+  ttyview-core v0.1.2's `/api/sessions/*` HTTP endpoints + WS
+  structured input logging.
 - Unit tests for the bind-safety guard — all five admission cases plus
   IPv6 loopback and env-var exact-match policy. (`tests/` mod in
   `src/main.rs`.)
@@ -21,9 +27,14 @@ leaves the `0.x` pre-release range.
   mismatch. Skipped (with a warning) on hosts lacking both `sha256sum`
   and `shasum`.
 - `CHANGELOG.md` (this file); linked from the README.
+- `mobile-cc.dev` apex CNAME now resolves directly to the Pages
+  project (no more `mobile-cc.pages.dev` fallback hop).
 
 ### Changed
 
+- `TTYVIEW_REF` bumped to `v0.1.2` in both `ci.yml` and `release.yml`
+  so the build picks up the new session-manager plugin source +
+  ttyview's `/api/sessions` route.
 - All GitHub Actions references in `.github/workflows/` pinned to
   specific commit SHAs (with the version tag in a trailing comment) for
   supply-chain stability.
@@ -91,7 +102,8 @@ leaves the `0.x` pre-release range.
 - `ttyview-image-paste` plugin (lands in v0.1.2, gated on upstream
   `ttyview-core` publishing the `/api/uploads` route + plugin source).
 
-[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/eyalev/mobile-cc/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/eyalev/mobile-cc/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/eyalev/mobile-cc/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/eyalev/mobile-cc/releases/tag/v0.1.0
