@@ -9,8 +9,14 @@
 // daemon doesn't have ttyview-image-paste installed — that's the
 // "the workflow is broken" signal.
 
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+// Fixture screenshot shipped under demos/fixtures/. Synthetic, no
+// real content. Override via PASTE_FLOW_IMAGE if you really need to.
+const HERE = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT = process.env.PASTE_FLOW_IMAGE
-  || '/tmp/fake-bug-screenshot.png';
+  || resolve(HERE, '../fixtures/paste-screenshot.png');
 
 const CAPTION = 'does the tooltip auto-hide after 2s here?';
 

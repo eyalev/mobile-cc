@@ -1,0 +1,65 @@
+  ❯ Write a small JavaScript debounce function with a maxWait option.
+
+● Here's a debounce that fires the last call after `wait` ms of
+  quiet, with a `maxWait` upper bound so it can't be deferred
+  forever under continuous traffic.
+
+  function debounce(fn, wait, { maxWait } = {}) {
+    let timer = null;
+    let maxTimer = null;
+    let pending = null;
+
+    const invoke = () => {
+      if (timer) clearTimeout(timer);
+      if (maxTimer) clearTimeout(maxTimer);
+      timer = maxTimer = null;
+      const args = pending; pending = null;
+      if (args) fn(...args);
+    };
+
+    return function debounced(...args) {
+      pending = args;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(invoke, wait);
+      if (maxWait != null && maxTimer == null) {
+        maxTimer = setTimeout(invoke, maxWait);
+      }
+    };
+  }
+
+  `wait` resets on every call; `maxWait` guarantees the function
+  fires at least once per that interval even under continuous calls.
+
+✻ Crunched for 8s
+
+  ❯ Now add a leading-edge option so the first call fires immediately.
+
+● Added a `leading: true` option (with cancel/flush helpers as
+  well, since they're the natural pair):
+
+  function debounce(fn, wait, { maxWait, leading = false } = {}) {
+    let timer = null, maxTimer = null, pending = null, lastCall = 0;
+
+    const invoke = () => { /* …same as before… */ };
+
+    function debounced(...args) {
+      const now = Date.now();
+      const fireLeading = leading && (now - lastCall) > wait;
+      pending = args;
+      if (fireLeading) { lastCall = now; invoke(); pending = null; return; }
+      lastCall = now;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(invoke, wait);
+      if (maxWait != null && maxTimer == null) maxTimer = setTimeout(invoke, maxWait);
+    }
+    debounced.cancel = () => { /* clear all timers */ };
+    debounced.flush  = () => { if (timer || maxTimer) invoke(); };
+    return debounced;
+  }
+
+✻ Crunched for 12s
+
+  ❯
+────────────────────────────────────────────────────────────
+  [Opus 4.7 (1M context)] mobile-cc-demo
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
