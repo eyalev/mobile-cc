@@ -9,6 +9,7 @@
     {"id":"ttyview-quickkeys","name":"Quick Keys","kind":"inputAccessory","source":"ttyview-quickkeys.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-tabs","name":"Pinned Tabs","kind":"tabBar","source":"ttyview-tabs.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-image-paste","name":"Image Paste","kind":"inputAccessory","source":"ttyview-image-paste.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
+    {"id":"ttyview-session-manager","name":"Session Manager","kind":"settingsTab","source":"ttyview-session-manager.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-terminal-green","name":"Terminal Green","kind":"theme","source":"ttyview-terminal-green.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."}
   ]
 }
