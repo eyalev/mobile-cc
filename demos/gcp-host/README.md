@@ -43,35 +43,51 @@ A capture run takes 2–3 minutes; stop the VM when done.
 
 1. `gcloud projects create mobile-cc-capture --set-as-default`
 2. `gcloud services enable compute.googleapis.com`
-3. From your dev machine: `./provision-vm.sh create` — creates the VM, runs bootstrap.
+3. From your dev machine, in this dir:
+   ```sh
+   ./provision-vm.sh create
+   ```
+   Creates the VM + scp's `bootstrap.sh` + runs it. ~5 minutes the
+   first time, mostly Playwright's Chromium download.
 
 ### Each capture
 
 ```sh
 ./provision-vm.sh start    # boot it if stopped (~30 s)
-./provision-vm.sh capture  # ssh in, run `npm run capture`, scp dist/ back
-./provision-vm.sh stop     # stop the VM (preserves state, ~$0/mo idle)
+./provision-vm.sh capture  # ssh in, run capture, scp dist/ back
+./provision-vm.sh stop     # idle the VM (preserves disk, ~$0/mo)
 ```
 
-`./provision-vm.sh capture` pulls `dist/` back to
-`mobile-cc/demos/dist/` on your dev machine. From there:
+`capture` lands `dist/` at `mobile-cc/demos/dist/` on the dev
+machine. From there:
 
 ```sh
 wrangler pages deploy mobile-cc/demos/dist --project-name mobile-cc-demos
 ```
 
-…goes live at `mobile-cc.dev/demos/`.
+…goes live at `mobile-cc.dev/demos/`. (Note: with fake-fixture
+captures the output has no private data, so pulling it back to the
+dev machine is fine. The privacy concern was about source data, not
+captured output.)
 
-### When you want to fully wipe and start over
+### Other lifecycle bits
 
 ```sh
-./provision-vm.sh delete   # destroy the instance (disk too)
-./provision-vm.sh create   # re-provision from scratch
+./provision-vm.sh status     # RUNNING / TERMINATED / NOT_FOUND
+./provision-vm.sh ssh        # interactive shell
+./provision-vm.sh bootstrap  # re-run bootstrap on existing VM (idempotent)
+./provision-vm.sh delete     # full teardown, type instance name to confirm
 ```
 
-State on the VM that gets reset on `delete`: the demo tmux session,
-any local plugin state, Chromium cache, capture outputs. Bootstrap is
-idempotent so `create` always gives a byte-identical environment.
+`delete` then `create` always gives a byte-identical environment —
+bootstrap is idempotent and `mobile-cc` is pinned to a release tag.
+
+### Project safety
+
+`provision-vm.sh` refuses to operate on a few hard-coded shared
+project names (`ttyview-demo`, `shira-*`, `langush*`, …) — set
+`PROJECT=mobile-cc-capture` or another dedicated one. The script
+prints the project it's about to touch on every command; double-check.
 
 ## Why fake JSONL + mock TUI text, not real CC
 
@@ -94,7 +110,8 @@ VM but its own session. Keeps the hero workflow deterministic and the
 ## Status
 
 **Phase B v1**: bootstrap script + fixtures + workflow update — committed.
-**Phase B v2**: `provision-vm.sh` (gcloud orchestration) — pending.
-**Phase B v3**: Cloudflare Pages deploy automation — pending.
+**Phase B v2**: `provision-vm.sh` (gcloud orchestration) — committed.
+**Phase B v3**: Cloudflare Pages deploy automation — pending. Build only
+when there are ≥2 workflows worth publishing.
 **Phase C**: per-release archives + cross-version diff — Phase 2/3 from
-the original plan; build only when ≥2 workflows are stable.
+the original plan.
