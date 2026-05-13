@@ -56,6 +56,36 @@ jobs:
         working-directory: mobile-cc
         run: ./target/release/mobile-cc --help
 
+      - name: Binary-size budget check (≤ 10 MB)
+        working-directory: mobile-cc
+        # Starting budget: 10 MB. Current binary is ~7.5 MB; this gives
+        # ~2.5 MB of headroom. If we cross 10 MB, investigate via the
+        # cargo-bloat summary below before raising the bar.
+        #
+        # NOTE: must run BEFORE `cargo bloat` — bloat rebuilds without
+        # `strip = "symbols"` so it can read debuginfo, which inflates
+        # the on-disk binary by ~6 MB. We measure the actual shipped
+        # artifact here, then let bloat run for its summary.
+        run: |
+          BUDGET=10485760   # 10 * 1024 * 1024
+          actual=$(stat -c '%s' target/release/mobile-cc)
+          actual_h=$(stat -c '%s' target/release/mobile-cc | numfmt --to=iec)
+          budget_h="$(echo "$BUDGET" | numfmt --to=iec)"
+          echo "binary: $actual bytes ($actual_h)   budget: $BUDGET bytes ($budget_h)"
+          {
+            echo "## Binary size — \`mobile-cc\` release build"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|---|---|"
+            echo "| Binary size | $actual_h ($actual bytes) |"
+            echo "| Budget | $budget_h ($BUDGET bytes) |"
+            echo "| Headroom | $(( (BUDGET - actual) / 1024 / 1024 )) MiB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$actual" -gt "$BUDGET" ]; then
+            echo "::error::mobile-cc binary $actual_h exceeds $budget_h budget"
+            exit 1
+          fi
+
       - name: Install cargo-bloat
         uses: taiki-e/install-action@c070f87102a1c75b3183910f391c1cb887fe13c8  # v2.77.6
         with:
@@ -65,14 +95,13 @@ jobs:
         working-directory: mobile-cc
         # Emits the top 20 crates by bloat to the CI summary. Use this
         # to spot accidental dep churn — a 2 MB jump from a single crate
-        # is the signal we look for.
+        # is the signal we look for. cargo-bloat rebuilds with debuginfo,
+        # so the on-disk binary AFTER this step is larger than what we
+        # actually ship — don't run any size check on it.
         run: |
           {
-            echo "## Binary size + bloat — \`mobile-cc\` release build"
             echo ""
-            echo "**Binary size:** $(stat -c '%s' target/release/mobile-cc | numfmt --to=iec)"
-            echo ""
-            echo '<details><summary>Top 20 crates by size</summary>'
+            echo '<details><summary>Top 20 crates by bloat (release, with debuginfo)</summary>'
             echo ""
             echo '```'
             cargo bloat --release --crates -n 20
@@ -80,22 +109,6 @@ jobs:
             echo ""
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Binary-size budget check (≤ 10 MB)
-        working-directory: mobile-cc
-        # Starting budget: 10 MB. Today's binary is ~7.4 MB; this gives
-        # ~2.5 MB of headroom. If we cross 10 MB, investigate via the
-        # cargo-bloat summary above before raising the bar.
-        run: |
-          BUDGET=10485760   # 10 * 1024 * 1024
-          actual=$(stat -c '%s' target/release/mobile-cc)
-          actual_h=$(stat -c '%s' target/release/mobile-cc | numfmt --to=iec)
-          budget_h="$(echo "$BUDGET" | numfmt --to=iec)"
-          echo "binary: $actual bytes ($actual_h)   budget: $BUDGET bytes ($budget_h)"
-          if [ "$actual" -gt "$BUDGET" ]; then
-            echo "::error::mobile-cc binary $actual_h exceeds $budget_h budget"
-            exit 1
-          fi
 
   lint:
     name: clippy + fmt
