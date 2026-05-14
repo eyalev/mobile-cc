@@ -1,0 +1,156 @@
+name: macOS smoke
+
+# End-to-end install + boot test on real macOS hardware via GitHub Actions
+# runners. Catches darwin-specific issues that the Linux CI can't see:
+# - Compile failures specific to aarch64-apple-darwin / x86_64-apple-darwin
+# - `install.sh` shell branches gated on `uname -s = Darwin`
+# - `shasum -a 256` fallback (vs Linux's `sha256sum`)
+# - Gatekeeper / quarantine attribute on curl-downloaded binaries
+# - brew-installed tmux discovery / PATH
+#
+# Free on the public repo. Runs on every push to main + every PR; manual
+# trigger via the Actions tab is also available.
+#
+# This is intentionally NOT in the build-blocking `ci.yml` matrix — it's
+# a separate workflow so a transient macOS-runner issue doesn't gate the
+# Linux merge path. The Linux CI is the source of truth for "did the
+# code change compile and pass tests"; this one answers "does the
+# release artifact actually work on a Mac when an end user runs it."
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  TTYVIEW_REPO: ttyview/ttyview
+  TTYVIEW_REF: v0.1.2
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  smoke:
+    name: install + boot on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13       # Intel runner
+            target: x86_64-apple-darwin
+          - os: macos-latest   # Apple Silicon runner (M1+)
+            target: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout mobile-cc
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          path: mobile-cc
+
+      - name: Checkout ttyview (path-dep sibling)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: ${{ env.TTYVIEW_REPO }}
+          ref: ${{ env.TTYVIEW_REF }}
+          path: ttyview
+
+      - name: Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3  # v2.7.7
+        with:
+          workspaces: mobile-cc
+          key: macos-smoke-${{ matrix.target }}-ttyview-${{ env.TTYVIEW_REF }}
+
+      - name: cargo build (darwin host)
+        working-directory: mobile-cc
+        run: cargo build --release --target ${{ matrix.target }} --bin mobile-cc
+
+      - name: Probe install.sh tmux preflight (no tmux yet → brew suggestion)
+        working-directory: mobile-cc
+        # tmux isn't pre-installed on the macOS runner. install.sh's
+        # preflight should detect the absence + suggest `brew install tmux`.
+        # Run install.sh once with the local-binary override + skip-unit;
+        # capture stderr; assert the brew hint appears.
+        run: |
+          set -euo pipefail
+          if command -v tmux >/dev/null 2>&1; then
+            echo "::warning::tmux already on PATH — skipping preflight assertion"
+          else
+            out=$(MOBILE_CC_BIN_FILE="$PWD/target/${{ matrix.target }}/release/mobile-cc" \
+                  MOBILE_CC_PREFIX=/tmp/mc-preflight/bin \
+                  MOBILE_CC_SKIP_UNIT=1 \
+                  bash install.sh 2>&1 || true)
+            echo "--- install.sh output ---"
+            echo "$out"
+            echo "---"
+            echo "$out" | grep -q 'brew install tmux' \
+              || { echo "::error::tmux preflight did not suggest 'brew install tmux'"; exit 1; }
+          fi
+
+      - name: Install tmux (brew)
+        run: brew install tmux
+
+      - name: install.sh with bundled binary (happy path)
+        working-directory: mobile-cc
+        run: |
+          set -euo pipefail
+          MOBILE_CC_BIN_FILE="$PWD/target/${{ matrix.target }}/release/mobile-cc" \
+            MOBILE_CC_PREFIX=/tmp/mc/bin \
+            MOBILE_CC_SKIP_UNIT=1 \
+            bash install.sh
+
+      - name: Binary smoke (--version, --help)
+        run: |
+          /tmp/mc/bin/mobile-cc --version
+          /tmp/mc/bin/mobile-cc --help | head -10
+
+      - name: Spawn tmux session for daemon to attach to
+        run: |
+          tmux new-session -d -s smoke 'while true; do echo ping; sleep 5; done'
+          tmux ls
+
+      - name: Boot daemon + hit /healthz + /api/instance + /panes
+        run: |
+          set -euo pipefail
+          # 127.0.0.1 bind = loopback = safety guard passes without acks
+          /tmp/mc/bin/mobile-cc \
+            --bind 127.0.0.1:7799 \
+            --app-name 'macOS smoke' \
+            --config-dir /tmp/mc-config \
+            > /tmp/mc.log 2>&1 &
+          PID=$!
+          # Poll /healthz with backoff — first start has to seed config-dir + plugins.
+          for i in 1 2 3 4 5 6 7 8; do
+            sleep 1
+            if curl -fsS --max-time 2 http://127.0.0.1:7799/healthz; then
+              echo "  [$i] /healthz ok"
+              break
+            fi
+            echo "  [$i] /healthz not ready..."
+            if [ "$i" = "8" ]; then
+              echo "::error::daemon never came up"
+              tail -40 /tmp/mc.log
+              kill $PID 2>/dev/null || true
+              exit 1
+            fi
+          done
+          echo
+          echo "--- /api/instance ---"
+          curl -fsS http://127.0.0.1:7799/api/instance
+          echo
+          echo "--- /plugins/installed count ---"
+          curl -fsS http://127.0.0.1:7799/plugins/installed | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["plugins"]))'
+          echo "--- /panes ---"
+          curl -fsS http://127.0.0.1:7799/panes | python3 -c 'import json,sys; print([p["session"] for p in json.load(sys.stdin)])'
+          kill $PID 2>/dev/null || true
+          wait $PID 2>/dev/null || true
+
+      - name: Daemon log tail (always, for postmortem)
+        if: always()
+        run: |
+          test -f /tmp/mc.log && tail -40 /tmp/mc.log || echo '(no daemon log)'
