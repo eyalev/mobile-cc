@@ -37,8 +37,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-13       # Intel runner
-            target: x86_64-apple-darwin
+          # Apple Silicon only. Intel (macos-13) was in the matrix briefly
+          # but the GH Intel-macOS runner pool has 30-90 min queues — not
+          # worth the wait for an Intel-specific signal that almost never
+          # diverges from the Apple Silicon result. Add macos-13 back if
+          # an Intel-Mac-specific bug is ever reported.
           - os: macos-latest   # Apple Silicon runner (M1+)
             target: aarch64-apple-darwin
 
