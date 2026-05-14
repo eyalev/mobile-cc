@@ -4,10 +4,9 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-> ⚠️ **Pre-alpha · single maintainer · expect reduced responsiveness through
-> mid-June 2026.** No SLA, no warranty, no incident response. Do not expose
-> the daemon's port to the public internet — mobile-cc has no built-in
-> authentication. The recommended setup is 127.0.0.1 + Tailscale or `ssh -L`.
+> ⚠️ **Early-stage software.** mobile-cc has no built-in authentication —
+> don't expose the daemon's port to the public internet. Bind to
+> `127.0.0.1` and reach it via Tailscale, `ssh -L`, or `cloudflared`.
 > See [SECURITY.md](./SECURITY.md) before deploying.
 
 **Drive Claude Code from your phone.** Open a URL in any mobile browser — no
