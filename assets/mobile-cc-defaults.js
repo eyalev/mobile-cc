@@ -19,13 +19,19 @@
     if (localStorage.getItem(SENTINEL) === '1') return;
   } catch (_) { /* private mode etc. — try anyway */ }
 
+  // Active view: ttyview-cc chat view, since mobile-cc's whole point
+  // is rendering Claude Code conversations as chat bubbles.
+  // Active theme: null (= use cell-grid's default VS Code Dark+
+  // palette, same look as tmux-web). The Terminal Green theme stays
+  // *installed* so the user can pick it from Settings; it just isn't
+  // active by default. Previously defaulted to Terminal Green, which
+  // users on mobile reported as too bright / not matching the
+  // surrounding tooling.
   var WANT_VIEW = 'ttyview-cc';
-  var WANT_THEME = 'ttyview-terminal-green';
   var viewDone = false;
-  var themeDone = false;
 
   function maybeMarkDone() {
-    if (viewDone && themeDone) {
+    if (viewDone) {
       try { localStorage.setItem(SENTINEL, '1'); } catch (_) {}
     }
   }
@@ -39,20 +45,11 @@
   }
 
   viewDone = force('terminalView', WANT_VIEW, 'setActiveTerminalViewId');
-  themeDone = force('theme', WANT_THEME, 'setActiveThemeId');
 
   if (!viewDone) {
     tv.on('terminalView-registered', function (def) {
       if (def && def.id === WANT_VIEW && !viewDone) {
         viewDone = force('terminalView', WANT_VIEW, 'setActiveTerminalViewId');
-        maybeMarkDone();
-      }
-    });
-  }
-  if (!themeDone) {
-    tv.on('theme-registered', function (def) {
-      if (def && def.id === WANT_THEME && !themeDone) {
-        themeDone = force('theme', WANT_THEME, 'setActiveThemeId');
         maybeMarkDone();
       }
     });
