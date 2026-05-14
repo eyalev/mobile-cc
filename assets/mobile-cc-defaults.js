@@ -1,59 +1,34 @@
-// mobile-cc-defaults — seeds the first-visit active terminal view + theme.
+// mobile-cc-defaults — historically forced ttyview-cc chat view +
+// Terminal Green theme on first visit. As of v0.1.4 both have been
+// dropped: the actual terminal (cell-grid, neutral VS Code Dark+
+// palette) is what users see by default, matching the tooling
+// they're already familiar with.
 //
-// ttyview persists active_view + active_theme client-side in localStorage,
-// so a fresh phone visit shows the built-in cell-grid renderer + the default
-// palette instead of mobile-cc's intended chat view + Terminal Green. The
-// built-in cell-grid view auto-activates the moment it registers and writes
-// localStorage, so we cannot use "is localStorage empty?" as the gate — by
-// the time we run, it's already set. Instead, gate on a separate sentinel
-// key that mobile-cc owns: on first run (sentinel unset) we force the
-// mobile-cc defaults regardless of current state, then mark the sentinel.
-// On subsequent visits we are a no-op — whatever the user picked sticks.
+// The plugin is preserved (rather than deleted) so the sentinel
+// still gets stamped; future mobile-cc releases that want their own
+// run-once first-visit logic can hook in here.
 (function () {
   if (!window.ttyview || !window.ttyview._internal) return;
-  var tv = window.ttyview;
-  var inner = tv._internal;
 
   var SENTINEL = 'mobile-cc-defaults-applied';
   try {
     if (localStorage.getItem(SENTINEL) === '1') return;
   } catch (_) { /* private mode etc. — try anyway */ }
 
-  // Active view: ttyview-cc chat view, since mobile-cc's whole point
-  // is rendering Claude Code conversations as chat bubbles.
-  // Active theme: null (= use cell-grid's default VS Code Dark+
-  // palette, same look as tmux-web). The Terminal Green theme stays
-  // *installed* so the user can pick it from Settings; it just isn't
-  // active by default. Previously defaulted to Terminal Green, which
-  // users on mobile reported as too bright / not matching the
-  // surrounding tooling.
-  var WANT_VIEW = 'ttyview-cc';
-  var viewDone = false;
-
-  function maybeMarkDone() {
-    if (viewDone) {
-      try { localStorage.setItem(SENTINEL, '1'); } catch (_) {}
-    }
-  }
-
-  function force(kind, id, setter) {
-    if (!inner.registries[kind] || !inner.registries[kind].has(id)) return false;
-    try { inner[setter](id); } catch (e) {
-      console.warn('mobile-cc-defaults: ' + setter + ' threw', e);
-    }
-    return true;
-  }
-
-  viewDone = force('terminalView', WANT_VIEW, 'setActiveTerminalViewId');
-
-  if (!viewDone) {
-    tv.on('terminalView-registered', function (def) {
-      if (def && def.id === WANT_VIEW && !viewDone) {
-        viewDone = force('terminalView', WANT_VIEW, 'setActiveTerminalViewId');
-        maybeMarkDone();
-      }
-    });
-  }
-
-  maybeMarkDone();
+  // No defaults forced anymore. Earlier versions of this file
+  // activated `ttyview-cc` (chat-bubble view of the JSONL
+  // transcript) + `ttyview-terminal-green` theme on first visit.
+  // Users prefer the actual terminal — `cell-grid` is ttyview's
+  // OOTB auto-default and renders the real claude TUI, including
+  // its loading state, dialogs, and any non-CC TUI (vim, top,
+  // etc.) the user attaches to. Both `ttyview-cc` and the Terminal
+  // Green theme stay *installed* — switchable from Settings →
+  // Plugins — they just aren't activated for you.
+  //
+  // The whole plugin is kept (rather than removed) so the sentinel
+  // still gets marked; that way if a future mobile-cc release
+  // re-introduces opinionated defaults, this file's run-once
+  // semantics still hold for users who installed an earlier
+  // version.
+  try { localStorage.setItem(SENTINEL, '1'); } catch (_) {}
 })();
