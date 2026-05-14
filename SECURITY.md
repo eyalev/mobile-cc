@@ -2,20 +2,17 @@
 
 ## Status
 
-**mobile-cc is pre-alpha software maintained by a single person.** The
-maintainer is travelling and on reduced availability through mid-June 2026.
-Responses to security reports during this window will be best-effort and may
-take days to weeks. There is no SLA.
-
-Use at your own risk. If your security model requires a maintained tool with
-incident response, mobile-cc is not the right choice yet — revisit when v1.0
-ships and a real support shape exists.
+**mobile-cc is early-stage software.** Reports are handled on a best-effort
+basis — there is no formal SLA. Use at your own risk; if your threat model
+requires a tool with paid incident response, mobile-cc is not the right
+choice yet.
 
 ## Reporting a vulnerability
 
-Email **eyalev@gmail.com** with `[mobile-cc security]` in the subject. If the
-repo is public when you read this, you can also use GitHub Security Advisories
-via the repo's Security tab.
+Use GitHub's [Security Advisories](https://github.com/eyalev/mobile-cc/security/advisories/new)
+on the repo's Security tab — that's the preferred channel; it's private,
+structured, and threads with any later CVE. Email **eyalev@gmail.com**
+with `[mobile-cc security]` in the subject also works.
 
 Please include:
 
@@ -61,18 +58,19 @@ they're addressed.
 
 ## Response expectations
 
-| Action | Best-effort timing (when available) |
+Best-effort, no fixed cadence:
+
+| Action | Typical target |
 |---|---|
 | Acknowledge receipt | within a week |
 | Initial assessment + scope decision | within 2 weeks |
-| Patch / mitigation for in-scope issues | next release cycle (no fixed cadence) |
+| Patch / mitigation for in-scope issues | next release cycle |
 | Public advisory after fix | as part of the release notes |
 
-During the explicit unavailability window above, **all of these timings stretch
-by weeks**. If the issue is severe and you need to protect users immediately,
-the most reliable mitigation is to stop the daemon (`systemctl --user stop
-mobile-cc`) and uninstall (`rm ~/.local/bin/mobile-cc`) until a fix lands.
-This is the same kill switch the maintainer has.
+If an issue is severe and you need to protect a running deployment
+immediately, the reliable mitigation is to stop the daemon
+(`systemctl --user stop mobile-cc`) and uninstall (`rm ~/.local/bin/mobile-cc`)
+until a fix lands — the same kill switch the maintainer has.
 
 ## No bounty programme
 
