@@ -1,5 +1,9 @@
 # mobile-cc
 
+[![CI](https://github.com/eyalev/mobile-cc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/eyalev/mobile-cc/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 > ⚠️ **Pre-alpha · single maintainer · expect reduced responsiveness through
 > mid-June 2026.** No SLA, no warranty, no incident response. Do not expose
 > the daemon's port to the public internet — mobile-cc has no built-in

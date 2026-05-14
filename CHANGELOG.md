@@ -93,9 +93,11 @@ leaves the `0.x` pre-release range.
 - Cross-platform release workflow (`release.yml`) producing 4 target
   tarballs per tag, signed with `.sha256` siblings.
 - Pages mirror at
-  [`mobile-cc.pages.dev`](https://mobile-cc.pages.dev/) for anonymous
-  install — the GH releases are auth-gated while the repo is private,
-  so binaries are mirrored to Pages for `curl | bash` to work.
+  [`mobile-cc.pages.dev`](https://mobile-cc.pages.dev/) — historical
+  context: at v0.1.0 the repo was private, so the GH-released binaries
+  needed an anonymous-accessible mirror for `curl | bash` to work.
+  The repo became public on 2026-05-14, but the Pages mirror stays
+  as the canonical install URL under `mobile-cc.dev`.
 
 ### Not yet included
 

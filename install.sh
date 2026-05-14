@@ -2,7 +2,6 @@
 # mobile-cc installer
 #
 # Source of truth: https://github.com/eyalev/mobile-cc/blob/main/install.sh
-# (private repo at pre-alpha; the canonical-served copy is below)
 # Live URL:        https://mobile-cc.dev/install.sh
 # Pages fallback:  https://mobile-cc.pages.dev/install.sh
 #
