@@ -216,71 +216,23 @@ echo
 
 # ---------- tunnel picker ----------
 # Offer a one-keystroke "now make this reachable from my phone" path.
+#
+# Only Tailscale is wired in here. We deliberately don't offer a bare
+# Cloudflare quick tunnel: it produces a public *.trycloudflare.com URL,
+# and mobile-cc has no built-in auth — anyone who learns the URL can
+# drive your tmux. If you want public exposure, put auth in front:
+# a Cloudflare *named* tunnel + Cloudflare Access (email SSO), or a
+# reverse proxy with basic-auth / oauth2-proxy. Don't expose mobile-cc
+# directly to the public internet.
+#
 # Skip when:
 #   - $MOBILE_CC_TUNNEL is set (non-interactive automation;
-#     supported values: tailscale, cloudflare-quick, skip).
+#     supported values: tailscale, skip).
 #   - stdout is not a tty AND $MOBILE_CC_TUNNEL is unset (no way to
 #     prompt; print hints + exit).
 #   - --bind is non-loopback (user already chose how it's exposed).
 PORT="${BIND##*:}"
 case "$BIND" in 127.0.0.1:*|localhost:*) IS_LOOPBACK=1 ;; *) IS_LOOPBACK=0 ;; esac
-
-setup_cloudflare_quick() {
-  if ! command -v cloudflared >/dev/null 2>&1; then
-    echo "    installing cloudflared via apt …"
-    if command -v sudo >/dev/null 2>&1 && [ -r /etc/os-release ] && grep -qiE 'debian|ubuntu' /etc/os-release; then
-      curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-      echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main' \
-        | sudo tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
-      sudo apt-get update -qq
-      sudo apt-get install -y -qq cloudflared
-    else
-      echo "    cloudflared install: only auto-supported on Debian/Ubuntu. Install manually:" >&2
-      echo "      https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/" >&2
-      return 1
-    fi
-  fi
-  echo "    writing systemd user unit for the quick tunnel …"
-  mkdir -p "$UNIT_DIR"
-  cat > "$UNIT_DIR/mobile-cc-tunnel.service" <<UNIT
-[Unit]
-Description=mobile-cc Cloudflare quick tunnel
-After=mobile-cc.service network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/cloudflared tunnel --url http://${BIND}
-Restart=always
-RestartSec=3
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=default.target
-UNIT
-  systemctl --user daemon-reload
-  systemctl --user enable --now mobile-cc-tunnel.service
-  echo "    waiting for the trycloudflare URL (up to 20 s) …"
-  URL=""
-  for i in $(seq 1 40); do
-    URL=$(journalctl --user -u mobile-cc-tunnel -n 200 --no-pager 2>/dev/null \
-      | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1)
-    [ -n "$URL" ] && break
-    sleep 0.5
-  done
-  if [ -n "$URL" ]; then
-    echo
-    echo "    👉 reach mobile-cc from anywhere at:"
-    echo "       $URL"
-    echo
-    echo "    URL is ephemeral (changes on tunnel restart). For a stable URL,"
-    echo "    swap to a named tunnel."
-  else
-    echo "    quick tunnel didn't produce a URL within 20 s. Check:"
-    echo "      journalctl --user -u mobile-cc-tunnel -f"
-  fi
-}
 
 print_tailscale_hint() {
   echo
@@ -303,43 +255,50 @@ print_tailscale_hint() {
 
 prompt_tunnel() {
   echo "    How do you want to reach this from your phone?"
-  echo "      1) Tailscale         — best for personal use, encrypted, free"
-  echo "      2) Cloudflare quick  — public URL, no DNS setup, ephemeral"
-  echo "      3) Skip              — I'll set up access myself"
+  echo "      1) Tailscale  — best for personal use, encrypted, free"
+  echo "      2) Skip       — I'll set up access myself"
   echo
-  printf "    Choice [1/2/3]: "
+  echo "    (For public exposure, put auth in front: Cloudflare named tunnel"
+  echo "    + Cloudflare Access, or oauth2-proxy. mobile-cc has no built-in"
+  echo "    auth — don't expose its port directly to the internet.)"
+  echo
+  printf "    Choice [1/2]: "
   # Read from /dev/tty so this works when invoked via `curl | bash`
   # (stdin is the pipe, not the keyboard).
   exec </dev/tty
   read CHOICE
   case "$CHOICE" in
     1|"") echo; echo "    → Tailscale"; print_tailscale_hint ;;
-    2)    echo; echo "    → Cloudflare quick tunnel"; setup_cloudflare_quick ;;
     *)    echo; echo "    → skipped." ;;
   esac
 }
 
 if [ "$IS_LOOPBACK" = "1" ]; then
   case "${MOBILE_CC_TUNNEL:-}" in
-    tailscale)        print_tailscale_hint ;;
-    cloudflare-quick) setup_cloudflare_quick ;;
-    skip)             : ;;
+    tailscale) print_tailscale_hint ;;
+    skip)      : ;;
     "")
       if [ -t 1 ] && [ -r /dev/tty ]; then
         prompt_tunnel
       else
-        echo "    bound to loopback. Reach it from your phone via one of:"
+        echo "    bound to loopback. Reach it from your phone via:"
         echo "      • tailscale:  http://<this-machine>.<tailnet>.ts.net:${PORT}/"
         echo "      • ssh tunnel: ssh -L ${PORT}:${BIND} <this-host>"
-        echo "      • cloudflared tunnel run"
-        echo "    (set MOBILE_CC_TUNNEL=tailscale|cloudflare-quick|skip to choose non-interactively)"
+        echo "    (set MOBILE_CC_TUNNEL=tailscale|skip to choose non-interactively)"
       fi
       ;;
-    *) echo "    unknown MOBILE_CC_TUNNEL=$MOBILE_CC_TUNNEL — skipping (use tailscale|cloudflare-quick|skip)" ;;
+    cloudflare-quick)
+      echo "    MOBILE_CC_TUNNEL=cloudflare-quick is no longer supported." >&2
+      echo "    A bare Cloudflare quick tunnel publishes a public URL without auth" >&2
+      echo "    in front of an auth-less daemon — anyone with the URL gets a shell." >&2
+      echo "    Use a Cloudflare *named* tunnel + Cloudflare Access, or oauth2-proxy." >&2
+      ;;
+    *) echo "    unknown MOBILE_CC_TUNNEL=$MOBILE_CC_TUNNEL — skipping (use tailscale|skip)" ;;
   esac
 else
-  echo "    bound publicly on ${BIND}. Make sure the port is firewalled or behind Tailscale —"
-  echo "    anyone who can reach it can drive your tmux."
+  echo "    bound publicly on ${BIND}. Make sure auth is in front (Cloudflare Access,"
+  echo "    oauth2-proxy, etc.) — mobile-cc has no built-in auth and anyone who can"
+  echo "    reach the port can drive your tmux."
 fi
 echo
 echo "    survive logout:    loginctl enable-linger \$USER"
