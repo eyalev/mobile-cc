@@ -38,19 +38,24 @@ they're addressed.
   endpoints (e.g., serving files outside the plugin dir).
 - Path traversal in any endpoint that takes a filename / id.
 - Anything that lets a remote party send keystrokes to a tmux session
-  belonging to a user who didn't authorise it, **assuming the operator did not
-  explicitly enable public bind**.
+  belonging to a user who didn't authorise it, **assuming the operator is
+  running mobile-cc on its default loopback bind** (no fronting auth layer
+  bypassed).
+- The binary accepting a non-loopback bind. Since v0.2.0, `mobile-cc`
+  refuses any non-loopback `--bind` value. If a future release ever
+  silently accepts one, that's a bug.
 
 ## Out of scope (by design — not bugs)
 
 - **Anyone who reaches the bound port can drive the tmux session.** mobile-cc
   has no built-in authentication. The deployment model is "bind to 127.0.0.1
-  and tunnel to your phone via Tailscale / ssh -L / cloudflared tunnel".
-  Public-bind requires explicit opt-in via `--allow-public-bind` plus the
-  `MOBILE_CC_I_UNDERSTAND_THE_RISKS=1` environment variable; using these and
-  then getting compromised is an operator decision, not a vulnerability.
-- Resource-exhaustion DoS against an unauthenticated public-bind deployment.
-  Same reasoning.
+  and reach it via a fronting layer that handles auth (Tailscale, ssh -L,
+  cloudflared named tunnel + Access, reverse proxy)." See the
+  [Reaching mobile-cc from elsewhere](./README.md#reaching-mobile-cc-from-elsewhere)
+  section of the README for the four supported patterns.
+- Compromise via a reverse proxy, tunnel, or other fronting layer the
+  operator configured. mobile-cc trusts whoever can reach 127.0.0.1; what
+  sits in front is the operator's responsibility.
 - Issues that require the attacker to already be authenticated as the user
   running mobile-cc (e.g., local privilege escalation against the same UID's
   files).

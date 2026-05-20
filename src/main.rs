@@ -9,7 +9,9 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "mobile-cc", version, about, long_about = None)]
 struct Cli {
-    /// Address to bind the HTTP/WS server on.
+    /// Address to bind the HTTP/WS server on. mobile-cc accepts loopback
+    /// addresses only — see the README's "Reaching mobile-cc from elsewhere"
+    /// section for safe ways to expose it.
     #[arg(long, default_value = "127.0.0.1:7800")]
     bind: SocketAddr,
 
@@ -26,78 +28,27 @@ struct Cli {
     /// Holds the bundled plugin manifest + any uploads-staging metadata.
     #[arg(long, value_name = "DIR")]
     config_dir: Option<PathBuf>,
-
-    /// Required when --bind specifies a non-loopback address. mobile-cc has
-    /// no built-in authentication; binding publicly without a fronting
-    /// reverse proxy hands shell access to anyone who finds the port. Setting
-    /// this flag is necessary but not sufficient — the environment variable
-    /// MOBILE_CC_I_UNDERSTAND_THE_RISKS=1 must also be set.
-    #[arg(long)]
-    allow_public_bind: bool,
 }
 
-/// Environment variable required (in addition to --allow-public-bind) to bind
-/// a non-loopback address. Two-factor opt-in: a tutorial-copy-paster has to
-/// notice both, not just one.
-const RISK_ACK_ENV: &str = "MOBILE_CC_I_UNDERSTAND_THE_RISKS";
-
-/// Validate the bind address against mobile-cc's safety policy.
+/// Validate the bind address against mobile-cc's loopback-only policy.
 ///
-/// Pure: takes the risk-acknowledgment env var value as a parameter so tests
-/// don't have to manipulate process-wide env vars. Loopback addresses pass
-/// unconditionally; non-loopback requires BOTH `allow_public_bind == true`
-/// AND `risk_ack == "1"`.
+/// mobile-cc has no built-in authentication; anyone who can reach the port
+/// can drive the tmux session. The binary therefore refuses to bind any
+/// non-loopback address. Users who need cross-device access route through a
+/// fronting layer that provides auth (Tailscale, ssh -L, cloudflared, a
+/// reverse proxy with basic-auth / oauth2-proxy).
 ///
-/// Returns `Ok(())` if the bind is safe to proceed; `Err` with a verbose
-/// explanation otherwise. Does NOT perform the warning + countdown — that
-/// lives in `warn_and_countdown_for_public_bind` so the safety check itself
-/// stays test-friendly (no I/O, no sleeps).
-fn check_bind_safety(
-    addr: SocketAddr,
-    allow_public_bind: bool,
-    risk_ack: &str,
-) -> anyhow::Result<()> {
+/// Pure: no I/O, no env reads — kept that way so the test suite stays small
+/// and there's no implicit bypass to maintain.
+fn check_bind_safety(addr: SocketAddr) -> anyhow::Result<()> {
     if addr.ip().is_loopback() {
         return Ok(());
     }
-    let ack_ok = risk_ack == "1";
-    if !allow_public_bind || !ack_ok {
-        anyhow::bail!(
-            "\nmobile-cc refuses to bind a non-loopback address ({}) without explicit acknowledgment.\n\
-             \n\
-             Anyone who can reach this port will be able to drive your tmux session.\n\
-             mobile-cc has NO built-in authentication. If you intend to expose mobile-cc\n\
-             publicly, you must put a reverse proxy with auth in front (Caddy, oauth2-proxy,\n\
-             etc.) OR ensure the network is private (Tailscale tailnet, LAN-only).\n\
-             \n\
-             To proceed, supply BOTH of the following:\n  --allow-public-bind  (CLI flag) {}\n  {}=1     (env var) {}\n\
-             \n\
-             Recommended setup instead: bind 127.0.0.1 (the default) and reach mobile-cc\n\
-             from your phone via Tailscale, `ssh -L`, or `cloudflared`.",
-            addr.ip(),
-            if allow_public_bind { "[✓ set]" } else { "[✗ missing]" },
-            RISK_ACK_ENV,
-            if ack_ok { "[✓ set]" } else { "[✗ missing]" },
-        );
-    }
-    Ok(())
-}
-
-/// Print the public-bind warning + 3-second countdown. Only call after
-/// `check_bind_safety` returned `Ok(())` for a non-loopback address. Split
-/// from the safety check so the latter stays unit-testable without doing
-/// I/O or sleeping.
-fn warn_and_countdown_for_public_bind(addr: SocketAddr) {
-    eprintln!();
-    eprintln!("  ⚠ mobile-cc bound to {addr} — exposed beyond loopback.");
-    eprintln!("  ⚠ Anyone reaching this port can drive your shell. No built-in auth.");
-    eprintln!("  ⚠ Ensure a fronting reverse proxy with auth, or a private network.");
-    eprintln!();
-    for n in (1..=3).rev() {
-        eprint!("    starting in {n}... \r");
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    eprintln!("                        ");
+    anyhow::bail!(
+        "mobile-cc only binds 127.0.0.1.\n\
+         To reach it from another device, see:\n  \
+         https://github.com/eyalev/mobile-cc#reaching-mobile-cc-from-elsewhere"
+    );
 }
 
 /// The plugin set baked into the binary. Written to
@@ -129,11 +80,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let risk_ack = std::env::var(RISK_ACK_ENV).unwrap_or_default();
-    check_bind_safety(cli.bind, cli.allow_public_bind, &risk_ack)?;
-    if !cli.bind.ip().is_loopback() {
-        warn_and_countdown_for_public_bind(cli.bind);
-    }
+    check_bind_safety(cli.bind)?;
 
     let config_dir = cli.config_dir.unwrap_or_else(|| {
         dirs::config_dir()
@@ -200,94 +147,45 @@ async fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Unit tests for the bind-safety guard. The 5 cases mirror the manual
-    //! smoke test from the v0.1.1 ship — keeping them as actual tests means
-    //! regressions break CI instead of getting noticed (or missed) on the
-    //! next manual run.
+    //! Unit tests for the bind-safety guard. v0.2.0 removed the
+    //! `--allow-public-bind` bypass — the policy is now simply
+    //! loopback-only, no opt-in flag.
     use super::*;
 
     fn parse(addr: &str) -> SocketAddr {
         addr.parse().expect("valid socket addr")
     }
 
-    /// Case 1: loopback address — passes regardless of the acks.
     #[test]
-    fn loopback_bind_passes_with_no_acks() {
-        let r = check_bind_safety(parse("127.0.0.1:7800"), false, "");
-        assert!(r.is_ok(), "loopback should pass: {r:?}");
+    fn ipv4_loopback_passes() {
+        assert!(check_bind_safety(parse("127.0.0.1:7800")).is_ok());
     }
 
-    /// Loopback also passes even if the user gratuitously sets both acks.
-    #[test]
-    fn loopback_bind_passes_with_both_acks() {
-        let r = check_bind_safety(parse("127.0.0.1:7800"), true, "1");
-        assert!(r.is_ok(), "loopback should pass: {r:?}");
-    }
-
-    /// Case 2: non-loopback with neither ack — refused.
-    #[test]
-    fn public_bind_no_acks_is_refused() {
-        let r = check_bind_safety(parse("0.0.0.0:7800"), false, "");
-        let msg = r.expect_err("must refuse").to_string();
-        assert!(msg.contains("refuses to bind"), "got: {msg}");
-        assert!(msg.contains("[✗ missing]"), "got: {msg}");
-    }
-
-    /// Case 3: flag-only — still refused (env ack missing).
-    #[test]
-    fn public_bind_flag_only_is_refused() {
-        let r = check_bind_safety(parse("0.0.0.0:7800"), true, "");
-        let msg = r.expect_err("must refuse").to_string();
-        assert!(
-            msg.contains("--allow-public-bind  (CLI flag) [✓ set]"),
-            "got: {msg}"
-        );
-        assert!(msg.contains("(env var) [✗ missing]"), "got: {msg}");
-    }
-
-    /// Case 4: env-only — still refused (flag missing).
-    #[test]
-    fn public_bind_env_only_is_refused() {
-        let r = check_bind_safety(parse("0.0.0.0:7800"), false, "1");
-        let msg = r.expect_err("must refuse").to_string();
-        assert!(
-            msg.contains("--allow-public-bind  (CLI flag) [✗ missing]"),
-            "got: {msg}"
-        );
-        assert!(msg.contains("(env var) [✓ set]"), "got: {msg}");
-    }
-
-    /// Case 5: both acks — accepted. (Warning + countdown happen separately
-    /// in `warn_and_countdown_for_public_bind`, so the safety check itself
-    /// returns immediately.)
-    #[test]
-    fn public_bind_both_acks_passes() {
-        let r = check_bind_safety(parse("0.0.0.0:7800"), true, "1");
-        assert!(r.is_ok(), "double opt-in should pass: {r:?}");
-    }
-
-    /// Specific non-loopback IP (not 0.0.0.0 unspecified) still requires acks.
-    #[test]
-    fn specific_public_ip_requires_acks() {
-        let r = check_bind_safety(parse("1.2.3.4:7800"), false, "");
-        assert!(r.is_err(), "specific public IP without acks must refuse");
-    }
-
-    /// Random env-var values that aren't exactly "1" are treated as missing.
-    /// The exact-match policy prevents `MOBILE_CC_I_UNDERSTAND_THE_RISKS=yes`
-    /// or similar handwave from working.
-    #[test]
-    fn env_ack_must_be_exactly_one() {
-        for bogus in ["", "0", "yes", "true", "ok", " 1", "1 "] {
-            let r = check_bind_safety(parse("0.0.0.0:7800"), true, bogus);
-            assert!(r.is_err(), "ack={bogus:?} must be refused");
-        }
-    }
-
-    /// IPv6 loopback ::1 also passes — `is_loopback()` covers both families.
     #[test]
     fn ipv6_loopback_passes() {
-        let r = check_bind_safety(parse("[::1]:7800"), false, "");
-        assert!(r.is_ok(), "ipv6 loopback should pass: {r:?}");
+        assert!(check_bind_safety(parse("[::1]:7800")).is_ok());
+    }
+
+    #[test]
+    fn unspecified_v4_is_refused() {
+        let err = check_bind_safety(parse("0.0.0.0:7800")).expect_err("must refuse");
+        let msg = err.to_string();
+        assert!(msg.contains("only binds 127.0.0.1"), "got: {msg}");
+        assert!(
+            msg.contains("reaching-mobile-cc-from-elsewhere"),
+            "got: {msg}"
+        );
+    }
+
+    #[test]
+    fn specific_public_ip_is_refused() {
+        assert!(check_bind_safety(parse("1.2.3.4:7800")).is_err());
+        assert!(check_bind_safety(parse("10.0.0.5:7800")).is_err());
+        assert!(check_bind_safety(parse("192.168.1.10:7800")).is_err());
+    }
+
+    #[test]
+    fn unspecified_v6_is_refused() {
+        assert!(check_bind_safety(parse("[::]:7800")).is_err());
     }
 }

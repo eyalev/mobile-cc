@@ -32,34 +32,28 @@ BASE_URL="${MOBILE_CC_BASE_URL:-}"
 
 mkdir -p "$PREFIX"
 
-# ---------- preflight: warn loudly if binding non-loopback ----------
-# mobile-cc itself refuses to bind non-loopback without --allow-public-bind +
-# an env-var ack. The systemd unit below will pass both through when the user
-# asks for it, but we want them to SEE the warning at install time, not
-# later when they wonder why the daemon refused to start.
-EXTRA_FLAGS=""
-EXTRA_ENV=""
+# ---------- preflight: loopback-only policy ----------
+# mobile-cc has no built-in authentication. Since v0.2.0 the binary refuses
+# to bind any non-loopback address — the safe ways to reach it from another
+# device all involve a fronting layer that provides auth (ssh -L, Tailscale,
+# cloudflared, reverse proxy with auth). See the README section linked below.
 case "$BIND" in
   127.0.0.1:*|localhost:*|\[::1\]:*)
-    : # safe default; nothing to do
+    : # loopback — proceed
     ;;
   *)
-    cat >&2 <<WARN
+    cat >&2 <<REFUSE
 
-  ⚠ WARNING: MOBILE_CC_BIND='$BIND' binds to a non-loopback address.
-  ⚠ Anyone who can reach this port over the network will be able to drive
-  ⚠ your tmux session. mobile-cc has NO built-in authentication.
-  ⚠
-  ⚠ Acceptable only if you have a reverse proxy with auth in front
-  ⚠ (Caddy, oauth2-proxy, cloudflared with access policies), OR the
-  ⚠ network is genuinely private (Tailscale tailnet, LAN-only).
-  ⚠
-  ⚠ Recommended instead: leave the default (127.0.0.1:7800) and tunnel
-  ⚠ to your phone via Tailscale, 'ssh -L', or 'cloudflared'.
+  mobile-cc only binds 127.0.0.1.
 
-WARN
-    EXTRA_FLAGS=" --allow-public-bind"
-    EXTRA_ENV="Environment=MOBILE_CC_I_UNDERSTAND_THE_RISKS=1"
+  MOBILE_CC_BIND='$BIND' is non-loopback. The installer won't proceed —
+  the daemon would refuse to start anyway.
+
+  To reach mobile-cc from another device, see:
+    https://github.com/eyalev/mobile-cc#reaching-mobile-cc-from-elsewhere
+
+REFUSE
+    exit 1
     ;;
 esac
 
@@ -192,8 +186,7 @@ After=default.target
 
 [Service]
 Type=simple
-${EXTRA_ENV}
-ExecStart=$PREFIX/mobile-cc --bind $BIND --app-name "Mobile CC"${EXTRA_FLAGS}
+ExecStart=$PREFIX/mobile-cc --bind $BIND --app-name "Mobile CC"
 Restart=always
 RestartSec=2
 
@@ -230,9 +223,9 @@ echo
 #     supported values: tailscale, skip).
 #   - stdout is not a tty AND $MOBILE_CC_TUNNEL is unset (no way to
 #     prompt; print hints + exit).
-#   - --bind is non-loopback (user already chose how it's exposed).
+#
+# (The non-loopback branch is gone — installer exits earlier in that case.)
 PORT="${BIND##*:}"
-case "$BIND" in 127.0.0.1:*|localhost:*) IS_LOOPBACK=1 ;; *) IS_LOOPBACK=0 ;; esac
 
 print_tailscale_hint() {
   echo
@@ -273,33 +266,28 @@ prompt_tunnel() {
   esac
 }
 
-if [ "$IS_LOOPBACK" = "1" ]; then
-  case "${MOBILE_CC_TUNNEL:-}" in
-    tailscale) print_tailscale_hint ;;
-    skip)      : ;;
-    "")
-      if [ -t 1 ] && [ -r /dev/tty ]; then
-        prompt_tunnel
-      else
-        echo "    bound to loopback. Reach it from your phone via:"
-        echo "      • tailscale:  http://<this-machine>.<tailnet>.ts.net:${PORT}/"
-        echo "      • ssh tunnel: ssh -L ${PORT}:${BIND} <this-host>"
-        echo "    (set MOBILE_CC_TUNNEL=tailscale|skip to choose non-interactively)"
-      fi
-      ;;
-    cloudflare-quick)
-      echo "    MOBILE_CC_TUNNEL=cloudflare-quick is no longer supported." >&2
-      echo "    A bare Cloudflare quick tunnel publishes a public URL without auth" >&2
-      echo "    in front of an auth-less daemon — anyone with the URL gets a shell." >&2
-      echo "    Use a Cloudflare *named* tunnel + Cloudflare Access, or oauth2-proxy." >&2
-      ;;
-    *) echo "    unknown MOBILE_CC_TUNNEL=$MOBILE_CC_TUNNEL — skipping (use tailscale|skip)" ;;
-  esac
-else
-  echo "    bound publicly on ${BIND}. Make sure auth is in front (Cloudflare Access,"
-  echo "    oauth2-proxy, etc.) — mobile-cc has no built-in auth and anyone who can"
-  echo "    reach the port can drive your tmux."
-fi
+case "${MOBILE_CC_TUNNEL:-}" in
+  tailscale) print_tailscale_hint ;;
+  skip)      : ;;
+  "")
+    if [ -t 1 ] && [ -r /dev/tty ]; then
+      prompt_tunnel
+    else
+      echo "    Reach it from another device via:"
+      echo "      • tailscale:  http://<this-machine>.<tailnet>.ts.net:${PORT}/"
+      echo "      • ssh tunnel: ssh -L ${PORT}:${BIND} <this-host>"
+      echo "      • more options: https://github.com/eyalev/mobile-cc#reaching-mobile-cc-from-elsewhere"
+      echo "    (set MOBILE_CC_TUNNEL=tailscale|skip to choose non-interactively)"
+    fi
+    ;;
+  cloudflare-quick)
+    echo "    MOBILE_CC_TUNNEL=cloudflare-quick is no longer supported." >&2
+    echo "    A bare Cloudflare quick tunnel publishes a public URL without auth" >&2
+    echo "    in front of an auth-less daemon — anyone with the URL gets a shell." >&2
+    echo "    Use a Cloudflare *named* tunnel + Cloudflare Access, or oauth2-proxy." >&2
+    ;;
+  *) echo "    unknown MOBILE_CC_TUNNEL=$MOBILE_CC_TUNNEL — skipping (use tailscale|skip)" ;;
+esac
 echo
 echo "    survive logout:    loginctl enable-linger \$USER"
 echo "    follow logs:       journalctl --user -u mobile-cc -f"

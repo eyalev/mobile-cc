@@ -7,6 +7,44 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-20
+
+### Removed
+
+- **`--allow-public-bind` CLI flag and the
+  `MOBILE_CC_I_UNDERSTAND_THE_RISKS=1` env-var ack.** The two-factor
+  opt-in was designed to make a human reading a tutorial pause, but
+  it offered zero friction to LLM agents tasked with "make this
+  reachable from my phone" — agents just set both. mobile-cc has no
+  built-in auth, so a non-loopback bind hands shell access to anyone
+  who reaches the port; the safer ways to expose it (ssh -L,
+  Tailscale, cloudflared, reverse proxy with auth) are now the only
+  documented paths.
+
+### Changed
+
+- `mobile-cc` now refuses any non-loopback `--bind` value. Error
+  message is terse and points at the README's "Reaching mobile-cc from
+  elsewhere" section.
+- `install.sh` refuses to proceed when `MOBILE_CC_BIND` is non-loopback,
+  pointing at the same README section.
+- README has a new **Reaching mobile-cc from elsewhere** section
+  enumerating the four supported patterns (ssh -L, Tailscale serve,
+  cloudflared named tunnel + Access, reverse proxy with auth).
+- `SECURITY.md` updated — public-bind is no longer an "operator-opt-in"
+  out-of-scope path; the binary doesn't permit it at all.
+
+### Migration
+
+If you were running mobile-cc with `--allow-public-bind` +
+`MOBILE_CC_I_UNDERSTAND_THE_RISKS=1`: pick one of the patterns in the
+new README section. The most direct replacements:
+
+- **LAN-only public bind → `ssh -L 7800:127.0.0.1:7800 host`** from
+  whatever client you want. Same UX, ssh keys handle auth.
+- **Tailnet-only public bind → `tailscale serve --bg --https=443
+  http://127.0.0.1:7800`.** Tailscale handles TLS + tailnet ACLs.
+
 ## [0.1.3] — 2026-05-12
 
 ### Added
@@ -104,7 +142,8 @@ leaves the `0.x` pre-release range.
 - `ttyview-image-paste` plugin (lands in v0.1.2, gated on upstream
   `ttyview-core` publishing the `/api/uploads` route + plugin source).
 
-[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/eyalev/mobile-cc/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/eyalev/mobile-cc/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/eyalev/mobile-cc/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/eyalev/mobile-cc/compare/v0.1.0...v0.1.1

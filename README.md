@@ -4,10 +4,11 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-> ⚠️ **Early-stage software.** mobile-cc has no built-in authentication —
-> don't expose the daemon's port to the public internet. Bind to
-> `127.0.0.1` and reach it via Tailscale, `ssh -L`, or `cloudflared`.
-> See [SECURITY.md](./SECURITY.md) before deploying.
+> ⚠️ **Early-stage software.** mobile-cc has no built-in authentication.
+> Since v0.2.0 the binary is loopback-only and won't bind a public address.
+> Reach it from another device via Tailscale, `ssh -L`, or `cloudflared`
+> — see [Reaching mobile-cc from elsewhere](#reaching-mobile-cc-from-elsewhere)
+> and [SECURITY.md](./SECURITY.md).
 
 **Drive Claude Code from your phone.** Open a URL in any mobile browser — no
 SSH client, no copy-paste fights, no app to install on the phone.
@@ -51,19 +52,23 @@ That:
    `~/.config/systemd/user/mobile-cc.service`, enables it, and starts it.
 3. Prints the URL.
 
-Default bind is `127.0.0.1:7800`. Reach it from your phone via Tailscale,
-`ssh -L`, or `cloudflared tunnel`.
+Default bind is `127.0.0.1:7800` (loopback-only — see
+[Reaching mobile-cc from elsewhere](#reaching-mobile-cc-from-elsewhere)
+below).
 
-### Custom bind / version / install dir
+### Custom version / install dir
 
 ```bash
-MOBILE_CC_BIND=0.0.0.0:7800 MOBILE_CC_VERSION=v0.1.0 \
-  curl -fsSL https://mobile-cc.dev/install.sh | bash
+MOBILE_CC_VERSION=v0.2.0 curl -fsSL https://mobile-cc.dev/install.sh | bash
 ```
 
 Other knobs: `MOBILE_CC_PREFIX` (binary location), `MOBILE_CC_SKIP_UNIT=1`
 (don't write a systemd unit), `MOBILE_CC_BIN_FILE=/path/to/binary` (skip
 download and install a local file — useful for offline machines).
+
+> Since v0.2.0, `MOBILE_CC_BIND` is restricted to loopback addresses. The
+> binary refuses any non-loopback bind — see the section below for the
+> supported ways to reach it from another device.
 
 ### Survive logout
 
@@ -97,7 +102,7 @@ Available flags:
 
 | Flag | Default | What |
 |---|---|---|
-| `--bind` | `127.0.0.1:7800` | Address to bind on. |
+| `--bind` | `127.0.0.1:7800` | Address to bind on. Loopback only — the binary refuses anything else. |
 | `--app-name` | `"Mobile CC"` | Shown in the header. Useful with multiple instances. |
 | `--tmux-socket` | (default tmux) | Tmux socket name (`tmux -L`). |
 | `--config-dir` | `$XDG_CONFIG_HOME/mobile-cc` | Where the plugin manifest lives. |
@@ -105,21 +110,29 @@ Available flags:
 That's the whole CLI surface — by design. mobile-cc is a curated package,
 not a kitchen-sink terminal viewer.
 
-## Security
+## Reaching mobile-cc from elsewhere
 
-The daemon writes keystrokes to your tmux. **Anyone who can reach the port
-can drive your shell.** Two sane setups:
+mobile-cc binds `127.0.0.1` only and has no built-in authentication.
+Anyone who can reach the port can drive your shell, so the safe ways to
+expose it all involve a fronting layer that provides auth. Four
+supported patterns:
 
-- **Default (recommended):** bind `127.0.0.1`, reach it via
-  [Tailscale](https://tailscale.com/) (free for personal use). Your phone
-  joins the tailnet; nobody else on the internet can touch the port.
-- **VPS with public bind:** acceptable only with TLS and access controls.
-  Set `MOBILE_CC_BIND=0.0.0.0:7800` at install time, terminate TLS with
-  Caddy or `cloudflared`, put basic auth or `oauth2-proxy` in front.
+| Pattern | Auth | Best for |
+| --- | --- | --- |
+| **`ssh -L 7800:127.0.0.1:7800 <host>`** | SSH key | Reaching it from your laptop or any device with SSH access. Zero extra infra. |
+| **[Tailscale](https://tailscale.com/) — `tailscale serve --bg --https=443 http://127.0.0.1:7800`** | Tailnet ACL + TLS | Phone access over your tailnet. Tailscale handles TLS via Let's Encrypt; reachable at `https://<host>.<tailnet>.ts.net/`. |
+| **[Cloudflare named tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) + [Cloudflare Access](https://www.cloudflare.com/zero-trust/products/access/)** | Cloudflare SSO (email / SAML / OTP) | Public URL with browser-based auth. Free tier covers personal use. |
+| **Reverse proxy (Caddy / nginx) + auth** | Whatever you bring (basic-auth, [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/), etc.) | Existing infra with an auth layer you already trust. |
 
-mobile-cc has no built-in auth — that's by design ("small, trusted network
-only"). If you need a public-internet-safe deployment, run it behind your
-existing reverse proxy.
+What's **not** supported: binding the daemon to `0.0.0.0` or a LAN /
+public IP directly. mobile-cc refuses to start that way since v0.2.0
+because every realistic deployment of that shape — including "trusted
+LAN only" — has a long history of accidental exposure (port-forward
+misconfig, VPN split-tunnel, an open guest WiFi). The four patterns
+above are the same effort once and remove that failure class.
+
+For the security policy and what counts as in-scope, see
+[SECURITY.md](./SECURITY.md).
 
 ## Uninstall
 
