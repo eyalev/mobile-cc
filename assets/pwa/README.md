@@ -1,10 +1,13 @@
 # PWA foundation files
 
-These files lay the groundwork for installing mobile-cc as a PWA on
-Android (and on desktop via Chrome's install prompt). They are
-**not currently served by the running daemon** — wiring them up
-requires an "extra bundled assets" hook in `ttyview-core` that doesn't
-exist yet. See the **Upstream blocker** section below.
+These files make mobile-cc installable as a PWA on Android (and on
+desktop via Chrome's install prompt). **Since 2026-06-10 they are
+served by the daemon**: `main.rs` embeds them via the `PWA_ASSETS`
+table and passes them through `ttyview-core`'s
+`RunOptions.extra_static` hook (which landed upstream that day —
+the "How it wired up" section below records the original design).
+`GET /api/instance` advertises `manifest_url` + `service_worker_url`;
+the web client injects the manifest link and registers the SW.
 
 ## What's here
 
@@ -20,7 +23,14 @@ which is *not* committed — they were one-shot PIL outputs). If you
 want to change the design, regenerate with PIL or replace with hand-
 authored assets at the same sizes / paths.
 
-## How it'll wire up (the upstream blocker)
+## How it wired up (originally "the upstream blocker" — landed 2026-06-10)
+
+> Resolution: ttyview-core grew `RunOptions.extra_static:
+> Vec<(String, Vec<u8>)>` (simpler than the trait proposed below —
+> assets are baked bytes, no dynamic provider needed), served by the
+> router's fallback handler. Items 2 and 3 landed exactly as
+> proposed, gated on `/api/instance`'s `manifest_url` /
+> `service_worker_url` fields. Original design kept for context:
 
 `ttyview-core` serves its bundled UI assets via `rust-embed`. mobile-cc
 currently has zero way to ship additional static assets through that

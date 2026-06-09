@@ -76,6 +76,22 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("ttyview-terminal-green.js",  include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-terminal-green.js")),
 ];
 
+/// PWA assets baked into the binary and served by ttyview-core at
+/// absolute URL paths (via `RunOptions::extra_static`). The daemon
+/// advertises the manifest + service worker on `GET /api/instance`;
+/// the web client injects the manifest link and registers the SW,
+/// making mobile-cc installable from Chrome's prompt on Android.
+/// Design notes + future Web Push scope: `assets/pwa/README.md`.
+#[rustfmt::skip] // preserve the column-aligned table for readability
+const PWA_ASSETS: &[(&str, &[u8])] = &[
+    ("/manifest.webmanifest",          include_bytes!("../assets/pwa/manifest.webmanifest")),
+    ("/sw.js",                         include_bytes!("../assets/pwa/sw.js")),
+    ("/pwa/icons/icon-192.png",          include_bytes!("../assets/pwa/icons/icon-192.png")),
+    ("/pwa/icons/icon-512.png",          include_bytes!("../assets/pwa/icons/icon-512.png")),
+    ("/pwa/icons/icon-192-maskable.png", include_bytes!("../assets/pwa/icons/icon-192-maskable.png")),
+    ("/pwa/icons/icon-512-maskable.png", include_bytes!("../assets/pwa/icons/icon-512-maskable.png")),
+];
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -126,21 +142,19 @@ async fn main() -> Result<()> {
     eprintln!("    config dir: {}", config_dir.display());
     eprintln!();
 
+    // `..Default::default()` so future ttyview-core RunOptions fields
+    // don't force an update here (the upstream struct doc asks for this
+    // construction form ahead of an eventual #[non_exhaustive]).
     ttyview_core::cli::daemon::run_with_options_v2(ttyview_core::cli::daemon::RunOptions {
         addr: cli.bind,
         socket: cli.tmux_socket,
-        rows: 50,
-        cols: 80,
-        tls_cert: None,
-        tls_key: None,
-        diag_log: None,
-        registry_url: None,
-        demo_mode: false,
-        read_only: false,
         config_dir: Some(config_dir),
         app_name: Some(cli.app_name),
-        uploads_dir: None,
-        allowed_origins: Vec::new(),
+        extra_static: PWA_ASSETS
+            .iter()
+            .map(|(path, bytes)| (path.to_string(), bytes.to_vec()))
+            .collect(),
+        ..Default::default()
     })
     .await
 }

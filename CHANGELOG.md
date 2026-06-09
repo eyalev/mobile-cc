@@ -7,6 +7,31 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+### Added
+
+- **Installable as a PWA.** The binary now serves
+  `manifest.webmanifest`, a minimal service worker, and the icon set
+  from `assets/pwa/` (via ttyview-core's new `RunOptions.extra_static`
+  hook); the web client injects the manifest link and registers the
+  SW, so Chrome on Android offers "Add to Home screen" and mobile-cc
+  opens standalone. No caching, no offline mode — Web Push is the
+  next PWA lane.
+- **README demo media** — animated GIF + screenshot gallery under
+  `.assets/`, captured from `ttyview --demo` (synthetic data) at a
+  Pixel-class viewport.
+
+### Fixed (via ttyview-core, needs a fresh upstream tag to release)
+
+- Server-side view/theme sync (`/api/state`) now actually works
+  cross-device: a fresh browser no longer resets the server-saved
+  active view to `cell-grid`, and the server-chosen view/theme is
+  applied (hydration used to store JSON-quoted values that never
+  matched a registry id).
+- Chat view (`ttyview-cc`): non-CC panes get a friendly "show
+  terminal instead" panel instead of a raw `Not a CC pane (404)`
+  error; empty filler bubbles ("(empty)", "(no rendered content)")
+  are no longer rendered.
+
 ## [0.2.0] — 2026-05-20
 
 ### Removed

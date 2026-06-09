@@ -45,6 +45,10 @@ SSH client, no copy-paste fights, no app to install on the phone.
   way you'd paste a screenshot on desktop.
 - **Pane picker** with a Recent section, per-browser memory.
 - **Terminal Green theme** — CRT aesthetic, paired with the chat view.
+- **Installable as an app (PWA)** — the daemon serves a web manifest +
+  service worker, so Chrome on Android offers "Add to Home screen" and
+  mobile-cc opens standalone (no URL bar). Requires HTTPS or localhost —
+  the Tailscale path below qualifies.
 
 A single statically-linked Rust binary, ~8 MB. No node, no python, no
 runtime to install.
