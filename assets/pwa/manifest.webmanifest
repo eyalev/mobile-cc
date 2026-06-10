@@ -1,9 +1,9 @@
 {
-  "id": "mobile-cc-app",
+  "id": "mobile-cc-app-v2",
   "name": "mobile-cc",
   "short_name": "mobile-cc",
   "description": "Drive Claude Code from your phone. A focused, mobile-first packaging of ttyview-core.",
-  "start_url": "/?source=pwa",
+  "start_url": "/?source=pwa&v=2",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
