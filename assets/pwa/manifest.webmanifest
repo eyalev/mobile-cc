@@ -1,4 +1,5 @@
 {
+  "id": "mobile-cc-app",
   "name": "mobile-cc",
   "short_name": "mobile-cc",
   "description": "Drive Claude Code from your phone. A focused, mobile-first packaging of ttyview-core.",

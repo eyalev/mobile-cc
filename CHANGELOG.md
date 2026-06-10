@@ -15,7 +15,9 @@ leaves the `0.x` pre-release range.
   hook); the web client injects the manifest link and registers the
   SW, so Chrome on Android offers "Add to Home screen" and mobile-cc
   opens standalone. No caching, no offline mode — Web Push is the
-  next PWA lane.
+  next PWA lane. The manifest declares an explicit `id`
+  (`mobile-cc-app`) so Chrome doesn't conflate the install with stale
+  webapp-registry entries from pre-PWA shortcuts at the same origin.
 - **README demo media** — animated GIF + screenshot gallery under
   `.assets/`, captured from `ttyview --demo` (synthetic data) at a
   Pixel-class viewport.
