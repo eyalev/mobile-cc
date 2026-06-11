@@ -73,6 +73,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("ttyview-tabs.js",            include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-tabs.js")),
     ("ttyview-image-paste.js",     include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-image-paste.js")),
     ("ttyview-stt.js",             include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-stt.js")),
+    ("ttyview-reload.js",          include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-reload.js")),
     ("ttyview-session-manager.js", include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-session-manager.js")),
     ("ttyview-terminal-green.js",  include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-terminal-green.js")),
 ];
