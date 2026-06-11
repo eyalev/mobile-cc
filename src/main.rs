@@ -74,6 +74,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("ttyview-image-paste.js",     include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-image-paste.js")),
     ("ttyview-stt.js",             include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-stt.js")),
     ("ttyview-reload.js",          include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-reload.js")),
+    ("ttyview-logs.js",            include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-logs.js")),
     ("ttyview-session-manager.js", include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-session-manager.js")),
     ("ttyview-terminal-green.js",  include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-terminal-green.js")),
 ];
@@ -147,11 +148,19 @@ async fn main() -> Result<()> {
     // `..Default::default()` so future ttyview-core RunOptions fields
     // don't force an update here (the upstream struct doc asks for this
     // construction form ahead of an eventual #[non_exhaustive]).
+    // Always-on diagnostics: client ttvDiag events (WS lifecycle, sub
+    // acks, input failures, stalls) flow over the WS and land here as
+    // JSONL. Phones have no devtools — this file is the only record of
+    // what the client saw when something gets stuck. Analyze with
+    // ttyview's scripts/ttyview-diag.
+    let diag_log = config_dir.join("diag.jsonl");
+
     ttyview_core::cli::daemon::run_with_options_v2(ttyview_core::cli::daemon::RunOptions {
         addr: cli.bind,
         socket: cli.tmux_socket,
         config_dir: Some(config_dir),
         app_name: Some(cli.app_name),
+        diag_log: Some(diag_log),
         extra_static: PWA_ASSETS
             .iter()
             .map(|(path, bytes)| (path.to_string(), bytes.to_vec()))
