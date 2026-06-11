@@ -10,6 +10,21 @@
 (function () {
   if (!window.ttyview || !window.ttyview._internal) return;
 
+  // Seed the tabs plugin's settings for the mobile-cc shape: a 3-row
+  // tab grid (4 tabs per row, pinned mode) at the bottom of the
+  // screen. Deliberately OUTSIDE the run-once sentinel and guarded on
+  // key absence instead: it must reach existing installs that predate
+  // the tab grid, while never clobbering a user's own customization
+  // (any Settings edit writes the key, which blocks re-seeding).
+  // Plugin storage is server-synced, so one browser seeding covers
+  // every device.
+  try {
+    var tabsStore = window.ttyview.storage('ttyview-tabs');
+    if (tabsStore && tabsStore.get('settings') == null) {
+      tabsStore.set('settings', { rows: 3, maxPerRow: 4, mode: 'pinned' });
+    }
+  } catch (_) { /* cosmetic default — never block boot */ }
+
   var SENTINEL = 'mobile-cc-defaults-applied';
   try {
     if (localStorage.getItem(SENTINEL) === '1') return;
