@@ -7,6 +7,28 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-06-12
+
+### Added
+
+- **Tab status dots.** Pinned tabs show per-session activity dots:
+  amber pulsing = a permission prompt is waiting (Claude Code
+  semantic events), blue pulsing = recent output, orange = finished
+  since you last viewed the tab. Toggleable in the tabs settings.
+  The tabs plugin also gains project groups, a utility rail, and
+  group reordering. (Via the bundled `ttyview-tabs` update in
+  ttyview-core v0.1.4.)
+- **Voice input gets a second engine.** The bundled voice plugin is
+  now `ttyview-stt-groq`: same 🎤 button, with a choice of engines —
+  the browser's Web Speech API (default, zero-config, unchanged
+  behavior) or Groq Whisper + LLM transcript cleanup
+  (browser-direct; bring your own free API key in Settings → Voice
+  Input). Web Speech previews live during Groq recordings and is
+  kept as fallback text if the Groq call fails.
+- **Fit-resize.** On phones, a wide tmux window can be auto-narrowed
+  to fit the viewport so the grid reflows to a readable font instead
+  of being squeezed or clipped. (ttyview-core v0.1.4.)
+
 ### Changed
 
 - **New app icon.** The placeholder green-on-black "mcc" text icon is
@@ -211,7 +233,9 @@ new README section. The most direct replacements:
 - `ttyview-image-paste` plugin (lands in v0.1.2, gated on upstream
   `ttyview-core` publishing the `/api/uploads` route + plugin source).
 
-[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/eyalev/mobile-cc/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/eyalev/mobile-cc/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/eyalev/mobile-cc/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/eyalev/mobile-cc/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/eyalev/mobile-cc/compare/v0.1.1...v0.1.2

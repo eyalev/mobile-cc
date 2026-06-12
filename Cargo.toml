@@ -1,6 +1,6 @@
 [package]
 name = "mobile-cc"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "Drive Claude Code from your phone. Mobile-focused packaging of ttyview-core."
@@ -21,7 +21,7 @@ path = "src/main.rs"
 # `^0.1.1` (caret) matches all 0.1.x — the v0.1.2 ttyview tag is built
 # from pre-bump source where ttyview-core's package version is still
 # 0.1.1, so we stay on the looser constraint.
-ttyview-core = { path = "../ttyview/crates/ttyview-core", version = "0.1.3" }
+ttyview-core = { path = "../ttyview/crates/ttyview-core", version = "0.1.4" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
