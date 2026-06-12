@@ -13,8 +13,10 @@
 
   // Inline copy of assets/pwa/icons artwork (terminal card on coral).
   // The title-bar dots are dropped — invisible at glyph size.
+  // 16px = the header controls' text line height; the mark should sit
+  // in the line like a character, not dominate the row.
   var GLYPH_SVG =
-    '<svg width="22" height="22" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+    '<svg width="16" height="16" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
     '<defs><linearGradient id="mccg" x1="0" y1="0" x2="1" y2="1">' +
     '<stop offset="0" stop-color="#E8896B"/><stop offset="1" stop-color="#C75B3A"/>' +
     '</linearGradient></defs>' +
