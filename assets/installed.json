@@ -13,6 +13,7 @@
     {"id":"ttyview-reload","name":"Reload App","kind":"headerWidget","source":"ttyview-reload.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-logs","name":"Client Logs","kind":"settingsTab","source":"ttyview-logs.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-session-manager","name":"Session Manager","kind":"settingsTab","source":"ttyview-session-manager.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-terminal-green","name":"Terminal Green","kind":"theme","source":"ttyview-terminal-green.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."}
+    {"id":"ttyview-terminal-green","name":"Terminal Green","kind":"theme","source":"ttyview-terminal-green.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
+    {"id":"ttyview-live-sync","name":"Live Sync","kind":"command","source":"ttyview-live-sync.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."}
   ]
 }
