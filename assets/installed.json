@@ -9,7 +9,7 @@
     {"id":"ttyview-quickkeys","name":"Quick Keys","kind":"inputAccessory","source":"ttyview-quickkeys.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-tabs","name":"Pinned Tabs","kind":"tabBar","source":"ttyview-tabs.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-image-paste","name":"Image Paste","kind":"inputAccessory","source":"ttyview-image-paste.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-stt","name":"Voice Input","kind":"inputAccessory","source":"ttyview-stt.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
+    {"id":"ttyview-stt-groq","name":"Voice Input","kind":"inputAccessory","source":"ttyview-stt-groq.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc. Web Speech by default; Groq Whisper + LLM cleanup with a BYO key (Settings → Voice Input)."},
     {"id":"ttyview-reload","name":"Reload App","kind":"headerWidget","source":"ttyview-reload.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-logs","name":"Client Logs","kind":"settingsTab","source":"ttyview-logs.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-session-manager","name":"Session Manager","kind":"settingsTab","source":"ttyview-session-manager.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
