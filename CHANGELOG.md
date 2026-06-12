@@ -7,6 +7,28 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-12
+
+### Fixed
+
+- **Works on stock Debian 12 / Ubuntu 22.04 tmux (≤ 3.3) — previously
+  dead on arrival.** tmux ≤ 3.3 replaces tabs in `-F` format output
+  with `_`, which made ttyview-core mint composite pane ids
+  (`%0_work_0`) that tmux rejected on `send-keys` — a fresh install
+  could not send any input. Fixed in ttyview-core v0.1.3
+  (`TTYVIEW_REF` bumped); stale composite ids from old clients are
+  normalized server-side, so existing pins keep working after upgrade.
+- **CC chat view's "not a Claude Code pane" state** now renders a
+  helpful message with a one-tap switch to the terminal view, polls
+  at a relaxed 10 s cadence instead of hammering a 404 every 2 s,
+  and the pane picker no longer shows blank, nameless rows.
+- **install.sh no longer claims "mobile-cc is listening" before
+  anything is running.** The systemd path probes `/healthz` before
+  declaring ready; the no-systemd path says plainly that mobile-cc
+  is installed but not started, and prints the start command. The
+  tarball download is also quiet now (no raw curl progress table
+  when piped to bash).
+
 ### Added
 
 - **Installable as a PWA.** The binary now serves

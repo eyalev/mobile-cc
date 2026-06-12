@@ -133,7 +133,7 @@ else
 
   echo "[1/3] downloading mobile-cc ${MOBILE_CC_VERSION} (${TARGET}) from ${BASE_URL}"
   TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-  curl -fSL --max-time 60 "$URL" -o "$TMP/dl.tar.gz"
+  curl -fsSL --max-time 60 "$URL" -o "$TMP/dl.tar.gz"
 
   # Verify the downloaded tarball against the published .sha256. Pages
   # publishes <asset>.sha256 alongside each tarball — fetching it on the
@@ -196,15 +196,39 @@ UNIT
   systemctl --user daemon-reload
   systemctl --user enable --now mobile-cc.service
   echo "      enabled + started (systemctl --user status mobile-cc)"
+  STARTED=1
 else
-  echo "[2/3] systemd skipped; start manually with:"
+  echo "[2/3] systemd skipped; mobile-cc is installed but NOT running yet."
+  echo "      start it with:"
   echo "      $PREFIX/mobile-cc --bind $BIND --app-name 'Mobile CC'"
+  STARTED=0
 fi
 
 # ---------- done ----------
-echo "[3/3] ready"
-echo
-echo "    mobile-cc is listening on http://${BIND}/"
+if [ "$STARTED" = "1" ]; then
+  # Don't claim "listening" without checking — probe /healthz briefly.
+  LIVE=0
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if curl -fs --max-time 1 "http://${BIND}/healthz" >/dev/null 2>&1; then
+      LIVE=1
+      break
+    fi
+    sleep 0.5
+  done
+  if [ "$LIVE" = "1" ]; then
+    echo "[3/3] ready"
+    echo
+    echo "    mobile-cc is listening on http://${BIND}/"
+  else
+    echo "[3/3] installed, but the service didn't answer on http://${BIND}/ yet."
+    echo "      check it with:  systemctl --user status mobile-cc"
+    echo "      follow logs:    journalctl --user -u mobile-cc -f"
+  fi
+else
+  echo "[3/3] installed (not started)"
+  echo
+  echo "    once started, mobile-cc will listen on http://${BIND}/"
+fi
 echo
 
 # ---------- tunnel picker ----------
