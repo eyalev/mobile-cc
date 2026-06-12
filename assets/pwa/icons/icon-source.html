@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<svg id="icon" width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="coralGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E8896B"/><stop offset="1" stop-color="#C75B3A"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#coralGrad)"/>
+  <g id="card">
+    <rect x="76" y="104" width="360" height="304" rx="36" fill="#1b1714"/>
+    <circle cx="124" cy="152" r="13" fill="#5a4a42"/>
+    <circle cx="166" cy="152" r="13" fill="#5a4a42"/>
+    <path d="M140 230 L226 296 L140 362" stroke="#E8896B" stroke-width="34"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="252" y="334" width="58" height="30" rx="8" fill="#EDE6DD"/>
+  </g>
+</svg>
+<script>
+  const p = new URLSearchParams(location.search);
+  const size = parseInt(p.get('size') || '512', 10);
+  const svg = document.getElementById('icon');
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  if (p.get('maskable') === '1') {
+    // Shrink the card into the maskable safe zone (inner 80% circle).
+    document.getElementById('card').setAttribute(
+      'transform', 'translate(256,256) scale(0.84) translate(-256,-256)');
+  }
+</script>
+</body></html>

@@ -6,3 +6,6 @@ node_modules/
 # Agent notes (private, see CLAUDE.md and .claude/)
 CLAUDE.md
 .claude/
+
+# Per-agent workdirs (mcc1..N tmux sessions)
+claude*/
