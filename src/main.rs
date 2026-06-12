@@ -15,9 +15,10 @@ struct Cli {
     #[arg(long, default_value = "127.0.0.1:7800")]
     bind: SocketAddr,
 
-    /// Display name shown in the header (via the App Name plugin). Useful when
+    /// Instance name — shown in the browser/PWA task-switcher title and the
+    /// header logo's tooltip (via the mobile-cc-brand plugin). Useful when
     /// several mobile-cc instances run on different hosts.
-    #[arg(long, default_value = "Mobile CC")]
+    #[arg(long, default_value = "mobile-cc")]
     app_name: String,
 
     /// Tmux socket name (passed to `tmux -L`). Omit for the default server.
@@ -65,7 +66,7 @@ const BUNDLED_INSTALLED_JSON: &str = include_str!("../assets/installed.json");
 #[rustfmt::skip] // preserve the column-aligned table for readability
 const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-defaults.js",      include_bytes!("../assets/mobile-cc-defaults.js")),
-    ("ttyview-app-name.js",        include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-app-name.js")),
+    ("mobile-cc-brand.js",         include_bytes!("../assets/mobile-cc-brand.js")),
     ("ttyview-pane-picker.js",     include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-pane-picker.js")),
     ("ttyview-display-toggles.js", include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-display-toggles.js")),
     ("ttyview-cc.js",              include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-cc.js")),

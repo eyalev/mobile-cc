@@ -2,7 +2,7 @@
   "schema": 1,
   "plugins": [
     {"id":"mobile-cc-defaults","name":"mobile-cc defaults","kind":"internal","source":"mobile-cc-defaults.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Seeds the first-visit active view + theme. Internal to mobile-cc."},
-    {"id":"ttyview-app-name","name":"App Name","kind":"headerWidget","source":"ttyview-app-name.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
+    {"id":"mobile-cc-brand","name":"mobile-cc logo","kind":"headerWidget","source":"mobile-cc-brand.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Header logo glyph + task-switcher title. Internal to mobile-cc."},
     {"id":"ttyview-pane-picker","name":"Pane Picker","kind":"panePickerList","source":"ttyview-pane-picker.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-display-toggles","name":"Display Toggles","kind":"settingsTab","source":"ttyview-display-toggles.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
     {"id":"ttyview-cc","name":"Claude Code","kind":"terminalView","source":"ttyview-cc.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},

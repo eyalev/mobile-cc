@@ -7,6 +7,26 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+### Changed
+
+- **New app icon.** The placeholder green-on-black "mcc" text icon is
+  replaced with a real mark: a dark terminal card (caret + cursor
+  block) on a coral gradient, full-bleed. Distinct at launcher size
+  on both light and dark wallpapers, and no longer confusable with a
+  generic terminal app. Maskable variants keep the card inside the
+  Android safe zone.
+- **Header brand redone — no more title row.** The bundled
+  `ttyview-app-name` plugin (accent-colored "Mobile CC" text on its
+  own top-bar row) is replaced by an internal `mobile-cc-brand`
+  plugin: a small logo glyph matching the launcher icon, folded into
+  the header row left of the pane picker (via ttyview-core's new
+  `header-left` slot). Recovers a full row of vertical space on
+  phones. The instance name still reaches the browser/PWA
+  task-switcher title and the glyph's tooltip.
+- `--app-name` default changed from `Mobile CC` to `mobile-cc` —
+  naming is now consistent across the icon, manifest, binary, and
+  domain.
+
 ## [0.2.1] — 2026-06-12
 
 ### Fixed
