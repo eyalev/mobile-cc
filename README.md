@@ -13,16 +13,6 @@
 **Drive Claude Code from your phone.** Open a URL in any mobile browser — no
 SSH client, no copy-paste fights, no app to install on the phone.
 
-<p align="center">
-  <img src=".assets/demo-chat-view.png" width="280" alt="Chat-style transcript view">
-  <img src=".assets/demo-second-pane.png" width="280" alt="Switching panes via pinned tabs">
-  <img src=".assets/demo-pane-picker.png" width="280" alt="Pane picker with Recent section">
-</p>
-
-> Captured from `ttyview --demo` — the bundled synthetic demo
-> conversation, in a 393×851 (Pixel-class) viewport with the
-> Terminal Green theme.
-
 ## What you get
 
 - **Chat-style transcript view** — renders the Claude Code conversation
