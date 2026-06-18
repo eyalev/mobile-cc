@@ -10,6 +10,22 @@
 (function () {
   if (!window.ttyview || !window.ttyview._internal) return;
 
+  // Lock to upright portrait so rotating the phone doesn't reflow the
+  // app. Runs on EVERY load (an orientation lock doesn't persist
+  // across page loads) — deliberately above the run-once sentinel.
+  // Best-effort: screen.orientation.lock() is only honored in an
+  // installed standalone PWA on Android Chrome; a plain browser tab
+  // rejects it (no fullscreen). The manifest's
+  // orientation:"portrait-primary" is the durable counterpart for the
+  // installed app. Silently no-ops where unsupported (desktop, iOS).
+  try {
+    var so = window.screen && window.screen.orientation;
+    if (so && typeof so.lock === 'function') {
+      var pr = so.lock('portrait-primary');
+      if (pr && typeof pr.catch === 'function') pr.catch(function () {});
+    }
+  } catch (_) { /* unsupported / not allowed — leave orientation free */ }
+
   // Seed the tabs plugin's settings for the mobile-cc shape: a 3-row
   // tab grid (4 tabs per row, pinned mode) at the bottom of the
   // screen. Deliberately OUTSIDE the run-once sentinel and guarded on

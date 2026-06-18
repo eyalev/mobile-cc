@@ -157,12 +157,21 @@ async fn main() -> Result<()> {
     // ttyview's scripts/ttyview-diag.
     let diag_log = config_dir.join("diag.jsonl");
 
+    // Keep mobile-cc's image uploads under its own cache dir
+    // (`~/.cache/mobile-cc/uploads`) instead of ttyview-core's shared
+    // default (`~/.cache/ttyview/uploads`) — mobile-cc is its own app,
+    // its uploads shouldn't comingle with a bare ttyview install's.
+    let uploads_dir = dirs::cache_dir()
+        .map(|d| d.join("mobile-cc/uploads"))
+        .unwrap_or_else(|| PathBuf::from(".mobile-cc/uploads"));
+
     ttyview_core::cli::daemon::run_with_options_v2(ttyview_core::cli::daemon::RunOptions {
         addr: cli.bind,
         socket: cli.tmux_socket,
         config_dir: Some(config_dir),
         app_name: Some(cli.app_name),
         diag_log: Some(diag_log),
+        uploads_dir: Some(uploads_dir),
         extra_static: PWA_ASSETS
             .iter()
             .map(|(path, bytes)| (path.to_string(), bytes.to_vec()))
