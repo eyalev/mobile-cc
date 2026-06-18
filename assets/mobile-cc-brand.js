@@ -11,6 +11,15 @@
   var tv = window.ttyview;
   if (!tv || tv.apiVersion !== 1) return;
 
+  // Paint the tabs utility rail (the ▦ all / 🕘 recent strip) in the
+  // brand coral. ttyview-tabs reads --ttv-rail-accent (falling back to
+  // the host theme accent when unset); mobile-cc opts into its brand
+  // color here so the rail matches the launcher icon + header glyph.
+  // Theme-independent on purpose — it's identity, not a palette choice.
+  try {
+    document.documentElement.style.setProperty('--ttv-rail-accent', '#E8896B');
+  } catch (e) {}
+
   // Inline copy of assets/pwa/icons artwork (terminal card on coral).
   // The title-bar dots are dropped — invisible at glyph size.
   // 16px = the header controls' text line height; the mark should sit
