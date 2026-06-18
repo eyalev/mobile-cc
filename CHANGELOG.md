@@ -7,6 +7,36 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-06-18
+
+### Added
+
+- **Brand-coral tab rail icons.** The tabs utility rail (the
+  all-sessions / recent strip on the thumb-side edge) now uses crisp
+  SVG icons — a 2×2 grid and a clock — painted in the mcc brand coral
+  (`#E8896B`) to match the launcher icon and header glyph, replacing
+  the previous emoji glyphs. The lit (active-mode) icon goes
+  full-opacity with a coral border. (Via ttyview-core v0.1.5; mcc sets
+  `--ttv-rail-accent`.)
+- **Portrait orientation lock.** The installed PWA pins to
+  `portrait-primary` (manifest + a best-effort
+  `screen.orientation.lock()` on each load) so rotating the phone
+  doesn't reflow the app. No-ops in a plain browser tab / desktop /
+  iOS.
+- **Own uploads directory.** Image uploads now live under
+  `~/.cache/mobile-cc/uploads` instead of ttyview-core's shared
+  `~/.cache/ttyview/uploads`, so mobile-cc's uploads don't comingle
+  with a bare ttyview install's.
+
+### Fixed
+
+- **Tab area no longer bumps the terminal when switching modes.**
+  Tapping the all / recent rail buttons changed the height of the tab
+  section (the always-on recent row is pinned-mode-only and sat outside
+  the height cap), shoving the terminal view up/down by ~38 px. The tab
+  column is now a constant height across pinned / all / recent. (Via
+  ttyview-core v0.1.5.)
+
 ## [0.3.0] — 2026-06-12
 
 ### Added
@@ -233,7 +263,8 @@ new README section. The most direct replacements:
 - `ttyview-image-paste` plugin (lands in v0.1.2, gated on upstream
   `ttyview-core` publishing the `/api/uploads` route + plugin source).
 
-[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/eyalev/mobile-cc/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/eyalev/mobile-cc/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/eyalev/mobile-cc/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/eyalev/mobile-cc/compare/v0.1.3...v0.2.0

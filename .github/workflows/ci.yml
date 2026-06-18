@@ -9,7 +9,7 @@ on:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: v0.1.4   # header-left slot + semantic events + stt-groq (match across workflows)
+  TTYVIEW_REF: v0.1.5   # SVG rail icons + constant tab-area height (match across workflows)
   # Opt the JS-based actions (checkout, upload/download-artifact) into
   # Node 24 ahead of the GitHub-default flip (target: 2026-06-02).
   # Removable once the actions ship Node 24 natively.
