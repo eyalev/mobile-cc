@@ -7,6 +7,23 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-06-19
+
+### Added
+
+- **Opens on the Claude Code session by default.** On a fresh visit
+  `mobile-cc-defaults` seeds `ttv-last-session=claude`, so the app lands
+  on the `claude` tmux session instead of whichever pane sorts first.
+  Absence-guarded — a real last-viewed pane is still restored.
+- **Auto-fit terminal to the viewport on load + pane switch**
+  (`mobile-cc-autofit`). ttyview-core's auto-fit only ran on a
+  viewport-resize event or a manual ↔ tap, so on first open a pane
+  stayed at its created width (e.g. an 80-col Claude Code TUI) and
+  clipped off the right edge of a phone. The new plugin triggers the
+  existing fit once the grid renders (and on every pane switch), so the
+  terminal reflows to fit the screen. Respects the autofit-off
+  preference (`ttv-autofit==='false'`).
+
 ## [0.3.1] — 2026-06-18
 
 ### Added

@@ -66,7 +66,14 @@ const BUNDLED_INSTALLED_JSON: &str = include_str!("../assets/installed.json");
 #[rustfmt::skip] // preserve the column-aligned table for readability
 const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-defaults.js",      include_bytes!("../assets/mobile-cc-defaults.js")),
+    ("mobile-cc-autofit.js",       include_bytes!("../assets/mobile-cc-autofit.js")),
     ("mobile-cc-brand.js",         include_bytes!("../assets/mobile-cc-brand.js")),
+    ("mobile-cc-commands.js",      include_bytes!("../assets/mobile-cc-commands.js")),
+    ("mobile-cc-kbd-overlay.js",   include_bytes!("../assets/mobile-cc-kbd-overlay.js")),
+    ("mobile-cc-term-size.js",     include_bytes!("../assets/mobile-cc-term-size.js")),
+    // TEMP diagnostic — soft-keyboard-on-tab-switch tracer. Remove with
+    // its assets/installed.json entry once the cause is pinned.
+    ("mobile-cc-kbd-diag.js",      include_bytes!("../assets/mobile-cc-kbd-diag.js")),
     ("ttyview-pane-picker.js",     include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-pane-picker.js")),
     ("ttyview-display-toggles.js", include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-display-toggles.js")),
     ("ttyview-cc.js",              include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-cc.js")),

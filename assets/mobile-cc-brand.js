@@ -20,6 +20,84 @@
     document.documentElement.style.setProperty('--ttv-rail-accent', '#E8896B');
   } catch (e) {}
 
+  // Tweaks to the project-group header row (upstream ttyview-tabs),
+  // mobile-cc scoped so ttyview/tmux-web pins are unaffected:
+  //   1. Hide the per-group color-identity dot — the colored left
+  //      bracket already conveys the group color, so the dot reads as
+  //      noise on a phone. Status dots (waiting/active/attention) are a
+  //      different class (.ttvtab-dot) and stay.
+  //   2. Replace the collapse/expand caret (▸/▾) with a crisp SVG
+  //      chevron. The unicode triangles render tiny and thin even when
+  //      scaled up; an SVG with a thick stroke is legible and a proper
+  //      touch target. Container is sized to a 24px tap box and the
+  //      glyph centered inside; font-size:0 suppresses the residual
+  //      unicode char between the swap.
+  try {
+    var st = document.createElement('style');
+    st.textContent =
+      '.ttvtab-ghead .ttvtab-gdot { display: none !important; }' +
+      '.ttvtab-ghead .ttvtab-gcaret {' +
+      '  display: inline-flex; align-items: center; justify-content: center;' +
+      '  width: 24px; height: 24px; font-size: 0; opacity: 0.9;' +
+      '}' +
+      '.ttvtab-ghead .ttvtab-gcaret svg { display: block; }';
+    document.head.appendChild(st);
+  } catch (e) {}
+
+  // CSS can't select by text content and the caret carries no
+  // collapsed-state class, so the glyph→SVG swap happens in the DOM and
+  // is re-applied after each tabs re-render (MutationObserver on the
+  // tab area). One down-chevron, rotated -90deg for the collapsed
+  // (▸, right-pointing) state.
+  function svgCaret(dir) {
+    var rot = dir === 'right' ? ' style="transform:rotate(-90deg)"' : '';
+    return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" ' +
+      'stroke="currentColor" stroke-width="3" stroke-linecap="round" ' +
+      'stroke-linejoin="round" aria-hidden="true"' + rot +
+      '><polyline points="6 9 12 15 18 9"/></svg>';
+  }
+  function upgradeCarets() {
+    var carets = document.querySelectorAll('.ttvtab-ghead .ttvtab-gcaret');
+    for (var i = 0; i < carets.length; i++) {
+      var c = carets[i];
+      var t = (c.textContent || '').trim();
+      // Only touch spans still showing the unicode glyph — after the
+      // swap textContent is empty, so this is a no-op and can't loop.
+      if (t === '▾' || t === '▸') {
+        c.innerHTML = svgCaret(t === '▸' ? 'right' : 'down');
+      }
+    }
+  }
+  var pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () { pending = false; upgradeCarets(); });
+  }
+  try {
+    var attached = false;
+    function ensureObserver() {
+      if (attached) { schedule(); return true; }
+      var caret = document.querySelector('.ttvtab-gcaret');
+      var target = caret && (caret.closest('[data-slot]') || caret.parentNode);
+      if (!target) return false;
+      new MutationObserver(schedule).observe(target, { childList: true, subtree: true });
+      attached = true;
+      schedule();
+      return true;
+    }
+    // Tabs may not be mounted when this plugin loads — retry until the
+    // tab area appears, then let the observer drive. A slow fallback
+    // tick re-runs the swap in case the observed slot is ever replaced.
+    var tries = 0;
+    var boot = setInterval(function () {
+      if (ensureObserver() || ++tries > 40) clearInterval(boot);
+    }, 250);
+    ensureObserver();
+    setInterval(schedule, 2000);
+  } catch (e) {}
+
   // Inline copy of assets/pwa/icons artwork (terminal card on coral).
   // The title-bar dots are dropped — invisible at glyph size.
   // 16px = the header controls' text line height; the mark should sit

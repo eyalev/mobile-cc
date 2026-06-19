@@ -26,6 +26,20 @@
     }
   } catch (_) { /* unsupported / not allowed — leave orientation free */ }
 
+  // Default the initial pane to the Claude Code session. ttyview-core's
+  // pickInitialPane() — which runs right AFTER plugins load — restores the
+  // last-viewed pane via ttv-last-pane-id (exact id) then ttv-last-session
+  // (name, survives tmux/VM restarts), falling back to the first pane.
+  // mobile-cc's whole job is "drive Claude Code", so when nothing is stored
+  // yet (fresh browser / new VM) we seed ttv-last-session='claude' so the app
+  // opens on the claude session. Absence-guarded on BOTH keys, so a real
+  // last-viewed pane is never clobbered.
+  try {
+    if (!localStorage.getItem('ttv-last-pane-id') && !localStorage.getItem('ttv-last-session')) {
+      localStorage.setItem('ttv-last-session', 'claude');
+    }
+  } catch (_) { /* private mode etc. — pickInitialPane falls back to first pane */ }
+
   // Seed the tabs plugin's settings for the mobile-cc shape: a 3-row
   // tab grid (4 tabs per row, pinned mode) at the bottom of the
   // screen. Deliberately OUTSIDE the run-once sentinel and guarded on
@@ -38,6 +52,24 @@
     var tabsStore = window.ttyview.storage('ttyview-tabs');
     if (tabsStore && tabsStore.get('settings') == null) {
       tabsStore.set('settings', { rows: 3, maxPerRow: 4, mode: 'pinned' });
+    }
+
+    // Pin the "mcc" group to its own color. The tabs plugin derives a
+    // group's bracket color from a deterministic name→palette hash, and
+    // "mcc" happens to hash to the same pink (#f7768e) as the "todo"
+    // group — visually confusing on a rail that carries both. mobile-cc
+    // owns the "mcc" convention, so seed an explicit override: teal,
+    // distinct from pink (todo), purple (opendev), and the blue
+    // active-tab highlight. Per-group state lives under the `groups`
+    // key as { [name]: { collapsed?, color?, order? } }. Absence-guarded
+    // on the color field only, so a user's own color edit is never
+    // clobbered and an existing group's order/collapsed state is kept.
+    if (tabsStore) {
+      var groups = tabsStore.get('groups') || {};
+      if (!groups.mcc || !groups.mcc.color) {
+        groups.mcc = Object.assign({}, groups.mcc, { color: '#73daca' });
+        tabsStore.set('groups', groups);
+      }
     }
   } catch (_) { /* cosmetic default — never block boot */ }
 
