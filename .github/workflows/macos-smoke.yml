@@ -26,7 +26,7 @@ on:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: v0.1.6   # configurable deep scrollback + two-phase load (match across workflows)
+  TTYVIEW_REF: v0.1.7   # adds desktop auto-widen (match across workflows)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:

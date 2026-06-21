@@ -7,6 +7,29 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-06-21
+
+### Added
+
+- **Great on the desktop, too.** Opened in a desktop browser, the terminal
+  now widens to fill the window at a comfortable density instead of blowing
+  the font up with dead space beside it. Backed by ttyview v0.1.7's
+  auto-widen: `fit-resize` gained a widen path (mirror of the existing
+  narrow-only one) that grows the tmux window to fill large viewports,
+  bounded at 220 columns. Phones still narrow exactly as before.
+
+### Changed
+
+- **Desktop header brand.** The header now reads the instance name
+  (`--app-name`, e.g. "Mobile CC") instead of ttyview-core's hardcoded
+  "ttyview" title, which was hidden on phones but visible on desktop.
+- **Brand refresh** — the launcher icon and header glyph move from coral to
+  the blue accent, matching the in-app theme.
+- **README repositioned** around three things: managing many Claude Code
+  sessions across projects (pane picker + project tabs), no tmux knowledge
+  required, and a first-class desktop experience — with real screenshots
+  from a multi-session run.
+
 ## [0.3.2] — 2026-06-19
 
 ### Added

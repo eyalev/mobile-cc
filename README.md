@@ -6,8 +6,8 @@
 
 **Drive Claude Code from your phone — or any browser.** mobile-cc puts your
 Claude Code sessions on a tap-friendly web page: read the conversation, type
-back, and switch between projects — no SSH client, no copy-paste fights, and
-not a single tmux shortcut to memorize.
+back, and switch between projects — no copy-paste fights, and not a single
+tmux shortcut to memorize.
 
 <p align="center">
   <img src="docs/media/hero.png" alt="The real Claude Code TUI running in mobile-cc on a phone" width="300">
