@@ -4,6 +4,14 @@
 # changes. Needs: asciinema (>=3, for --window-size) + agg.
 #
 # Asset is DERIVED, not hand-edited (same philosophy as the other media).
+#
+# NOTE on the README player: GitHub strips hand-written <video> tags, so the
+# README embeds the mp4 via a GitHub *user-attachments* URL (auto-rendered as
+# an inline player). That URL is created by UPLOADING the mp4 through GitHub's
+# web composer (drag it into an issue/comment), which only goes public once the
+# content is posted (see issue #1, which hosts it — don't delete that issue).
+# So after regenerating brew-install.mp4 here, re-upload it and update the URL
+# in README.md. The .gif/.png remain useful as standalone/source artifacts.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -112,13 +112,7 @@ bash mobile-cc-install.sh
 brew install eyalev/tap/mobile-cc
 ```
 
-<p align="center">
-  <video src="https://github.com/eyalev/mobile-cc/raw/main/docs/media/brew-install.mp4"
-         poster="https://github.com/eyalev/mobile-cc/raw/main/docs/media/brew-install.png"
-         controls muted playsinline width="600">
-    <img src="docs/media/brew-install.gif" alt="Installing mobile-cc with Homebrew: brew install eyalev/tap/mobile-cc" width="600">
-  </video>
-</p>
+https://github.com/user-attachments/assets/af1e0d4e-0d51-4584-9abe-457793d43678
 
 The tap installs just the binary (no systemd service); run it with
 `mobile-cc --bind 127.0.0.1:7800` or use the `curl` installer above for the
@@ -158,10 +152,10 @@ to come — live in **[docs/tutorials](docs/tutorials/)**.
 
 ## What you get
 
-- **No tmux knowledge required** — the header **＋** spins up a session three
-  ways (blank shell · shell with Claude Code · Claude Code in a project
-  folder); switch and kill from buttons. Even if you live in tmux, you never
-  reach for `Ctrl-b` again.
+- **No tmux knowledge required** — the **＋** on the tab rail spins up a
+  session three ways (blank shell · shell with Claude Code · Claude Code in a
+  project folder); switch and kill from buttons. Even if you live in tmux, you
+  never reach for `Ctrl-b` again.
 - **The real Claude Code TUI** — the actual terminal, rendered as live cell
   state (not screen-scraped images), with syntax highlighting. Auto-fits a
   phone screen and widens to fill a desktop window.
