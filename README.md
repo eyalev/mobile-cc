@@ -141,6 +141,13 @@ and you're driving it.
 
 ---
 
+## Tutorials
+
+Short, focused walkthroughs — starting with installation, with feature guides
+to come — live in **[docs/tutorials](docs/tutorials/)**.
+
+---
+
 ## What you get
 
 - **No tmux knowledge required** — create, name, switch, and kill sessions from
