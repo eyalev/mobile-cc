@@ -47,10 +47,11 @@ the box at the bottom.
 
 ## Great on the desktop, too
 
-Open the same URL in a desktop browser and the terminal widens to fill the
-window at a comfortable density — a full-width Claude Code session with your
-project tabs grouped along the bottom. Same tool, same tabs, phone and laptop
-in sync.
+Open the same URL in a desktop browser and you get a **centered, comfortably
+sized terminal column** — readable line lengths instead of text stretched edge
+to edge — with your project tabs grouped along the bottom. Adjust the column
+width (or go full-bleed) from the ⇕ menu. Same tool, same tabs, phone and
+laptop in sync.
 
 <p align="center">
   <img src="docs/media/desktop.png" alt="mobile-cc filling a desktop browser window with a full-width Claude Code session and project tabs" width="760">
@@ -86,12 +87,34 @@ curl -fsSL https://mobile-cc.dev/install.sh | bash
   <img src="docs/media/install.gif" alt="Installing mobile-cc with one command" width="600">
 </p>
 
-This downloads the binary to `~/.local/bin/mobile-cc`, verifies its
-checksum, installs a **systemd user service** that starts it (and restarts
-it on boot), and prints your URL. It binds `127.0.0.1:7800` — loopback only.
+This downloads the binary to `~/.local/bin/mobile-cc` from
+[GitHub Releases](https://github.com/eyalev/mobile-cc/releases/latest),
+**verifies it** (signature / build provenance / checksum — see
+[Verifying the download](#verifying-the-download)), installs a **systemd user
+service** that starts it (and restarts it on boot), and prints your URL. It
+binds `127.0.0.1:7800` — loopback only.
 
 > **macOS / no systemd?** The installer just drops the binary and tells you
 > the command to run it yourself. See [Running it manually](#running-it-manually).
+
+**Prefer to read before you run?** mobile-cc is a tool that can drive your
+shell — auditing the installer first is reasonable:
+
+```bash
+curl -fsSL https://mobile-cc.dev/install.sh -o mobile-cc-install.sh
+less mobile-cc-install.sh        # read it
+bash mobile-cc-install.sh
+```
+
+**On a Mac (or Linux) with [Homebrew](https://brew.sh/)?**
+
+```bash
+brew install eyalev/tap/mobile-cc
+```
+
+The tap installs just the binary (no systemd service); run it with
+`mobile-cc --bind 127.0.0.1:7800` or use the `curl` installer above for the
+managed-service experience.
 
 ### 3. Expose it to your phone over Tailscale
 
@@ -175,8 +198,9 @@ For the security policy, see [SECURITY.md](./SECURITY.md).
 
 | Env var | Effect |
 |---|---|
-| `MOBILE_CC_VERSION=v0.3.2` | Install a specific release (default: latest). |
+| `MOBILE_CC_VERSION=v0.4.0` | Install a specific release (default: latest). |
 | `MOBILE_CC_PREFIX=/path` | Where to put the binary (default `~/.local/bin`). |
+| `MOBILE_CC_REPO=owner/repo` | GitHub repo to fetch releases from (default `eyalev/mobile-cc`). |
 | `MOBILE_CC_SKIP_UNIT=1` | Don't write a systemd unit. |
 | `MOBILE_CC_BIN_FILE=/path` | Install a local binary instead of downloading. |
 
@@ -185,6 +209,35 @@ Survive logout (keep the service running after you close SSH):
 ```bash
 loginctl enable-linger $USER
 ```
+
+### Verifying the download
+
+mobile-cc is a remote shell for your machine, so the binary's integrity
+matters. Binaries are built by [GitHub Actions](.github/workflows/release.yml)
+and published to GitHub Releases. Each release tarball ships three ways to
+verify it; the installer uses the strongest one available on your machine and
+always falls back to the checksum:
+
+| Method | What it proves | Needs |
+|---|---|---|
+| **minisign signature** (`.minisig`) | Authenticity — signed by mobile-cc's release key | [`minisign`](https://jedisct1.github.io/minisign/) installed |
+| **Build provenance** (SLSA attestation) | The binary was built by this repo's CI off a specific commit | [`gh`](https://cli.github.com/) installed + authed |
+| **SHA-256 checksum** (`.sha256`) | Integrity — bytes match what we published | always (baseline) |
+
+Verify manually:
+
+```bash
+# minisign (public key is embedded in install.sh):
+minisign -Vm mobile-cc-<target>.tar.gz \
+  -P RWSlxyi2aX3154lzQAyvgiOFtsZOgnlfsEkdlwTDPYI2aV72b6FBqqp1
+
+# build provenance:
+gh attestation verify mobile-cc-<target>.tar.gz --repo eyalev/mobile-cc
+```
+
+minisign signatures are present from **v0.4.0** onward; build-provenance
+attestations from the **first release after v0.4.0** (v0.4.0 was built before
+the attestation step landed).
 
 ### Running it manually
 

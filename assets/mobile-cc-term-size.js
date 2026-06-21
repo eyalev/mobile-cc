@@ -89,6 +89,27 @@
   function reset() { setInset(0); apply(); renderReadout(); }
   function fontClick(id) { var b = document.getElementById(id); if (b) b.click(); }
 
+  // ---- width (desktop comfortable-column cap) -------------------
+  // ttyview-core's autoFit reads `ttv-max-cols`: on a wide viewport it grows
+  // the window toward this column count, then CENTERS the grid with margins
+  // (a readable column instead of a full-bleed terminal). 0 = fill width.
+  // We change the value, then proxy-click #font-fit to re-run autoFit. No
+  // visible effect on a phone (the cap doesn't engage below it).
+  var COL_STEP = 16, COL_MIN = 64, COL_MAX = 200;
+  function maxCols() { var v = parseInt(localStorage.getItem('ttv-max-cols'), 10); return isNaN(v) ? 120 : v; }
+  function setMaxCols(v) { try { localStorage.setItem('ttv-max-cols', String(v)); } catch (e) {} }
+  function widthReadout() { var v = maxCols(); return v === 0 ? 'Full' : String(v); }
+  function renderWidthReadout() { if (!pop) return; var w = pop.querySelector('#mcc-ts-w'); if (w) w.textContent = widthReadout(); }
+  function nudgeWidth(dir) {
+    var v = maxCols();
+    if (v === 0) { if (dir < 0) v = COL_MAX; else return; }                  // Full → step back to max
+    else { v += dir * COL_STEP; if (v < COL_MIN) v = COL_MIN; if (v > COL_MAX) v = 0; } // past max → Full
+    setMaxCols(v);
+    renderWidthReadout();
+    fontClick('font-fit');                                                    // re-run autoFit with the new cap
+  }
+  function resetWidth() { setMaxCols(120); renderWidthReadout(); fontClick('font-fit'); }
+
   function mkBtn(label, title, onTap) {
     var b = document.createElement('button');
     b.type = 'button';
@@ -140,6 +161,17 @@
     hRow.appendChild(mkBtn('⟲', 'Reset to full height', function () { reset(); }));
     el.appendChild(hRow);
 
+    // Width row — comfortable column cap on wide viewports (centers the grid).
+    var wRow = mkRow('Width');
+    wRow.appendChild(mkBtn('−', 'Narrower column', function () { nudgeWidth(-1); }));
+    var w = document.createElement('span');
+    w.id = 'mcc-ts-w';
+    w.style.cssText = 'min-width:38px;text-align:center;color:var(--ttv-fg);font-size:13px;font-variant-numeric:tabular-nums;';
+    wRow.appendChild(w);
+    wRow.appendChild(mkBtn('+', 'Wider column (＋ past max = full width)', function () { nudgeWidth(1); }));
+    wRow.appendChild(mkBtn('⟲', 'Reset to default width', function () { resetWidth(); }));
+    el.appendChild(wRow);
+
     return el;
   }
 
@@ -151,6 +183,7 @@
     pop = buildPopover();
     document.body.appendChild(pop);
     renderReadout();
+    renderWidthReadout();
     outsideHandler = function (e) {
       if (pop && !pop.contains(e.target) && e.target !== anchorBtn) closePopover();
     };
