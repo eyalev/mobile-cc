@@ -1,28 +1,27 @@
-// mobile-cc-term-size — control how tall the terminal is, from a
-// top-bar disclosure popover.
+// mobile-cc-term-size — shrink the terminal's visible height from a
+// top-bar disclosure popover. PURELY VISUAL: it adds bottom padding to
+// #grid-host, it does NOT resize the tmux pane.
 //
-// The control is the tmux ROW COUNT. Tapping − resizes the active
-// pane's tmux window to fewer rows (a {t:'resize'} sent on a dedicated
-// WS — the same trick ttyview-kbd-diag uses; the daemon applies resize
-// regardless of which socket sends it, via `resize-window -y rows`).
-// The pane genuinely gets shorter, so you SEE ALL of it above the
-// keyboard; the now-unused bottom of the flex:1 #grid-host shows as
-// black space between the terminal content and the bottom controls —
-// exactly the requested behavior, with no CSS height hacks.
+// Why not resize tmux: the pane's window-size is shared/`latest` and
+// core fit-resize re-asserts it continuously, so any real resize gets
+// reverted ("moves then jumps back"). Padding sidesteps that war
+// entirely — the tmux pane is never touched, so nothing can revert it.
 //
-// Width (cols) is preserved on every resize, so this coexists with the
-// core autoFit (which only ever changes cols and preserves rows — so
-// neither clobbers the other).
+// Tradeoff (accepted): the pane keeps its real size, so the shorter
+// area shows a SLICE of it — the tail (latest output + prompt), which
+// is what you want while driving from a phone — and we keep the view
+// pinned to the bottom so the newest line sits just above the padding.
+// Older lines / the top of a full-screen TUI scroll off; scroll up for
+// them.
 //
-// UI: one disclosure button in the header keeps the crowded top bar
-// lean. The popover groups all sizing controls — proxy buttons for the
-// existing font A−/↔/A+ (so those can move out of the top bar) plus
-// Rows −/[N]/+ and a reset.
+// Mechanics: a CSS var --mcc-term-pad drives #grid-host's padding-bottom
+// (added to the stock 4px). Because padding lives INSIDE the box, the
+// host's clientHeight/offsetHeight don't change, so no ResizeObserver /
+// autoFit path fires. The inset persists (mobile-cc-term-size.pad) and
+// re-applies on load. Reset → 0 (full height).
 //
-// Target rows persist (mobile-cc-term-size.rows, global across panes)
-// and re-apply on pane switch. Default is unset → the plugin touches
-// nothing until you use it (safe to hot-seed onto a live session).
-// Reset releases the manual-size lock (restore-size).
+// UI: one disclosure button (⇕) in the header → popover grouping the
+// relocated font A−/↔/A+ proxies + Height −/[px]/+ and reset.
 (function () {
   var tv = window.ttyview;
   if (!tv || tv.apiVersion !== 1) return;
@@ -30,102 +29,64 @@
   window.__mccTermSize = true;
 
   var STORAGE = tv.storage('mobile-cc-term-size');
-  var ROWS_KEY = 'rows';
-  var STEP = 2, MIN = 6, MAX = 60;
+  var PAD_KEY = 'pad';                         // px of extra bottom inset
+  var STEP = 48, MIN = 0, MAX = 640;
+  var BASE_PAD = 4;                            // stock #grid-host padding-bottom
 
-  function targetRows() {
-    var v = STORAGE.get(ROWS_KEY);
-    return (typeof v === 'number' && v > 0) ? v : null;
+  function inset() {
+    var v = STORAGE.get(PAD_KEY);
+    return (typeof v === 'number' && v >= 0) ? Math.min(MAX, v) : 0;
   }
-  function setTargetRows(n) { STORAGE.set(ROWS_KEY, n == null ? null : n); }
+  function setInset(px) { STORAGE.set(PAD_KEY, Math.max(MIN, Math.min(MAX, Math.round(px)))); }
 
-  function log(ev, data) {
-    try { if (window.ttyviewLog) window.ttyviewLog('term-size-' + ev, data); } catch (_) {}
-    try { console.log('[term-size]', ev, JSON.stringify(data || {})); } catch (_) {}
+  // ---- apply the inset --------------------------------------------
+  var STYLE_ID = 'mobile-cc-term-size-style';
+  function ensureStyle() {
+    var s = document.getElementById(STYLE_ID);
+    if (!s) {
+      s = document.createElement('style');
+      s.id = STYLE_ID;
+      (document.head || document.documentElement).appendChild(s);
+      // padding-bottom only; calc() folds in the stock 4px so we don't
+      // clobber the host's top/side padding.
+      s.textContent =
+        '#grid-host { padding-bottom: calc(' + BASE_PAD + 'px + var(--mcc-term-pad, 0px)) !important; }';
+    }
   }
-
-  // ---- dedicated control WS (resize / restore-size) --------------
-  var ws = null, sendQ = [];
-  function wsUrl() { return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws'; }
-  function connect() {
-    try {
-      ws = new WebSocket(wsUrl());
-      ws.addEventListener('open', function () { var q = sendQ.splice(0, sendQ.length); q.forEach(send); });
-      ws.addEventListener('close', function () { ws = null; setTimeout(connect, 3000); });
-      ws.addEventListener('error', function () { try { ws.close(); } catch (_) {} });
-    } catch (_) { setTimeout(connect, 3000); }
+  function scrollTail() {
+    var gh = document.getElementById('grid-host');
+    if (gh) { try { gh.scrollTop = gh.scrollHeight; } catch (_) {} }
   }
-  function send(obj) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) { sendQ.push(obj); return; }
-    try { ws.send(JSON.stringify(obj)); } catch (_) {}
+  function apply() {
+    ensureStyle();
+    document.documentElement.style.setProperty('--mcc-term-pad', inset() + 'px');
+    // Keep the newest line pinned just above the padding after a reflow.
+    scrollTail();
+    setTimeout(scrollTail, 60);
   }
-  connect();
-
-  function applyRows(n) {
-    var p = tv.getActivePane();
-    if (!p || !p.id) { log('apply-skip', { reason: 'no-pane' }); return; }
-    var cols = p.cols || 80;
-    send({ t: 'resize', p: p.id, cols: cols, rows: n });
-    log('apply', { pane: p.id, cols: cols, rows: n });
-  }
-  // Re-apply the target when switching panes (each pane is its own window).
-  try {
-    tv.on('pane-changed', function () {
-      var n = targetRows();
-      if (n != null) setTimeout(function () { applyRows(n); }, 150);
-    });
-  } catch (_) {}
-  // Re-apply persisted target on load, once a pane + WS are ready.
-  setTimeout(function () { var n = targetRows(); if (n != null) applyRows(n); }, 1200);
+  apply();                                      // restore persisted inset on load
 
   // ---- popover ---------------------------------------------------
   var pop = null, outsideHandler = null;
 
-  function currentRows() {
-    var n = targetRows();
-    if (n != null) return n;
-    var p = tv.getActivePane();
-    return (p && p.rows) ? p.rows : 0;
+  function visibleH() {
+    var gh = document.getElementById('grid-host');
+    if (!gh) return 0;
+    return Math.max(0, Math.round(gh.clientHeight - inset()));
   }
   function renderReadout() {
     if (!pop) return;
     var r = pop.querySelector('#mcc-ts-n');
-    if (r) r.textContent = currentRows() || '–';
-  }
-  function refreshSoon() {
-    setTimeout(function () { try { tv.refreshPanes(); } catch (_) {} setTimeout(renderReadout, 200); }, 250);
+    if (r) r.textContent = visibleH() || '–';
   }
 
-  function nudge(delta) {
-    var base = currentRows() || 24;
-    var n = Math.max(MIN, Math.min(MAX, base + delta));
-    setTargetRows(n);
-    applyRows(n);
+  // − = shorter terminal (more inset); + = taller (less inset).
+  function nudge(deltaInset) {
+    setInset(inset() + deltaInset);
+    apply();
     renderReadout();
-    refreshSoon();
   }
-  // "Normal" = the row count that fills the visible #grid-host at the
-  // current font. We resize to that rather than `restore-size`, because
-  // the page's own autoFit also holds a window-size-manual lock, so
-  // releasing ours doesn't actually restore the window (it stays at the
-  // last manual size). Resizing to the fill count is deterministic and
-  // matches what the user means by "back to normal".
-  function fillRows() {
-    var gh = document.getElementById('grid-host');
-    if (!gh) return null;
-    var fs = parseFloat(getComputedStyle(gh).fontSize) || 12;
-    var lineH = fs * 1.25;                 // matches #grid-host line-height
-    var usable = gh.clientHeight - 8;      // ~4px top + 4px bottom padding
-    var rows = Math.floor(usable / lineH);
-    return Math.max(MIN, Math.min(MAX, rows));
-  }
-  function reset() {
-    setTargetRows(null);
-    var fill = fillRows();
-    if (fill) applyRows(fill);
-    renderReadout();
-    refreshSoon();
-  }
+  function reset() { setInset(0); apply(); renderReadout(); }
   function fontClick(id) { var b = document.getElementById(id); if (b) b.click(); }
 
   function mkBtn(label, title, onTap) {
@@ -160,24 +121,24 @@
       'border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;padding:10px 12px;' +
       'box-shadow:0 6px 24px rgba(0,0,0,.45);';
 
-    // Font row — proxy-clicks the existing (possibly hidden) header buttons,
-    // so font controls can live here and be removed from the top bar.
+    // Font row — proxy-clicks the existing header buttons so font
+    // controls can live here, off the crowded top bar.
     var fontRow = mkRow('Font');
     fontRow.appendChild(mkBtn('A−', 'Smaller font', function () { fontClick('font-down'); }));
     fontRow.appendChild(mkBtn('↔', 'Auto-fit', function () { fontClick('font-fit'); }));
     fontRow.appendChild(mkBtn('A+', 'Larger font', function () { fontClick('font-up'); }));
     el.appendChild(fontRow);
 
-    // Rows row — the height control.
-    var rowsRow = mkRow('Rows');
-    rowsRow.appendChild(mkBtn('−', 'Shorter terminal', function () { nudge(-STEP); }));
+    // Height row — the visual inset control.
+    var hRow = mkRow('Height');
+    hRow.appendChild(mkBtn('−', 'Shorter terminal', function () { nudge(+STEP); }));
     var n = document.createElement('span');
     n.id = 'mcc-ts-n';
-    n.style.cssText = 'min-width:30px;text-align:center;color:var(--ttv-fg);font-size:14px;font-variant-numeric:tabular-nums;';
-    rowsRow.appendChild(n);
-    rowsRow.appendChild(mkBtn('+', 'Taller terminal', function () { nudge(STEP); }));
-    rowsRow.appendChild(mkBtn('⟲', 'Reset to auto', function () { reset(); }));
-    el.appendChild(rowsRow);
+    n.style.cssText = 'min-width:38px;text-align:center;color:var(--ttv-fg);font-size:13px;font-variant-numeric:tabular-nums;';
+    hRow.appendChild(n);
+    hRow.appendChild(mkBtn('+', 'Taller terminal', function () { nudge(-STEP); }));
+    hRow.appendChild(mkBtn('⟲', 'Reset to full height', function () { reset(); }));
+    el.appendChild(hRow);
 
     return el;
   }
@@ -190,7 +151,6 @@
     pop = buildPopover();
     document.body.appendChild(pop);
     renderReadout();
-    // Close on tap outside (but not on the toggle button or popover itself).
     outsideHandler = function (e) {
       if (pop && !pop.contains(e.target) && e.target !== anchorBtn) closePopover();
     };
