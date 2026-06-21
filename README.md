@@ -112,6 +112,10 @@ bash mobile-cc-install.sh
 brew install eyalev/tap/mobile-cc
 ```
 
+<p align="center">
+  <img src="docs/media/brew-install.gif" alt="Installing mobile-cc with Homebrew: brew install eyalev/tap/mobile-cc" width="600">
+</p>
+
 The tap installs just the binary (no systemd service); run it with
 `mobile-cc --bind 127.0.0.1:7800` or use the `curl` installer above for the
 managed-service experience.
