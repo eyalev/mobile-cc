@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>mobile-cc — drive Claude Code from your phone</title>
+<meta name="description" content="A Rust binary that puts Claude Code on your phone via a mobile-first web UI. No SSH client, no copy-paste hell. Pre-alpha.">
+<meta property="og:title" content="mobile-cc">
+<meta property="og:description" content="Drive Claude Code from your phone. No SSH client, no copy-paste hell.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mobile-cc.dev">
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #0a0f0a;
+    --fg: #00ff66;
+    --fg-dim: #5a8a6a;
+    --accent: #00ff66;
+    --code-bg: #061206;
+    --code-border: #1a3a1a;
+    --max: 44rem;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  main {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 4rem 1.25rem 6rem;
+  }
+  @media (max-width: 540px) {
+    main { padding: 2rem 1rem 4rem; }
+  }
+  h1 {
+    font-size: clamp(2rem, 7vw, 3rem);
+    line-height: 1.05;
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  h1::after {
+    content: "_";
+    animation: blink 1.1s steps(2, start) infinite;
+    color: var(--accent);
+    margin-left: 0.1em;
+  }
+  @keyframes blink { to { visibility: hidden; } }
+  h2 {
+    font-size: 1.05rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-dim);
+    font-weight: 500;
+    margin: 2.5rem 0 0.75rem;
+  }
+  p { margin: 0.75rem 0; }
+  .tagline {
+    font-size: 1.15rem;
+    color: var(--fg);
+    margin: 0 0 2rem;
+    opacity: 0.95;
+  }
+  .install-block {
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    margin: 1.5rem 0;
+    position: relative;
+    overflow-x: auto;
+    font-size: 0.95rem;
+  }
+  .install-block code {
+    display: block;
+    white-space: pre;
+    color: var(--fg);
+  }
+  .copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--code-bg);
+    color: var(--fg-dim);
+    border: 1px solid var(--code-border);
+    border-radius: 4px;
+    padding: 0.25rem 0.55rem;
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: color 0.1s ease, border-color 0.1s ease;
+  }
+  .copy-btn:hover, .copy-btn:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+  .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+  ul.features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  ul.features li {
+    padding: 0.4rem 0 0.4rem 1.4rem;
+    position: relative;
+  }
+  ul.features li::before {
+    content: "▸";
+    color: var(--accent);
+    position: absolute;
+    left: 0;
+    top: 0.4rem;
+  }
+  .demo-placeholder {
+    margin: 2rem 0;
+    aspect-ratio: 9 / 16;
+    max-height: 24rem;
+    border: 1px dashed var(--code-border);
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    color: var(--fg-dim);
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.9rem;
+  }
+  .alpha-pill {
+    display: inline-block;
+    background: rgba(255, 165, 0, 0.12);
+    color: #ffb84d;
+    border: 1px solid rgba(255, 165, 0, 0.3);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin-bottom: 1rem;
+  }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 102, 0.25); }
+  a:hover, a:focus-visible { border-bottom-color: var(--accent); outline: none; }
+  .security {
+    border-left: 3px solid var(--code-border);
+    padding: 0.5rem 1rem;
+    margin: 2rem 0;
+    color: var(--fg-dim);
+    font-size: 0.95rem;
+  }
+  .security strong { color: #ffb84d; }
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--code-border);
+    color: var(--fg-dim);
+    font-size: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <span class="alpha-pill">pre-alpha · single maintainer</span>
+  <h1>mobile-cc</h1>
+  <p class="tagline">Drive Claude Code from your phone. Open a URL — no SSH client, no copy-paste hell.</p>
+
+  <div class="install-block" aria-label="Install command">
+    <code id="install-cmd">curl -fsSL https://mobile-cc.dev/install.sh | bash</code>
+    <button class="copy-btn" type="button" data-target="install-cmd" aria-label="Copy install command">copy</button>
+  </div>
+
+  <div class="demo-placeholder" aria-label="Demo video placeholder">
+    [ demo video — coming soon ]
+  </div>
+
+  <h2>What you get</h2>
+  <ul class="features">
+    <li>Chat-style transcript view rendered directly from Claude Code's JSONL on disk.</li>
+    <li>Quick-keys row above the soft keyboard — Esc, Tab, Ctrl-C, arrows.</li>
+    <li>Pinned tmux-pane tabs that survive tmux restarts.</li>
+    <li>Image paste / drag / pick — screenshots upload + inject as <code>[image: /path]</code>.</li>
+    <li>Pane picker with a Recent section.</li>
+    <li>Terminal-Green CRT theme.</li>
+    <li>One Rust binary, ~8 MB. No node, no python, no runtime.</li>
+  </ul>
+
+  <h2>How it runs</h2>
+  <p>mobile-cc attaches to your <strong>existing tmux server</strong> via tmux's
+  control mode — read your live sessions in a mobile browser, send keystrokes
+  back. Default bind is <code>127.0.0.1:7800</code>; reach it from your phone via
+  <a href="https://tailscale.com/">Tailscale</a>, <code>ssh -L</code>, or a
+  <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">Cloudflare Tunnel</a>.</p>
+
+  <p>It's a curated build of <a href="https://github.com/ttyview/ttyview">ttyview</a>
+  — same plugin platform, same wire protocol, baked-in defaults tuned for the
+  Claude-Code-from-a-phone job.</p>
+
+  <div class="security">
+    <p><strong>⚠️ Pre-alpha · expect reduced responsiveness through mid-June 2026.</strong></p>
+    <p>mobile-cc has no built-in authentication. Bind <code>127.0.0.1</code> and
+    tunnel privately; if you bind a public address, mobile-cc itself refuses to
+    start without an explicit double opt-in. See the
+    <a href="https://github.com/eyalev/mobile-cc/blob/main/SECURITY.md">security policy</a>.</p>
+  </div>
+
+  <footer>
+    <span>MIT</span>
+    <a href="https://github.com/eyalev/mobile-cc">source</a>
+    <a href="https://github.com/ttyview/ttyview">ttyview</a>
+    <a href="/install.sh">install.sh</a>
+    <a href="https://github.com/eyalev/mobile-cc/releases/latest">latest release</a>
+  </footer>
+</main>
+<script>
+  (function () {
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var targetId = btn.getAttribute('data-target');
+        var text = document.getElementById(targetId).innerText;
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = 'copied';
+          btn.classList.add('copied');
+          setTimeout(function () {
+            btn.textContent = 'copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        }).catch(function () {
+          btn.textContent = 'select + copy';
+        });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -95,13 +95,19 @@ jobs:
           set -euo pipefail
           BIN_NAME=mobile-cc
           REF_NAME="${GITHUB_REF_NAME:-manual}"
+          # The staging DIR keeps the version in its name (so the unpacked
+          # folder is self-describing), but the ARCHIVE name is version-less:
+          # install.sh fetches it at /releases/latest/download/<archive> with
+          # no version lookup. Each release scopes its own assets, so
+          # version-less names never collide across releases.
           STAGING="${BIN_NAME}-${REF_NAME}-${{ matrix.target }}"
+          ARCHIVE="${BIN_NAME}-${{ matrix.target }}.tar.gz"
           mkdir -p "$STAGING"
           cp "target/${{ matrix.target }}/release/${BIN_NAME}" "$STAGING/"
           cp README.md LICENSE "$STAGING/"
-          tar -czf "${STAGING}.tar.gz" "$STAGING"
-          shasum -a 256 "${STAGING}.tar.gz" > "${STAGING}.tar.gz.sha256"
-          ls -la "${STAGING}.tar.gz" "${STAGING}.tar.gz.sha256"
+          tar -czf "$ARCHIVE" "$STAGING"
+          shasum -a 256 "$ARCHIVE" > "${ARCHIVE}.sha256"
+          ls -la "$ARCHIVE" "${ARCHIVE}.sha256"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
@@ -116,16 +122,92 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write       # create the release
+      id-token: write       # keyless OIDC signing for build provenance
+      attestations: write   # write the SLSA attestation to the repo
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           path: artifacts
           merge-multiple: true
+
+      # minisign signatures — authenticity that install.sh can verify with a
+      # tiny tool and no `gh` (the public key is embedded in install.sh). The
+      # signing key is a passwordless minisign key stored as a repo secret.
+      # No-ops with a warning if the secret isn't set, so the release still
+      # ships (sha256 + provenance remain).
+      - name: Sign artifacts with minisign
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MINISIGN_SECRET_KEY:-}" ]; then
+            echo "::warning::MINISIGN_SECRET_KEY not set — skipping minisign signing."
+            exit 0
+          fi
+          sudo apt-get update -qq && sudo apt-get install -y -qq minisign
+          umask 077
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > minisign.key
+          for f in artifacts/mobile-cc-*.tar.gz; do
+            minisign -Sm "$f" -s minisign.key < /dev/null
+            echo "signed $f -> ${f}.minisig"
+          done
+          rm -f minisign.key
+
+      # SLSA build provenance — proves each tarball was produced by THIS
+      # workflow off THIS commit. Keyless (Sigstore/OIDC); verifiable with
+      # `gh attestation verify <file> --repo eyalev/mobile-cc`.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32  # v4.1.0
+        with:
+          subject-path: 'artifacts/mobile-cc-*.tar.gz'
+
       - name: Create release
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda  # v2.2.1
         with:
           files: |
             artifacts/mobile-cc-*.tar.gz
             artifacts/mobile-cc-*.tar.gz.sha256
+            artifacts/mobile-cc-*.tar.gz.minisig
           generate_release_notes: true
+
+  homebrew:
+    name: Bump Homebrew tap
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout mobile-cc (for the generator)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          path: mobile-cc
+
+      # Regenerate Formula/mobile-cc.rb from the just-published release and push
+      # it to the tap. Needs a PAT (HOMEBREW_TAP_TOKEN) with contents:write on
+      # eyalev/homebrew-tap — the default GITHUB_TOKEN can't push cross-repo.
+      # No-ops with a warning if the secret isn't set (release still succeeds).
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN not set — skipping Homebrew tap bump."
+            exit 0
+          fi
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/eyalev/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          bash mobile-cc/scripts/gen-homebrew-formula.sh "$TAG" tap/Formula/mobile-cc.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/mobile-cc.rb
+          if git diff --cached --quiet; then
+            echo "formula unchanged — nothing to push"
+            exit 0
+          fi
+          git commit -m "mobile-cc ${TAG}"
+          git push

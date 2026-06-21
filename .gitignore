@@ -2,6 +2,7 @@
 .DS_Store
 *.swp
 node_modules/
+.wrangler/
 
 # Agent notes (private, see CLAUDE.md and .claude/)
 CLAUDE.md

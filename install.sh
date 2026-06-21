@@ -3,17 +3,27 @@
 #
 # Source of truth: https://github.com/eyalev/mobile-cc/blob/main/install.sh
 # Live URL:        https://mobile-cc.dev/install.sh
-# Pages fallback:  https://mobile-cc.pages.dev/install.sh
 #
 #   curl -fsSL https://mobile-cc.dev/install.sh | bash
+#
+# Prefer to read before you run (recommended — this script installs a binary
+# that can drive your shell):
+#
+#   curl -fsSL https://mobile-cc.dev/install.sh -o mobile-cc-install.sh
+#   less mobile-cc-install.sh        # audit it
+#   bash mobile-cc-install.sh
+#
+# Binaries are served straight from GitHub Releases. The download is verified,
+# in order of strength: a minisign signature (if `minisign` is installed),
+# GitHub build-provenance / SLSA attestation (if `gh` is installed + authed),
+# and always a SHA-256 checksum. See "verify" below.
 #
 # Knobs (env vars):
 #   MOBILE_CC_BIND       — address:port to bind (default 127.0.0.1:7800)
 #   MOBILE_CC_VERSION    — release tag to install (default: latest)
 #   MOBILE_CC_PREFIX     — where to install the binary (default $HOME/.local/bin)
-#   MOBILE_CC_BASE_URL   — install source base URL
-#                          (default https://mobile-cc.dev, falls back to
-#                           https://mobile-cc.pages.dev if the apex 404s)
+#   MOBILE_CC_REPO       — GitHub owner/repo to fetch from (default eyalev/mobile-cc)
+#   MOBILE_CC_RELEASES_URL — release base URL (default https://github.com/$REPO/releases)
 #   MOBILE_CC_SKIP_UNIT  — set to 1 to skip the systemd user unit
 #   MOBILE_CC_BIN_FILE   — install this local file instead of downloading
 #                          (skips network entirely; for offline / test installs)
@@ -28,7 +38,14 @@ set -euo pipefail
 BIND="${MOBILE_CC_BIND:-127.0.0.1:7800}"
 PREFIX="${MOBILE_CC_PREFIX:-$HOME/.local/bin}"
 UNIT_DIR="$HOME/.config/systemd/user"
-BASE_URL="${MOBILE_CC_BASE_URL:-}"
+REPO="${MOBILE_CC_REPO:-eyalev/mobile-cc}"
+RELEASES_URL="${MOBILE_CC_RELEASES_URL:-https://github.com/${REPO}/releases}"
+
+# minisign public key for mobile-cc release artifacts. If `minisign` is on the
+# user's PATH and the release ships a .minisig, the download is verified against
+# this key (authenticity, no `gh` required). Generated 2026-06-21; rotating it
+# means shipping a new install.sh.
+MINISIGN_PUBKEY="RWSlxyi2aX3154lzQAyvgiOFtsZOgnlfsEkdlwTDPYI2aV72b6FBqqp1"
 
 mkdir -p "$PREFIX"
 
@@ -100,73 +117,103 @@ else
     *) echo "mobile-cc: unsupported platform $OS-$ARCH" >&2; exit 1 ;;
   esac
 
-  # resolve base URL with fallback (apex CNAME may not be wired yet)
-  resolve_base_url() {
-    if [ -n "$BASE_URL" ]; then echo "$BASE_URL"; return; fi
-    # try the apex first, then pages.dev as fallback
-    for url in "https://mobile-cc.dev" "https://mobile-cc.pages.dev"; do
-      if curl -fsSL --max-time 4 -o /dev/null "$url/latest.txt"; then
-        echo "$url"
-        return
-      fi
-    done
-    echo ""
-  }
-  # Strip any whitespace: on some systems `curl -o /dev/null` emits a stray
-  # newline to stdout, which would otherwise prepend to the URL captured here
-  # and produce "curl: (3) URL rejected: Malformed input to a URL function".
-  BASE_URL=$(resolve_base_url | tr -d '[:space:]')
-  if [ -z "$BASE_URL" ]; then
-    echo "mobile-cc: cannot reach either mobile-cc.dev or mobile-cc.pages.dev" >&2
-    echo "           set MOBILE_CC_BASE_URL=<url> to an install mirror" >&2
-    exit 1
+  # Binaries live on GitHub Releases. Asset names are version-less
+  # (mobile-cc-<target>.tar.gz) so the "latest" URL needs no version lookup:
+  #   latest:  $RELEASES_URL/latest/download/<asset>
+  #   pinned:  $RELEASES_URL/download/<tag>/<asset>
+  ASSET="mobile-cc-${TARGET}.tar.gz"
+  if [ -n "${MOBILE_CC_VERSION:-}" ]; then
+    URL="${RELEASES_URL}/download/${MOBILE_CC_VERSION}/${ASSET}"
+    # Releases up to v0.4.0 embedded the version in the asset name; fall back
+    # to that scheme if the version-less name isn't present.
+    URL_FALLBACK="${RELEASES_URL}/download/${MOBILE_CC_VERSION}/mobile-cc-${MOBILE_CC_VERSION}-${TARGET}.tar.gz"
+    VERSION_LABEL="$MOBILE_CC_VERSION"
+  else
+    URL="${RELEASES_URL}/latest/download/${ASSET}"
+    URL_FALLBACK=""
+    VERSION_LABEL="latest"
   fi
 
-  # resolve version
-  if [ -z "${MOBILE_CC_VERSION:-}" ]; then
-    MOBILE_CC_VERSION=$(curl -fsSL --max-time 5 "$BASE_URL/latest.txt" | tr -d '[:space:]')
-  fi
-  if [ -z "$MOBILE_CC_VERSION" ]; then
-    echo "mobile-cc: could not resolve latest version from $BASE_URL/latest.txt" >&2
-    exit 1
-  fi
-
-  ASSET="mobile-cc-${MOBILE_CC_VERSION}-${TARGET}.tar.gz"
-  URL="${BASE_URL}/${MOBILE_CC_VERSION}/${ASSET}"
-
-  echo "[1/3] downloading mobile-cc ${MOBILE_CC_VERSION} (${TARGET}) from ${BASE_URL}"
+  echo "[1/3] downloading mobile-cc ${VERSION_LABEL} (${TARGET})"
   TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-  curl -fsSL --max-time 60 "$URL" -o "$TMP/dl.tar.gz"
+  if curl -fsSL --max-time 60 "$URL" -o "$TMP/dl.tar.gz" 2>/dev/null; then
+    echo "      from ${URL}"
+  elif [ -n "$URL_FALLBACK" ] && curl -fsSL --max-time 60 "$URL_FALLBACK" -o "$TMP/dl.tar.gz" 2>/dev/null; then
+    URL="$URL_FALLBACK"
+    echo "      from ${URL}"
+  else
+    echo "mobile-cc: download failed from ${URL}" >&2
+    [ -n "$URL_FALLBACK" ] && echo "           (also tried ${URL_FALLBACK})" >&2
+    exit 1
+  fi
 
-  # Verify the downloaded tarball against the published .sha256. Pages
-  # publishes <asset>.sha256 alongside each tarball — fetching it on the
-  # same TLS connection means an attacker controlling the network can't
-  # serve a tampered binary + matching hash unless they also break TLS.
-  echo "      verifying sha256..."
-  if curl -fsSL --max-time 30 "${URL}.sha256" -o "$TMP/dl.tar.gz.sha256"; then
+  # ---------- verify the download (layered: strongest available wins) ----------
+  # 1. minisign signature  — authenticity, no `gh` needed (presence-gated on
+  #    both the minisign tool and a .minisig sibling; a present-but-bad sig is
+  #    fatal).
+  # 2. gh build-provenance — proves the binary came from this repo's CI
+  #    (SLSA). Best-effort: a failure is a notice, not fatal, so installs of
+  #    releases that predate attestations still work.
+  # 3. SHA-256 checksum    — integrity baseline; always attempted; a mismatch
+  #    is always fatal.
+  STRONG_VERIFIED=0
+
+  fatal_verify() {
+    echo "" >&2
+    echo "mobile-cc: $1" >&2
+    echo "  url: $URL" >&2
+    echo "" >&2
+    echo "Refusing to install. This could be a corrupted download, or someone" >&2
+    echo "tampering with the artifact. Re-run; if it persists, file an issue at" >&2
+    echo "https://github.com/${REPO}/issues ." >&2
+    exit 1
+  }
+
+  # 1. minisign
+  if command -v minisign >/dev/null 2>&1; then
+    if curl -fsSL --max-time 30 "${URL}.minisig" -o "$TMP/dl.tar.gz.minisig" 2>/dev/null; then
+      echo "      verifying minisign signature..."
+      if minisign -Vm "$TMP/dl.tar.gz" -P "$MINISIGN_PUBKEY" -x "$TMP/dl.tar.gz.minisig" >/dev/null 2>&1; then
+        echo "      ✓ minisign signature OK"
+        STRONG_VERIFIED=1
+      else
+        fatal_verify "minisign signature verification FAILED"
+      fi
+    fi
+  fi
+
+  # 2. gh build-provenance / SLSA attestation
+  if [ "$STRONG_VERIFIED" = 0 ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    echo "      verifying build provenance (gh attestation)..."
+    if gh attestation verify "$TMP/dl.tar.gz" --repo "$REPO" >/dev/null 2>&1; then
+      echo "      ✓ build provenance verified (SLSA — built by ${REPO} CI)"
+      STRONG_VERIFIED=1
+    else
+      echo "      note: provenance not confirmed (release may predate attestations," >&2
+      echo "            or gh is too old) — falling back to SHA-256." >&2
+    fi
+  fi
+
+  # 3. SHA-256 (always — integrity baseline)
+  if curl -fsSL --max-time 30 "${URL}.sha256" -o "$TMP/dl.tar.gz.sha256" 2>/dev/null; then
     expected=$(awk '{print $1}' "$TMP/dl.tar.gz.sha256")
     if   command -v sha256sum >/dev/null 2>&1; then
       actual=$(sha256sum "$TMP/dl.tar.gz" | awk '{print $1}')
     elif command -v shasum >/dev/null 2>&1; then
       actual=$(shasum -a 256 "$TMP/dl.tar.gz" | awk '{print $1}')
     else
-      echo "mobile-cc: WARNING — neither sha256sum nor shasum found; skipping integrity check." >&2
-      actual="$expected"  # skip the comparison below
+      echo "mobile-cc: WARNING — neither sha256sum nor shasum found; skipping checksum." >&2
+      actual="$expected"
     fi
     if [ "$expected" != "$actual" ]; then
-      echo "" >&2
-      echo "mobile-cc: SHA-256 mismatch on downloaded binary!" >&2
       echo "  expected: $expected" >&2
       echo "  actual:   $actual" >&2
-      echo "  url:      $URL" >&2
-      echo "" >&2
-      echo "Refusing to install. This could be a corrupted download, or someone" >&2
-      echo "tampering with the network path. Re-run; if it persists, file an" >&2
-      echo "issue at https://github.com/eyalev/mobile-cc/issues ." >&2
-      exit 1
+      fatal_verify "SHA-256 checksum mismatch on downloaded binary"
     fi
-  else
-    echo "mobile-cc: WARNING — could not fetch .sha256 sibling; skipping integrity check." >&2
+    echo "      ✓ SHA-256 OK"
+  elif [ "$STRONG_VERIFIED" = 0 ]; then
+    echo "mobile-cc: WARNING — no signature, no provenance, and no .sha256 could be" >&2
+    echo "  fetched. The download is unverified (relying on TLS only)." >&2
   fi
 
   tar -xzf "$TMP/dl.tar.gz" -C "$TMP"
