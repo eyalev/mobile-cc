@@ -150,8 +150,10 @@ to come — live in **[docs/tutorials](docs/tutorials/)**.
 
 ## What you get
 
-- **No tmux knowledge required** — create, name, switch, and kill sessions from
-  buttons. Even if you live in tmux, you never reach for `Ctrl-b` again.
+- **No tmux knowledge required** — the header **＋** spins up a session three
+  ways (blank shell · shell with Claude Code · Claude Code in a project
+  folder); switch and kill from buttons. Even if you live in tmux, you never
+  reach for `Ctrl-b` again.
 - **The real Claude Code TUI** — the actual terminal, rendered as live cell
   state (not screen-scraped images), with syntax highlighting. Auto-fits a
   phone screen and widens to fill a desktop window.
