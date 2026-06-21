@@ -51,7 +51,12 @@
   try {
     var tabsStore = window.ttyview.storage('ttyview-tabs');
     if (tabsStore && tabsStore.get('settings') == null) {
-      tabsStore.set('settings', { rows: 3, maxPerRow: 4, mode: 'pinned' });
+      // recentRow:false — the upstream default shows an always-on "recent
+      // sessions" strip above the project groups. On a fresh mobile-cc it
+      // reads as a confusing lone tab above the grid, so mobile-cc ships it
+      // off. Re-enable any time via Settings → Pinned Tabs → "Show recent
+      // tabs row" (the 🕘 rail mode still gives on-demand recents).
+      tabsStore.set('settings', { rows: 3, maxPerRow: 4, mode: 'pinned', recentRow: false });
     }
 
     // Pin the "mcc" group to its own color. The tabs plugin derives a
