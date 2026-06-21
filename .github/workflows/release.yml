@@ -24,7 +24,7 @@ permissions:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: v0.1.5   # SVG rail icons + constant tab-area height (match across workflows)
+  TTYVIEW_REF: v0.1.6   # configurable deep scrollback + two-phase load (match across workflows)
   # Opt the JS-based actions (checkout, upload/download-artifact) into
   # Node 24 ahead of the GitHub default flip. Removable once the actions
   # ship Node 24 natively.

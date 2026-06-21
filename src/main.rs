@@ -71,6 +71,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-commands.js",      include_bytes!("../assets/mobile-cc-commands.js")),
     ("mobile-cc-kbd-overlay.js",   include_bytes!("../assets/mobile-cc-kbd-overlay.js")),
     ("mobile-cc-term-size.js",     include_bytes!("../assets/mobile-cc-term-size.js")),
+    ("mobile-cc-scrollback.js",    include_bytes!("../assets/mobile-cc-scrollback.js")),
     // TEMP diagnostic — soft-keyboard-on-tab-switch tracer. Remove with
     // its assets/installed.json entry once the cause is pinned.
     ("mobile-cc-kbd-diag.js",      include_bytes!("../assets/mobile-cc-kbd-diag.js")),
@@ -183,6 +184,12 @@ async fn main() -> Result<()> {
             .iter()
             .map(|(path, bytes)| (path.to_string(), bytes.to_vec()))
             .collect(),
+        // Single-user box: keep a deep per-pane scrollback so the phone
+        // can scroll far back. The default (2000) is tuned for
+        // multi-session embedders; mobile-cc has a handful of panes, so
+        // 10_000 lines is cheap and gives the Settings → Scrollback
+        // control real headroom. See assets/mobile-cc-scrollback.js.
+        max_scrollback: Some(10_000),
         ..Default::default()
     })
     .await
@@ -230,5 +237,68 @@ mod tests {
     #[test]
     fn unspecified_v6_is_refused() {
         assert!(check_bind_safety(parse("[::]:7800")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod bundle_tests {
+    //! The bundled plugin set lives in TWO places that must agree:
+    //! `PLUGIN_SOURCES` (the embedded JS, written to disk on first run) and
+    //! `assets/installed.json` (the manifest ttyview reads to surface
+    //! plugins). Adding a plugin to only one is an easy footgun — a manifest
+    //! entry with no source 404s; a source with no manifest entry is dead
+    //! weight that never registers. These tests keep the two in lock-step.
+    use super::*;
+    use std::collections::HashSet;
+
+    /// Pull every `"source":"<file>"` value out of the manifest JSON without
+    /// taking a serde_json dependency (the manifest is a fixed, simple shape).
+    fn manifest_sources() -> Vec<String> {
+        let needle = "\"source\":\"";
+        let mut out = Vec::new();
+        let mut rest = BUNDLED_INSTALLED_JSON;
+        while let Some(i) = rest.find(needle) {
+            rest = &rest[i + needle.len()..];
+            if let Some(end) = rest.find('"') {
+                out.push(rest[..end].to_string());
+                rest = &rest[end..];
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn every_manifest_source_is_bundled() {
+        let bundled: HashSet<&str> = PLUGIN_SOURCES.iter().map(|(n, _)| *n).collect();
+        for src in manifest_sources() {
+            assert!(
+                bundled.contains(src.as_str()),
+                "installed.json lists `{src}` but it is not in PLUGIN_SOURCES — \
+                 ttyview would serve 404 for that plugin"
+            );
+        }
+    }
+
+    #[test]
+    fn every_bundled_plugin_is_in_manifest_and_nonempty() {
+        let sources = manifest_sources();
+        for (name, bytes) in PLUGIN_SOURCES {
+            assert!(
+                sources.iter().any(|s| s == name),
+                "`{name}` is in PLUGIN_SOURCES but missing from installed.json — \
+                 it would be written to disk but never registered"
+            );
+            assert!(!bytes.is_empty(), "bundled plugin `{name}` is empty");
+        }
+    }
+
+    #[test]
+    fn manifest_and_sources_are_one_to_one() {
+        assert_eq!(
+            manifest_sources().len(),
+            PLUGIN_SOURCES.len(),
+            "installed.json entry count != PLUGIN_SOURCES count — a plugin was \
+             added or removed in only one of the two places"
+        );
     }
 }

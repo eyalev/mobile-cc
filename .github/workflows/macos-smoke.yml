@@ -26,7 +26,7 @@ on:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: v0.1.5   # SVG rail icons + constant tab-area height (match across workflows)
+  TTYVIEW_REF: v0.1.6   # configurable deep scrollback + two-phase load (match across workflows)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
