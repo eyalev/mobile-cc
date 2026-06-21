@@ -4,49 +4,77 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-**Drive Claude Code from your phone.** Already have Claude Code running in
-`tmux` on your laptop or a server? mobile-cc lets you read the conversation
-and type back from your phone's browser — no SSH app, no copy-paste fights,
-nothing to install on the phone.
+**Drive Claude Code from your phone — or any browser.** mobile-cc puts your
+Claude Code sessions on a tap-friendly web page: read the conversation, type
+back, and switch between projects — no SSH client, no copy-paste fights, and
+not a single tmux shortcut to memorize.
 
 <p align="center">
   <img src="docs/media/hero.png" alt="The real Claude Code TUI running in mobile-cc on a phone" width="300">
 </p>
 
-It's a single ~9 MB Rust binary you run on the **same machine** as Claude
-Code. It attaches to your existing tmux session and serves a phone-friendly
-web UI. You reach that UI from your phone over a private tunnel (Tailscale —
-walked through below).
+It runs as one ~9 MB binary on the **same machine** as Claude Code and serves
+a web UI you open from your phone or your desktop. It uses `tmux` under the
+hood to keep sessions alive across disconnects — but **you never have to learn
+tmux**: mobile-cc creates, names, and switches sessions for you, from buttons.
+
+---
+
+## Juggle every project from one screen
+
+Running Claude Code in five repos at once? Each session is a tab. Tap to jump
+between them; tap **+ New session** to start another — no `tmux new`, no
+`Ctrl-b` gymnastics. Tabs survive restarts, and a dot flags any session
+waiting on a permission prompt or with fresh output, so you know which project
+needs you.
+
+<p align="center">
+  <img src="docs/media/sessions.png" alt="The pane picker listing Claude Code sessions across several projects, with a New session button" width="300">
+</p>
 
 ---
 
 ## See it
 
-You get the **real Claude Code TUI**, rendered live on your phone — syntax
-highlighting, dialogs, permission prompts and all — auto-fit to your screen so
-an 80-column terminal is readable without pinch-zooming. A quick-keys row adds
-`Esc`, `Tab`, `Ctrl-C`, and arrows that phone keyboards hide, and you type
-replies in the box at the bottom.
+You get the **real Claude Code TUI**, rendered live — syntax highlighting,
+dialogs, permission prompts and all — auto-fit to your screen so an 80-column
+terminal is readable without pinch-zooming. A quick-keys row adds `Esc`,
+`Tab`, `Ctrl-C`, and arrows that phone keyboards hide, and you type replies in
+the box at the bottom.
 
 <p align="center">
   <img src="docs/media/use.gif" alt="Driving Claude Code from a phone — typing a reply with the quick-keys row" width="300">
+</p>
+
+## Great on the desktop, too
+
+Open the same URL in a desktop browser and the terminal widens to fill the
+window at a comfortable density — a full-width Claude Code session with your
+project tabs down the side. Same tool, same tabs, phone and laptop in sync.
+
+<p align="center">
+  <img src="docs/media/desktop.png" alt="mobile-cc filling a desktop browser window with a full-width Claude Code session and project tabs" width="760">
 </p>
 
 ---
 
 ## Quickstart
 
-You need a machine running **tmux** (Linux or macOS) that your phone can
-reach over [Tailscale](https://tailscale.com/). Four steps:
+You need a machine (Linux or macOS) that your phone can reach over
+[Tailscale](https://tailscale.com/). Four steps:
 
-### 1. Have Claude Code running in tmux
+### 1. Start a Claude Code session
 
-On the machine, inside a tmux session:
+mobile-cc keeps your sessions alive in `tmux`, so start one there:
 
 ```bash
-tmux new -s cc      # or attach to one you already have
-claude              # start Claude Code as usual
+tmux new -s my-project   # a named session
+claude                   # run Claude Code as usual
 ```
+
+New to tmux? You don't need to be. Install mobile-cc (next step), open the UI,
+tap **+ New session**, then run `claude` inside it — that's the last time tmux
+is even mentioned.
 
 ### 2. Install mobile-cc
 
@@ -78,11 +106,12 @@ tailscale serve --bg --https=443 http://127.0.0.1:7800
 That prints an `https://<machine>.<your-tailnet>.ts.net/` URL. (The installer
 also prints this if Tailscale is already set up.)
 
-### 4. Open the URL on your phone
+### 4. Open the URL on your phone or laptop
 
-Install the Tailscale app on your phone, sign in to the same account, then
-open that `https://…ts.net/` URL in any mobile browser. Pick the tmux pane
-running Claude Code from the picker at the top — and you're driving it.
+Install Tailscale on the device you want to drive from (phone app or desktop
+client), sign in to the same account, then open that `https://…ts.net/` URL in
+any browser. Pick the session running Claude Code from the picker at the top —
+and you're driving it.
 
 > Because it's served over HTTPS, Chrome on Android offers **Add to Home
 > screen**, and mobile-cc opens like a standalone app.
@@ -91,12 +120,14 @@ running Claude Code from the picker at the top — and you're driving it.
 
 ## What you get
 
+- **No tmux knowledge required** — create, name, switch, and kill sessions from
+  buttons. Even if you live in tmux, you never reach for `Ctrl-b` again.
 - **The real Claude Code TUI** — the actual terminal, rendered as live cell
-  state (not screen-scraped images), with syntax highlighting and auto-fit so
-  it's legible on a phone. This is the default view.
+  state (not screen-scraped images), with syntax highlighting. Auto-fits a
+  phone screen and widens to fill a desktop window.
 - **Quick-keys row** above the keyboard — `Esc`, `Tab`, `Ctrl-C`, arrows.
-- **Pinned tabs** — switch between tmux panes / sessions with one tap. Survives
-  tmux restarts (pinned by session name). Dots flag a session waiting on a
+- **Project tabs** — every session is a tab; switch with one tap. Survives
+  restarts (pinned by session name). Dots flag a session waiting on a
   permission prompt or with new output.
 - **Image paste / pick** — attach a screenshot from your phone; it's staged on
   the server and inserted as `[image: /path/...]`, which Claude Code reads just
