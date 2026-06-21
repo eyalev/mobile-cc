@@ -50,7 +50,8 @@ the box at the bottom.
 
 Open the same URL in a desktop browser and the terminal widens to fill the
 window at a comfortable density — a full-width Claude Code session with your
-project tabs down the side. Same tool, same tabs, phone and laptop in sync.
+project tabs grouped along the bottom. Same tool, same tabs, phone and laptop
+in sync.
 
 <p align="center">
   <img src="docs/media/desktop.png" alt="mobile-cc filling a desktop browser window with a full-width Claude Code session and project tabs" width="760">
