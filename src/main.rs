@@ -71,6 +71,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-commands.js",      include_bytes!("../assets/mobile-cc-commands.js")),
     ("mobile-cc-kbd-overlay.js",   include_bytes!("../assets/mobile-cc-kbd-overlay.js")),
     ("mobile-cc-term-size.js",     include_bytes!("../assets/mobile-cc-term-size.js")),
+    ("mobile-cc-pinch-zoom.js",    include_bytes!("../assets/mobile-cc-pinch-zoom.js")),
     ("mobile-cc-scrollback.js",    include_bytes!("../assets/mobile-cc-scrollback.js")),
     // TEMP diagnostic — soft-keyboard-on-tab-switch tracer. Remove with
     // its assets/installed.json entry once the cause is pinned.
