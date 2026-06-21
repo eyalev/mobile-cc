@@ -112,7 +112,10 @@ else
     done
     echo ""
   }
-  BASE_URL=$(resolve_base_url)
+  # Strip any whitespace: on some systems `curl -o /dev/null` emits a stray
+  # newline to stdout, which would otherwise prepend to the URL captured here
+  # and produce "curl: (3) URL rejected: Malformed input to a URL function".
+  BASE_URL=$(resolve_base_url | tr -d '[:space:]')
   if [ -z "$BASE_URL" ]; then
     echo "mobile-cc: cannot reach either mobile-cc.dev or mobile-cc.pages.dev" >&2
     echo "           set MOBILE_CC_BASE_URL=<url> to an install mirror" >&2

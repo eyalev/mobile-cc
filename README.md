@@ -4,139 +4,174 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-> ⚠️ **Early-stage software.** mobile-cc has no built-in authentication.
-> Since v0.2.0 the binary is loopback-only and won't bind a public address.
-> Reach it from another device via Tailscale, `ssh -L`, or `cloudflared`
-> — see [Reaching mobile-cc from elsewhere](#reaching-mobile-cc-from-elsewhere)
-> and [SECURITY.md](./SECURITY.md).
+**Drive Claude Code from your phone.** Already have Claude Code running in
+`tmux` on your laptop or a server? mobile-cc lets you read the conversation
+and type back from your phone's browser — no SSH app, no copy-paste fights,
+nothing to install on the phone.
 
-**Drive Claude Code from your phone.** Open a URL in any mobile browser — no
-SSH client, no copy-paste fights, no app to install on the phone.
+<p align="center">
+  <img src="docs/media/hero.png" alt="The real Claude Code TUI running in mobile-cc on a phone" width="300">
+</p>
 
-## What you get
+It's a single ~9 MB Rust binary you run on the **same machine** as Claude
+Code. It attaches to your existing tmux session and serves a phone-friendly
+web UI. You reach that UI from your phone over a private tunnel (Tailscale —
+walked through below).
 
-- **Chat-style transcript view** — renders the Claude Code conversation
-  directly from the JSONL on disk (not screen-scraped from the TUI), so it
-  stays clean and scrollable.
-- **Quick keys row** above the soft keyboard — `Esc`, `Tab`, `Ctrl-C`, arrows.
-- **Pinned tabs** — switch between tmux panes / sessions with one tap. State
-  survives tmux restarts (pinned by session name).
-- **Image paste / drag / pick** — attach a screenshot from your phone gallery
-  or paste it from the clipboard; it gets staged on the server and inserted
-  into your message as `[image: /path/...]`. Claude Code reads it the same
-  way you'd paste a screenshot on desktop.
-- **Pane picker** with a Recent section, per-browser memory.
-- **Terminal Green theme** — CRT aesthetic, paired with the chat view.
-- **Installable as an app (PWA)** — the daemon serves a web manifest +
-  service worker, so Chrome on Android offers "Add to Home screen" and
-  mobile-cc opens standalone (no URL bar). Requires HTTPS or localhost —
-  the Tailscale path below qualifies.
+---
 
-A single statically-linked Rust binary, ~8 MB. No node, no python, no
-runtime to install.
+## See it
 
-## Install (Linux, x86_64 or arm64)
+You get the **real Claude Code TUI**, rendered live on your phone — syntax
+highlighting, dialogs, permission prompts and all — auto-fit to your screen so
+an 80-column terminal is readable without pinch-zooming. A quick-keys row adds
+`Esc`, `Tab`, `Ctrl-C`, and arrows that phone keyboards hide, and you type
+replies in the box at the bottom.
 
-> **Prerequisite:** `tmux` must be installed on the same host — mobile-cc
-> attaches to your existing tmux server; it doesn't start one or bundle one.
-> `sudo apt install tmux` on Debian/Ubuntu, `brew install tmux` on macOS.
+<p align="center">
+  <img src="docs/media/use.gif" alt="Driving Claude Code from a phone — typing a reply with the quick-keys row" width="300">
+</p>
+
+---
+
+## Quickstart
+
+You need a machine running **tmux** (Linux or macOS) that your phone can
+reach over [Tailscale](https://tailscale.com/). Four steps:
+
+### 1. Have Claude Code running in tmux
+
+On the machine, inside a tmux session:
+
+```bash
+tmux new -s cc      # or attach to one you already have
+claude              # start Claude Code as usual
+```
+
+### 2. Install mobile-cc
 
 ```bash
 curl -fsSL https://mobile-cc.dev/install.sh | bash
 ```
 
-That:
+<p align="center">
+  <img src="docs/media/install.gif" alt="Installing mobile-cc with one command" width="600">
+</p>
 
-1. Downloads the `mobile-cc` binary for your platform from
-   [GitHub releases](https://github.com/eyalev/mobile-cc/releases) to
-   `~/.local/bin/mobile-cc`.
-2. Drops a systemd user unit at
-   `~/.config/systemd/user/mobile-cc.service`, enables it, and starts it.
-3. Prints the URL.
+This downloads the binary to `~/.local/bin/mobile-cc`, verifies its
+checksum, installs a **systemd user service** that starts it (and restarts
+it on boot), and prints your URL. It binds `127.0.0.1:7800` — loopback only.
 
-Default bind is `127.0.0.1:7800` (loopback-only — see
-[Reaching mobile-cc from elsewhere](#reaching-mobile-cc-from-elsewhere)
-below).
+> **macOS / no systemd?** The installer just drops the binary and tells you
+> the command to run it yourself. See [Running it manually](#running-it-manually).
 
-### Custom version / install dir
+### 3. Expose it to your phone over Tailscale
+
+mobile-cc only listens on `127.0.0.1`, so your phone can't reach it directly.
+[Tailscale](https://tailscale.com/) gives the machine a private HTTPS address
+that only your devices can see:
 
 ```bash
-MOBILE_CC_VERSION=v0.2.0 curl -fsSL https://mobile-cc.dev/install.sh | bash
+tailscale serve --bg --https=443 http://127.0.0.1:7800
 ```
 
-Other knobs: `MOBILE_CC_PREFIX` (binary location), `MOBILE_CC_SKIP_UNIT=1`
-(don't write a systemd unit), `MOBILE_CC_BIN_FILE=/path/to/binary` (skip
-download and install a local file — useful for offline machines).
+That prints an `https://<machine>.<your-tailnet>.ts.net/` URL. (The installer
+also prints this if Tailscale is already set up.)
 
-> Since v0.2.0, `MOBILE_CC_BIND` is restricted to loopback addresses. The
-> binary refuses any non-loopback bind — see the section below for the
-> supported ways to reach it from another device.
+### 4. Open the URL on your phone
 
-### Survive logout
+Install the Tailscale app on your phone, sign in to the same account, then
+open that `https://…ts.net/` URL in any mobile browser. Pick the tmux pane
+running Claude Code from the picker at the top — and you're driving it.
+
+> Because it's served over HTTPS, Chrome on Android offers **Add to Home
+> screen**, and mobile-cc opens like a standalone app.
+
+---
+
+## What you get
+
+- **The real Claude Code TUI** — the actual terminal, rendered as live cell
+  state (not screen-scraped images), with syntax highlighting and auto-fit so
+  it's legible on a phone. This is the default view.
+- **Quick-keys row** above the keyboard — `Esc`, `Tab`, `Ctrl-C`, arrows.
+- **Pinned tabs** — switch between tmux panes / sessions with one tap. Survives
+  tmux restarts (pinned by session name). Dots flag a session waiting on a
+  permission prompt or with new output.
+- **Image paste / pick** — attach a screenshot from your phone; it's staged on
+  the server and inserted as `[image: /path/...]`, which Claude Code reads just
+  like a desktop paste.
+- **Command chips** — one-tap buttons above the message box for commands you
+  send often.
+- **Voice input** — dictate a message (Web Speech, or Groq Whisper with a key).
+- **Chat-style transcript reader** — a clean, scrollable plain-text view of the
+  conversation read from the JSONL on disk. One tap from the terminal view —
+  handy for reading back a long session.
+- **Installable (PWA)** — add it to your home screen; opens standalone.
+
+<p align="center">
+  <img src="docs/media/chat.png" alt="The chat-style transcript reader view" width="280">
+</p>
+
+---
+
+## Reaching it from other devices
+
+mobile-cc binds `127.0.0.1` only and has **no built-in authentication** —
+anyone who can reach the port can drive your shell. So every supported way to
+reach it from another device puts an authenticating layer in front. Tailscale
+(above) is the recommended one. Others:
+
+| Pattern | Auth | Best for |
+| --- | --- | --- |
+| **Tailscale** (recommended) — `tailscale serve --bg --https=443 http://127.0.0.1:7800` | Tailnet ACL + TLS | Phone access. Real HTTPS via Let's Encrypt at `https://<host>.<tailnet>.ts.net/`. |
+| **`ssh -L 7800:127.0.0.1:7800 <host>`** | SSH key | A laptop or any device with SSH access. Zero extra infra. |
+| **[Cloudflare named tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) + [Access](https://www.cloudflare.com/zero-trust/products/access/)** | Cloudflare SSO | A public URL with browser-based login. |
+| **Reverse proxy (Caddy / nginx) + auth** | Whatever you bring | Existing infra with an auth layer you trust. |
+
+**Not supported:** binding to `0.0.0.0` or a LAN / public IP directly. The
+binary refuses it since v0.2.0 — every "trusted LAN only" deployment of an
+auth-less shell has a long history of accidental exposure. The patterns above
+are the same effort once and remove that failure class.
+
+For the security policy, see [SECURITY.md](./SECURITY.md).
+
+---
+
+## Reference
+
+### Install options
+
+| Env var | Effect |
+|---|---|
+| `MOBILE_CC_VERSION=v0.3.2` | Install a specific release (default: latest). |
+| `MOBILE_CC_PREFIX=/path` | Where to put the binary (default `~/.local/bin`). |
+| `MOBILE_CC_SKIP_UNIT=1` | Don't write a systemd unit. |
+| `MOBILE_CC_BIN_FILE=/path` | Install a local binary instead of downloading. |
+
+Survive logout (keep the service running after you close SSH):
 
 ```bash
 loginctl enable-linger $USER
 ```
 
-Otherwise the daemon stops when you log out of SSH.
-
-## Use it
-
-1. Start a tmux session and run `claude` (or `claude --resume`) inside it.
-2. Open `http://<host>:7800/` on your phone.
-3. Use the pane picker (top-left) to find the tmux session running Claude
-   Code.
-4. Type into the input at the bottom. The Quick Keys row gives you `Esc`,
-   arrows, `Tab`, `Ctrl-C` — the keys phone keyboards hide.
-
-To attach screenshots from your phone: tap the 📎 button above the input.
-The image is staged on the server and inserted into your message as
-`[image: /path/...]` — Claude Code reads it the same way you'd paste an
-image on desktop.
-
-## Run it manually (no systemd)
+### Running it manually
 
 ```bash
-mobile-cc --bind 127.0.0.1:7800 --app-name "Mobile CC"
+mobile-cc --bind 127.0.0.1:7800
 ```
-
-Available flags:
 
 | Flag | Default | What |
 |---|---|---|
-| `--bind` | `127.0.0.1:7800` | Address to bind on. Loopback only — the binary refuses anything else. |
-| `--app-name` | `"Mobile CC"` | Shown in the header. Useful with multiple instances. |
+| `--bind` | `127.0.0.1:7800` | Address to bind. Loopback only — refuses anything else. |
+| `--app-name` | `mobile-cc` | Shown in the header / PWA title. |
 | `--tmux-socket` | (default tmux) | Tmux socket name (`tmux -L`). |
 | `--config-dir` | `$XDG_CONFIG_HOME/mobile-cc` | Where the plugin manifest lives. |
 
-That's the whole CLI surface — by design. mobile-cc is a curated package,
-not a kitchen-sink terminal viewer.
+That's the whole CLI — by design. mobile-cc is a curated package, not a
+kitchen-sink terminal viewer.
 
-## Reaching mobile-cc from elsewhere
-
-mobile-cc binds `127.0.0.1` only and has no built-in authentication.
-Anyone who can reach the port can drive your shell, so the safe ways to
-expose it all involve a fronting layer that provides auth. Four
-supported patterns:
-
-| Pattern | Auth | Best for |
-| --- | --- | --- |
-| **`ssh -L 7800:127.0.0.1:7800 <host>`** | SSH key | Reaching it from your laptop or any device with SSH access. Zero extra infra. |
-| **[Tailscale](https://tailscale.com/) — `tailscale serve --bg --https=443 http://127.0.0.1:7800`** | Tailnet ACL + TLS | Phone access over your tailnet. Tailscale handles TLS via Let's Encrypt; reachable at `https://<host>.<tailnet>.ts.net/`. |
-| **[Cloudflare named tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) + [Cloudflare Access](https://www.cloudflare.com/zero-trust/products/access/)** | Cloudflare SSO (email / SAML / OTP) | Public URL with browser-based auth. Free tier covers personal use. |
-| **Reverse proxy (Caddy / nginx) + auth** | Whatever you bring (basic-auth, [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/), etc.) | Existing infra with an auth layer you already trust. |
-
-What's **not** supported: binding the daemon to `0.0.0.0` or a LAN /
-public IP directly. mobile-cc refuses to start that way since v0.2.0
-because every realistic deployment of that shape — including "trusted
-LAN only" — has a long history of accidental exposure (port-forward
-misconfig, VPN split-tunnel, an open guest WiFi). The four patterns
-above are the same effort once and remove that failure class.
-
-For the security policy and what counts as in-scope, see
-[SECURITY.md](./SECURITY.md).
-
-## Uninstall
+### Uninstall
 
 ```bash
 systemctl --user disable --now mobile-cc
@@ -144,32 +179,26 @@ rm -rf ~/.config/mobile-cc ~/.config/systemd/user/mobile-cc.service
 rm -f  ~/.local/bin/mobile-cc
 ```
 
-## Build from source
+### Build from source
 
 ```bash
 git clone https://github.com/eyalev/mobile-cc
 cd mobile-cc
 cargo build --release
-./target/release/mobile-cc --help
 ```
 
-Requires a checkout of [`ttyview`](https://github.com/ttyview/ttyview)
-at `../ttyview` (sibling directory) — mobile-cc consumes `ttyview-core` as
-a path dependency for now. Once `ttyview-core` is published to crates.io
-this requirement drops.
+Requires a checkout of [`ttyview`](https://github.com/ttyview/ttyview) at
+`../ttyview` (sibling dir) — mobile-cc consumes `ttyview-core` as a path
+dependency until it's published to crates.io.
 
-## What this is, technically
+---
 
-mobile-cc is a thin Rust binary that links `ttyview-core` as a library and
-bakes in:
+## How it works
 
-- A fixed plugin set (8 bundled plugins, all enabled, no install step).
-- A minimal CLI surface (~4 flags).
-- The mobile-CC defaults: `ttyview-cc` chat view + `Terminal Green` theme.
-
-It is *not* a fork of ttyview — every plugin, every protocol, every UI
-component is upstream. mobile-cc owns its packaging shape and release
-cadence, nothing else.
+mobile-cc is a thin Rust binary that links [`ttyview-core`](https://github.com/ttyview/ttyview)
+as a library and bakes in a fixed plugin set + the mobile-CC defaults. Every
+plugin, protocol, and UI component is upstream ttyview — mobile-cc owns the
+packaging shape and release cadence, nothing else. It is *not* a fork.
 
 ## License
 
