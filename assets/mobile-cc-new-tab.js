@@ -167,7 +167,7 @@
     menu = document.createElement('div');
     menu.id = 'mcc-newtab-menu';
     menu.style.cssText =
-      'position:fixed;z-index:1000;right:8px;top:48px;min-width:230px;' +
+      'position:fixed;z-index:1000;min-width:230px;' +
       'background:var(--ttv-bg-elev,#252526);border:1px solid var(--ttv-border,#3a3a3a);' +
       'border-radius:8px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);';
     menu.appendChild(menuItem('Blank tab', 'A bare shell', function () {
@@ -180,6 +180,20 @@
       closeMenu(); openProjectDialog();
     }));
     document.body.appendChild(menu);
+    // Position relative to the anchor (the rail ＋ sits low on screen, so the
+    // menu opens UPWARD and right-aligned to the button). Falls back to
+    // top-right if the anchor has no geometry.
+    var r = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
+    if (r && r.width) {
+      menu.style.right = Math.max(6, window.innerWidth - r.right) + 'px';
+      if (r.top > window.innerHeight / 2) {
+        menu.style.bottom = (window.innerHeight - r.top + 6) + 'px'; // open upward
+      } else {
+        menu.style.top = (r.bottom + 6) + 'px';
+      }
+    } else {
+      menu.style.right = '8px'; menu.style.top = '48px';
+    }
     outside = function (e) { if (menu && !menu.contains(e.target) && e.target !== anchor) closeMenu(); };
     setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
   }
@@ -269,22 +283,65 @@
     setTimeout(function () { folderInp.focus(); }, 0);
   }
 
-  // ---- header ＋ button ----
-  tv.contributes.headerWidget({
-    id: 'mobile-cc-new-tab',
-    name: 'New tab',
-    preferredSlot: 'header-right',
-    render: function (slot) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.title = 'New tab';
-      btn.textContent = '＋'; // ＋
-      btn.style.cssText = 'cursor:pointer;';
-      btn.addEventListener('click', function () { if (menu) closeMenu(); else openMenu(btn); });
-      slot.appendChild(btn);
-      return function unmount() { closeMenu(); btn.remove(); };
-    },
-  });
+  // ---- ＋ button in the tab rail ----
+  // The rail (.ttvtab-rail, the ▦/🕘/📌/✎ strip beside the tabs) is owned by
+  // ttyview-tabs and rebuilt on every render, so we DOM-inject our ＋ and
+  // re-inject after each rebuild (MutationObserver + a slow interval backstop)
+  // — coordination-safe, no edits to the tabs plugin. This puts "new tab"
+  // right where you manage tabs, instead of a tiny icon in the top bar.
+  var PLUS_SVG =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.4" stroke-linecap="round" aria-hidden="true">' +
+    '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+
+  function injectRailButton() {
+    var rail = document.querySelector('.ttvtab-rail');
+    if (!rail) return false;
+    if (rail.querySelector('#mcc-newtab-railbtn')) return true; // already there
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'mcc-newtab-railbtn';
+    btn.className = 'ttvtab ttvtab-railbtn'; // inherit native rail-button styling
+    btn.title = 'New tab';
+    btn.setAttribute('aria-label', 'New tab');
+    btn.innerHTML = PLUS_SVG;
+    btn.style.color = 'var(--ttv-rail-accent, var(--ttv-accent, #569cd6))';
+    btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (menu) closeMenu(); else openMenu(btn);
+    });
+    rail.insertBefore(btn, rail.firstChild); // top of the rail
+    return true;
+  }
+
+  // Re-inject after tab re-renders. Observe the tab area subtree; the rail is
+  // recreated on each render so our button needs re-adding.
+  var pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () { pending = false; injectRailButton(); });
+  }
+  (function boot() {
+    var tries = 0;
+    var attached = false;
+    function attach() {
+      var rail = document.querySelector('.ttvtab-rail');
+      if (!rail) return false;
+      injectRailButton();
+      var host = rail.closest('[data-slot]') || rail.parentNode || document.body;
+      try { new MutationObserver(schedule).observe(host, { childList: true, subtree: true }); attached = true; } catch (e) {}
+      return true;
+    }
+    var iv = setInterval(function () {
+      if (attach() || ++tries > 60) clearInterval(iv);
+    }, 250);
+    attach();
+    // Backstop: re-assert periodically in case the observed node is replaced.
+    setInterval(function () { if (!attached) attach(); else injectRailButton(); }, 2000);
+  })();
 
   // ---- Settings → New Tab (configure the launch command) ----
   tv.contributes.settingsTab({
