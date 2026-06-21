@@ -113,7 +113,11 @@ brew install eyalev/tap/mobile-cc
 ```
 
 <p align="center">
-  <img src="docs/media/brew-install.gif" alt="Installing mobile-cc with Homebrew: brew install eyalev/tap/mobile-cc" width="600">
+  <video src="https://github.com/eyalev/mobile-cc/raw/main/docs/media/brew-install.mp4"
+         poster="https://github.com/eyalev/mobile-cc/raw/main/docs/media/brew-install.png"
+         controls muted playsinline width="600">
+    <img src="docs/media/brew-install.gif" alt="Installing mobile-cc with Homebrew: brew install eyalev/tap/mobile-cc" width="600">
+  </video>
 </p>
 
 The tap installs just the binary (no systemd service); run it with

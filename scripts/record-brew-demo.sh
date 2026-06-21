@@ -9,9 +9,12 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 OUT="$ROOT/docs/media/brew-install.gif"
+OUT_MP4="$ROOT/docs/media/brew-install.mp4"
+OUT_POSTER="$ROOT/docs/media/brew-install.png"
 
 command -v asciinema >/dev/null || { echo "need asciinema" >&2; exit 1; }
 command -v agg >/dev/null || { echo "need agg" >&2; exit 1; }
+command -v ffmpeg >/dev/null || { echo "need ffmpeg" >&2; exit 1; }
 
 CAST="$(mktemp --suffix=.cast)"
 PAYLOAD="$(mktemp --suffix=.sh)"
@@ -47,8 +50,23 @@ asciinema rec --overwrite --window-size 80x22 -c "bash $PAYLOAD" "$CAST"
 echo "rendering gif..."
 agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 3 "$CAST" "$OUT"
 
+echo "rendering mp4 (player with controls)..."
+# Derive the mp4 from the gif so timing matches exactly. yuv420p + even
+# dimensions = broad compatibility (GitHub player, Safari, QuickTime).
+ffmpeg -y -loglevel error -i "$OUT" \
+  -movflags +faststart -c:v libx264 -crf 20 -pix_fmt yuv420p \
+  -vf "fps=15,scale=trunc(iw/2)*2:trunc(ih/2)*2" "$OUT_MP4"
+
+echo "extracting poster (final frame)..."
+N=$(ffprobe -v error -select_streams v:0 -count_frames \
+     -show_entries stream=nb_read_frames -of csv=p=0 "$OUT")
+ffmpeg -y -loglevel error -i "$OUT" -vf "select=eq(n\,$((N-1)))" -frames:v 1 "$OUT_POSTER"
+
 # leave the system clean
 brew uninstall mobile-cc >/dev/null 2>&1 || true
 brew untap eyalev/tap >/dev/null 2>&1 || true
 
-echo "wrote $OUT"
+echo "wrote:"
+echo "  $OUT"
+echo "  $OUT_MP4"
+echo "  $OUT_POSTER"
