@@ -41,7 +41,7 @@ terminal is readable without pinch-zooming. A quick-keys row adds `Esc`,
 `Tab`, `Ctrl-C`, and arrows that phone keyboards hide, and you type replies in
 the box at the bottom.
 
-https://github.com/user-attachments/assets/7f12acc8-9788-4e5d-b07e-e02b90cb2595
+https://github.com/user-attachments/assets/bb311a72-56ae-431d-a9ac-6e4af3bb811c
 
 ## Great on the desktop, too
 
