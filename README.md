@@ -6,7 +6,7 @@
 
 **Drive Claude Code from your phone (or desktop) — a mobile-first terminal web
 UI.** Read the conversation, type back, paste a screenshot, and switch between
-projects — from the couch or the desk.
+projects — from the beach or the desk.
 
 <p align="center">
   <img src="docs/media/hero.png" alt="The real Claude Code TUI in mobile-cc on a phone, with project-grouped session tabs below" width="300">
