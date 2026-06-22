@@ -41,9 +41,7 @@ terminal is readable without pinch-zooming. A quick-keys row adds `Esc`,
 `Tab`, `Ctrl-C`, and arrows that phone keyboards hide, and you type replies in
 the box at the bottom.
 
-<p align="center">
-  <img src="docs/media/use.gif" alt="Driving Claude Code from a phone — typing a reply with the quick-keys row" width="300">
-</p>
+https://github.com/user-attachments/assets/7f12acc8-9788-4e5d-b07e-e02b90cb2595
 
 ## Great on the desktop, too
 
@@ -83,9 +81,7 @@ is even mentioned.
 curl -fsSL https://mobile-cc.dev/install.sh | bash
 ```
 
-<p align="center">
-  <img src="docs/media/install.gif" alt="Installing mobile-cc with one command" width="600">
-</p>
+https://github.com/user-attachments/assets/878e6bb2-de91-4613-b6b8-077f2aac4dae
 
 This downloads the binary to `~/.local/bin/mobile-cc` from
 [GitHub Releases](https://github.com/eyalev/mobile-cc/releases/latest),
