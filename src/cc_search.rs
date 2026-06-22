@@ -411,9 +411,11 @@ fn load_session(cfg: &CcSearchConfig, id: &str) -> Result<Vec<PreviewMsg>, Strin
 // subtitle generator (window.ttvTagSuggest). The terminal screen is mostly
 // CC TUI chrome — a poor summary source — so we read the actual conversation
 // instead: resolve session → pane cwd → CC project dir → newest transcript,
-// then return the LAST N *substantive* user prompts (current focus). We
-// deliberately do NOT special-case the first prompt — long sessions drift, so
-// the original goal is often stale. `n` is client-adjustable (Settings → Tab
+// then return the LAST N *substantive* user prompts (current focus) PLUS the
+// FIRST substantive prompt as a goal anchor (`first`). The anchor lets the
+// subtitle model tell the session's throughline apart from a momentary detour
+// (a research thread with a bracketed bug-fix was mislabeled "debugging" when
+// only the recent prompts were sent). `n` is client-adjustable (Settings → Tab
 // Subtitles). Noise (cc-com messages, one-word continuations like "continue"/
 // "yes", and tool/command/caveat wrappers via extract_text) is filtered so a
 // slot isn't wasted. found=false → the client falls back to scraping the pane.
@@ -430,6 +432,9 @@ struct TabSummary {
     session: String,
     cwd: String,
     found: bool,
+    /// The first substantive user prompt (goal anchor). None when no transcript.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    first: Option<String>,
     /// The last N substantive user prompts, oldest→newest.
     prompts: Vec<String>,
 }
@@ -483,6 +488,7 @@ fn tab_summary(cfg: &CcSearchConfig, session: &str, n: usize) -> TabSummary {
         session: session.to_string(),
         cwd: String::new(),
         found: false,
+        first: None,
         prompts: Vec::new(),
     };
     let cwd = match tmux_session_cwd(cfg.tmux_socket.as_deref(), session) {
@@ -522,6 +528,8 @@ fn tab_summary(cfg: &CcSearchConfig, session: &str, n: usize) -> TabSummary {
         return out;
     }
     out.found = true;
+    // Goal anchor: the first substantive prompt, clipped like the rest.
+    out.first = users.first().map(|s| s.chars().take(600).collect());
     // Last N, oldest→newest; clip each so a giant paste can't blow the context.
     let start = users.len().saturating_sub(n);
     out.prompts = users[start..]

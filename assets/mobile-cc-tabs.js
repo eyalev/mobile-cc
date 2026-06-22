@@ -104,8 +104,14 @@
           else if (d.first) ps = [d.first];
         }
         if (d && d.found && ps.length) {
+          // Goal anchor (first prompt) lets the model tell the session's
+          // throughline apart from a recent detour. Skip it when it's also
+          // the only/oldest recent so we don't print the same line twice.
+          var goal = (d.first && d.first !== ps[0])
+            ? 'SESSION GOAL (first request):\n- ' + d.first + '\n\n'
+            : '';
           return {
-            context: 'RECENT REQUESTS (newest last):\n' +
+            context: goal + 'RECENT REQUESTS (newest last):\n' +
               ps.map(function (x) { return '- ' + x; }).join('\n'),
             src: 'transcript',
           };
@@ -128,14 +134,17 @@
 
   var SUBTITLE_SYS =
     'You write a SHORT label for a developer\'s Claude Code session tab, so they can tell tabs apart at a glance.\n' +
-    'Given what the session is about, reply with a 3-5 word lowercase summary of the TASK being worked on.\n' +
-    'Prefer a gerund phrase naming the concrete thing. No punctuation, no quotes, no preamble — ONLY the phrase.\n' +
+    'Reply with a 3-5 word lowercase gerund phrase naming the session\'s OVERALL throughline — the feature or\n' +
+    'problem area it keeps returning to — NOT the most recent message.\n' +
+    'IGNORE one-off detours, bug-fix tangents, and process/handoff messages (e.g. "commit", "hand it to X",\n' +
+    '"solve with logs"). If the session is about building or designing something, prefer that over a momentary\n' +
+    '"debugging" tangent.\n' +
+    'No punctuation, no quotes, no preamble — ONLY the phrase.\n' +
     'Examples:\n' +
     '- fixing soft-keyboard popups\n' +
-    '- ai tab subtitles\n' +
     '- refactoring auth flow\n' +
-    '- debugging payment webhook\n' +
-    '- writing release notes';
+    '- writing release notes\n' +
+    '- (mixed thread: research summary tools + a quick bug fix + a handoff) -> designing tab subtitles';
 
   window.ttvTagSuggest = async function (session) {
     var s = {};
