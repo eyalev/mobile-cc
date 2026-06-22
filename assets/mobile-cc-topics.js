@@ -90,15 +90,6 @@
     var j = await r.json();
     return (((j.choices || [])[0] || {}).message || {}).content || '';
   }
-  async function genSummary(digest) {
-    var sys = 'You summarize a developer\'s Claude Code session for a glanceable card. Return STRICT JSON {"about":"<one sentence>","did":["<3-5 concrete bullets>"]}. Terse, no markdown.';
-    var raw = await groqJSON([{ role: 'system', content: sys }, { role: 'user', content: digest || '(empty)' }], 320, true);
-    var o; try { o = JSON.parse(raw); } catch (_) { o = { about: raw.slice(0, 200), did: [] }; }
-    return {
-      about: (o.about || '').toString().trim(),
-      did: Array.isArray(o.did) ? o.did.map(function (x) { return (x || '').toString().trim(); }).filter(Boolean).slice(0, 6) : [],
-    };
-  }
   async function genTurn(digest) {
     var sys = 'Summarize ONE turn of a Claude Code session in at most 9 words, lowercase, naming what was done (a gerund phrase). No punctuation, no quotes, ONLY the phrase.';
     var raw = await groqJSON([{ role: 'system', content: sys }, { role: 'user', content: digest || '(empty)' }], 24, false);
@@ -111,41 +102,6 @@
     async function run() { while (i < items.length) { var k = i++; try { await worker(items[k], k); } catch (_) {} } }
     var runners = []; for (var c = 0; c < Math.min(n, items.length); c++) runners.push(run());
     await Promise.all(runners);
-  }
-
-  // ---- session-summary header ----
-  async function loadSummary(host, session, force) {
-    host.innerHTML = '';
-    var head = el('div', 'display:flex;align-items:center;gap:8px;margin-bottom:8px;');
-    head.appendChild(el('h3', 'margin:0;font-size:16px;color:var(--ttv-fg);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', 'Summary · ' + session));
-    var rf = el('button', 'flex:none;background:transparent;border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;color:var(--ttv-fg);font-size:15px;width:30px;height:30px;cursor:pointer;', '↻');
-    rf.title = 'Regenerate summary'; rf.tabIndex = -1;
-    rf.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    rf.addEventListener('click', function () { loadSummary(host, session, true); });
-    head.appendChild(rf);
-    host.appendChild(head);
-    var body = el('p', 'margin:0 0 4px;color:var(--ttv-muted);font-size:13px;', force ? 'Regenerating…' : 'Loading…');
-    host.appendChild(body);
-    var d;
-    try { d = await (await fetch('/api/cc-session-summary?session=' + encodeURIComponent(session) + (force ? '&force=1' : ''))).json(); }
-    catch (e) { body.textContent = 'Summary failed: ' + e.message; body.style.color = '#e06c75'; return; }
-    if (!d || !d.found) { body.textContent = 'No transcript yet.'; return; }
-    if (!d.cached) {
-      body.textContent = 'Summarizing…';
-      try {
-        var g = await genSummary(d.digest || '');
-        d.about = g.about; d.did = g.did;
-        fetch('/api/cc-session-summary', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session: session, marker: d.marker, about: g.about, did: g.did, turns: d.turns || 0 }) }).catch(function () {});
-      } catch (e) { body.textContent = e.message; body.style.color = '#e06c75'; return; }
-    }
-    host.removeChild(body);
-    host.appendChild(el('p', 'margin:0 0 8px;color:var(--ttv-fg);font-size:14px;line-height:1.4;', d.about || '(no summary)'));
-    if (d.did && d.did.length) {
-      var ul = el('ul', 'margin:0 0 6px;padding-left:18px;color:var(--ttv-fg);font-size:13px;line-height:1.5;');
-      d.did.forEach(function (x) { ul.appendChild(el('li', '', x)); });
-      host.appendChild(ul);
-    }
-    host.appendChild(el('div', 'color:var(--ttv-muted);font-size:11px;', (d.turns ? d.turns + ' turns · ' : '') + (d.cached ? 'cached · ' + fmtAgo(d.generated_at) : 'fresh')));
   }
 
   // ---- turn card ----
@@ -181,9 +137,16 @@
   }
 
   // ---- timeline ----
-  async function loadTimeline(host, session, limit) {
+  async function loadTimeline(host, session, limit, scrollBottom) {
     host.innerHTML = '';
-    host.appendChild(el('div', 'color:var(--ttv-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:6px 0 8px;', 'Timeline'));
+    var head = el('div', 'display:flex;align-items:center;gap:8px;margin:2px 0 10px;');
+    head.appendChild(el('h3', 'margin:0;font-size:16px;color:var(--ttv-fg);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', 'Topics · ' + session));
+    var rf = el('button', 'flex:none;background:transparent;border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;color:var(--ttv-fg);font-size:15px;width:30px;height:30px;cursor:pointer;', '↻');
+    rf.title = 'Reload'; rf.tabIndex = -1;
+    rf.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    rf.addEventListener('click', function () { loadTimeline(host, session, limit, true); });
+    head.appendChild(rf);
+    host.appendChild(head);
     var status = el('p', 'color:var(--ttv-muted);font-size:13px;', 'Loading turns…');
     host.appendChild(status);
     var d;
@@ -194,18 +157,26 @@
     if (!turns.length) { status.textContent = 'No turns yet.'; return; }
     host.removeChild(status);
 
-    // Render newest-first; keep a uuid→{title el, turn} map for live upgrade.
-    var ordered = turns.slice().reverse();
+    // Chronological: oldest at top, MOST RECENT AT THE BOTTOM. Server already
+    // returns turns oldest→newest, so render as-is.
+    var ordered = turns.slice();
+
+    // "Load older" goes at the TOP (older = up) since newest is at the bottom.
+    if (d.total && d.total > turns.length) {
+      var more = el('button', 'width:100%;background:transparent;border:1px dashed var(--ttv-border,#3a3a3a);border-radius:8px;color:var(--ttv-fg);font-size:13px;padding:8px;margin-bottom:8px;cursor:pointer;', 'Load older turns (' + (d.total - turns.length) + ' more)');
+      more.tabIndex = -1;
+      more.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      more.addEventListener('click', function () { loadTimeline(host, session, Math.min(100, limit + 20), false); });
+      host.appendChild(more);
+    }
+
     var nodes = {};
     ordered.forEach(function (t) { var c = turnCard(t); nodes[t.uuid] = { c: c, t: t }; host.appendChild(c.card); });
 
-    // "Load older" if there are more turns than shown.
-    if (d.total && d.total > turns.length) {
-      var more = el('button', 'width:100%;background:transparent;border:1px dashed var(--ttv-border,#3a3a3a);border-radius:8px;color:var(--ttv-fg);font-size:13px;padding:8px;cursor:pointer;', 'Load older turns (' + (d.total - turns.length) + ' more)');
-      more.tabIndex = -1;
-      more.addEventListener('mousedown', function (e) { e.preventDefault(); });
-      more.addEventListener('click', function () { loadTimeline(host, session, Math.min(100, limit + 20)); });
-      host.appendChild(more);
+    // Show the newest (bottom) on open; keep position when loading older.
+    if (scrollBottom) {
+      var sc = host.parentElement;
+      if (sc) requestAnimationFrame(function () { sc.scrollTop = sc.scrollHeight; });
     }
 
     // Tap-to-summarize for lazy (older / uncached) cards.
@@ -215,8 +186,9 @@
       n.c.title.addEventListener('click', function () { summarizeOne(session, n); });
     });
 
-    // Auto-summarize the most recent uncached turns (cost-bounded).
-    var auto = ordered.filter(function (t) { return needsGen(t); }).slice(0, AUTO_SUMMARIZE);
+    // Auto-summarize the most recent uncached turns (cost-bounded); ordered is
+    // oldest→newest, so reverse to take the newest first.
+    var auto = ordered.slice().reverse().filter(function (t) { return needsGen(t); }).slice(0, AUTO_SUMMARIZE);
     if (auto.length) {
       var done = [];
       await pool(auto, 3, async function (t) {
@@ -259,13 +231,9 @@
     var session = activeSession();
     if (!session) return;
     var modal = openPanel();
-    var summaryHost = el('div', 'margin-bottom:6px;');
     var timelineHost = el('div', '');
-    modal.appendChild(summaryHost);
-    modal.appendChild(el('div', 'height:1px;background:var(--ttv-border,#3a3a3a);margin:8px 0;'));
     modal.appendChild(timelineHost);
-    loadSummary(summaryHost, session, false);
-    loadTimeline(timelineHost, session, 12);
+    loadTimeline(timelineHost, session, 12, true);
   }
 
   tv.contributes.headerWidget({
