@@ -1049,8 +1049,11 @@ name = "mobile-cc"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "axum",
  "clap",
  "dirs",
+ "serde",
+ "serde_json",
  "tokio",
  "ttyview-core",
 ]

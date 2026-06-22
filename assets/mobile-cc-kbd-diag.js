@@ -28,9 +28,11 @@
   // ---- correlation markers ---------------------------------------
   // Stamped by the most recent tab tap / pane switch so a focus or
   // viewport event can report "how long ago did the user switch tabs".
-  var lastTabTap   = null;  // { ts, label }
-  var lastPaneChg  = null;  // { ts, from, to }
-  var lastVV       = null;  // last visualViewport height we saw
+  var lastTabTap    = null;  // { ts, label }
+  var lastPaneChg   = null;  // { ts, from, to }
+  var lastVV        = null;  // last visualViewport height we saw
+  var lastInputTouch = null; // perf-ts of the last touchstart ON #input-text
+  var lastBtnTap    = null;  // { t, id, plugin, cls } of last button touched
 
   function now() {
     // performance.now() is monotonic; pair with wall ts for the log.
@@ -114,6 +116,59 @@
     });
   }, true);
 
+  // ---- touch trackers (for the "no preceding tap" classification) -
+  // Capture-phase touchstart so we know, at focus time, whether the
+  // user actually touched the Message box (intentional) or some button
+  // just before. A spontaneous focus has NEITHER.
+  document.addEventListener('touchstart', function (e) {
+    var t = e.target;
+    if (!t || t.nodeType !== 1) return;
+    if (t.id === 'input-text' || (t.closest && t.closest('#input-text'))) {
+      lastInputTouch = now();
+    }
+    var btn = t.closest && t.closest('button, .ia-slot, [role="button"]');
+    if (btn) {
+      var pidEl = btn.closest && btn.closest('[data-plugin-id]');
+      lastBtnTap = {
+        t: now(),
+        id: btn.id || null,
+        plugin: (pidEl && pidEl.dataset && pidEl.dataset.pluginId) || null,
+        cls: (btn.className && btn.className.toString && btn.className.toString().slice(0, 48)) || null,
+      };
+    }
+  }, true);
+
+  // ---- .focus() monkeypatch (catches PROGRAMMATIC refocus) -------
+  // The focusin stack is empty when the browser drives focus natively,
+  // so it can't tell us who called el.focus(). Wrapping the textarea's
+  // focus method captures the exact JS caller stack at the moment of
+  // the call — the decisive instrument for "something is refocusing the
+  // box with no tap". Logs only for #input-text; one-shot via a guard.
+  try {
+    var TAP = (window.HTMLTextAreaElement && HTMLTextAreaElement.prototype) || null;
+    if (TAP && TAP.focus && !TAP.__mccFocusPatched) {
+      var origFocus = TAP.focus;
+      TAP.focus = function () {
+        if (this && this.id === 'input-text') {
+          var stk = '';
+          try { stk = (new Error().stack || '').split('\n').slice(1, 14).map(function (s) { return s.trim(); }).join(' | '); } catch (_) {}
+          emit('kbd-focus-call', {
+            sinceInputTouch: lastInputTouch != null ? now() - lastInputTouch : null,
+            sinceTabTap: since(lastTabTap),
+            sincePaneChg: since(lastPaneChg),
+            lastBtn: lastBtnTap ? { id: lastBtnTap.id, plugin: lastBtnTap.plugin, cls: lastBtnTap.cls, agoMs: now() - lastBtnTap.t } : null,
+            active: (describe(document.activeElement) || {}).tag || null,
+            args: arguments.length ? String(arguments[0] && JSON.stringify(arguments[0])) : null,
+            stack: stk,
+          });
+        }
+        return origFocus.apply(this, arguments);
+      };
+      TAP.__mccFocusPatched = true;
+      emit('kbd-focus-patch-installed', {});
+    }
+  } catch (e) { emit('kbd-focus-patch-failed', { err: String(e) }); }
+
   // ---- pane-changed marker (fires for every tab switch) ----------
   try {
     window.ttyview.on('pane-changed', function (d) {
@@ -136,9 +191,19 @@
     var d = describe(e.target);
     if (!d || !d.editable) return;
     var stack = '';
-    try { stack = (new Error().stack || '').split('\n').slice(1, 9).map(function (s) { return s.trim(); }).join(' | '); } catch (_) {}
+    try { stack = (new Error().stack || '').split('\n').slice(1, 12).map(function (s) { return s.trim(); }).join(' | '); } catch (_) {}
+    // "Second path" classifier: focus on the Message box with NO touch
+    // on it in the last 800ms is spontaneous (programmatic or browser-
+    // restored). Tab-rename inputs are different elements, so this flag
+    // only ever trips for #input-text.
+    var isMsgBox = e.target && e.target.id === 'input-text';
+    var sinceInputTouch = (isMsgBox && lastInputTouch != null) ? now() - lastInputTouch : null;
+    var spontaneous = isMsgBox && !(lastInputTouch != null && (now() - lastInputTouch) < 800);
     emit('kbd-focus', {
       el: d.tag,
+      spontaneous: isMsgBox ? spontaneous : undefined,
+      sinceInputTouch: sinceInputTouch,
+      lastBtn: (isMsgBox && spontaneous && lastBtnTap) ? { id: lastBtnTap.id, plugin: lastBtnTap.plugin, cls: lastBtnTap.cls, agoMs: now() - lastBtnTap.t } : undefined,
       sinceTabTap: since(lastTabTap),
       sincePaneChg: since(lastPaneChg),
       related: (describe(e.relatedTarget) || {}).tag || null,

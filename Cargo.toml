@@ -26,6 +26,12 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 dirs = "5"
+# cc-search endpoint (src/cc_search.rs). axum MUST track ttyview-core's
+# axum version (0.7) so the `extra_api` closure passes the same `Router`
+# type across the crate boundary.
+axum = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [profile.release]
 lto = "thin"

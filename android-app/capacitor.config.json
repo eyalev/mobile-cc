@@ -1,0 +1,10 @@
+{
+  "appId": "dev.mobilecc.app",
+  "appName": "mobile-cc",
+  "webDir": "www",
+  "server": {
+    "url": "https://mobile-cc.taild2ae6a.ts.net",
+    "cleartext": false,
+    "androidScheme": "https"
+  }
+}

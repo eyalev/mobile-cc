@@ -3,6 +3,9 @@ use clap::Parser;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+mod cc_search;
+mod download;
+
 /// Drive Claude Code from your phone. A focused, mobile-first packaging of
 /// ttyview-core — bundles the right plugin set, names the right defaults, and
 /// hides the platform's general-purpose flags.
@@ -69,18 +72,23 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-autofit.js",       include_bytes!("../assets/mobile-cc-autofit.js")),
     ("mobile-cc-brand.js",         include_bytes!("../assets/mobile-cc-brand.js")),
     ("mobile-cc-commands.js",      include_bytes!("../assets/mobile-cc-commands.js")),
+    ("mobile-cc-quickkeys.js",     include_bytes!("../assets/mobile-cc-quickkeys.js")),
     ("mobile-cc-new-tab.js",       include_bytes!("../assets/mobile-cc-new-tab.js")),
+    ("mobile-cc-tab-menu.js",      include_bytes!("../assets/mobile-cc-tab-menu.js")),
     ("mobile-cc-kbd-overlay.js",   include_bytes!("../assets/mobile-cc-kbd-overlay.js")),
     ("mobile-cc-term-size.js",     include_bytes!("../assets/mobile-cc-term-size.js")),
     ("mobile-cc-pinch-zoom.js",    include_bytes!("../assets/mobile-cc-pinch-zoom.js")),
     ("mobile-cc-scrollback.js",    include_bytes!("../assets/mobile-cc-scrollback.js")),
+    ("mobile-cc-cc-search.js",     include_bytes!("../assets/mobile-cc-cc-search.js")),
+    ("mobile-cc-tabs.js",          include_bytes!("../assets/mobile-cc-tabs.js")),
+    ("mobile-cc-native-screenshot.js", include_bytes!("../assets/mobile-cc-native-screenshot.js")),
+    ("mobile-cc-download.js",      include_bytes!("../assets/mobile-cc-download.js")),
     // TEMP diagnostic — soft-keyboard-on-tab-switch tracer. Remove with
     // its assets/installed.json entry once the cause is pinned.
     ("mobile-cc-kbd-diag.js",      include_bytes!("../assets/mobile-cc-kbd-diag.js")),
     ("ttyview-pane-picker.js",     include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-pane-picker.js")),
     ("ttyview-display-toggles.js", include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-display-toggles.js")),
     ("ttyview-cc.js",              include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-cc.js")),
-    ("ttyview-quickkeys.js",       include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-quickkeys.js")),
     ("ttyview-tabs.js",            include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-tabs.js")),
     ("ttyview-image-paste.js",     include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-image-paste.js")),
     ("ttyview-stt-groq.js",        include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-stt-groq.js")),
@@ -175,6 +183,33 @@ async fn main() -> Result<()> {
         .map(|d| d.join("mobile-cc/uploads"))
         .unwrap_or_else(|| PathBuf::from(".mobile-cc/uploads"));
 
+    // cc-search reads Claude Code transcripts from `~/.claude/projects`
+    // (honoring CLAUDE_CONFIG_DIR like CC itself). The endpoint maps
+    // sessions to open tabs via the same tmux socket the daemon drives.
+    let cc_projects_root = std::env::var_os("CLAUDE_CONFIG_DIR")
+        .map(PathBuf::from)
+        .or_else(|| dirs::home_dir().map(|h| h.join(".claude")))
+        .unwrap_or_else(|| PathBuf::from(".claude"))
+        .join("projects");
+    let cc_search_cfg = cc_search::CcSearchConfig {
+        projects_root: cc_projects_root,
+        tmux_socket: cli.tmux_socket.clone(),
+    };
+
+    // /api/download — serve a host file for one-tap downloads from the
+    // terminal. Allowlisted to $HOME: whoever can reach the UI already has a
+    // shell in the pane, so this exposes no new capability. See src/download.rs.
+    let download_cfg = download::DownloadConfig {
+        roots: dirs::home_dir().into_iter().collect(),
+        home: dirs::home_dir(),
+    };
+    // `extra_api` is a single hook — compose cc-search + download into one
+    // closure that mounts both route sets.
+    let cc_api = cc_search::extra_api(cc_search_cfg);
+    let dl_api = download::extra_api(download_cfg);
+    let extra_api: Box<dyn FnOnce(axum::Router) -> axum::Router + Send> =
+        Box::new(move |router| dl_api(cc_api(router)));
+
     ttyview_core::cli::daemon::run_with_options_v2(ttyview_core::cli::daemon::RunOptions {
         addr: cli.bind,
         socket: cli.tmux_socket,
@@ -192,6 +227,9 @@ async fn main() -> Result<()> {
         // 10_000 lines is cheap and gives the Settings → Scrollback
         // control real headroom. See assets/mobile-cc-scrollback.js.
         max_scrollback: Some(10_000),
+        // CC-transcript search (/api/cc-search, /api/cc-session/:id) +
+        // file download (/api/download). See src/cc_search.rs, src/download.rs.
+        extra_api: Some(extra_api),
         ..Default::default()
     })
     .await

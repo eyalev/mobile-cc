@@ -1,0 +1,20 @@
+# Node
+node_modules/
+
+# Android build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+*.apk
+*.aab
+
+# Capacitor copies these in on `cap sync`
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+
+# IDE
+.idea/
+*.iml

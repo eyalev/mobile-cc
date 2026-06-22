@@ -156,6 +156,30 @@
   }
   apply();
 
+  // ---- don't let the keyboard auto-pop on app resume ------------
+  // Android Chrome restores focus to the previously-focused field when
+  // the PWA returns to the foreground (app-switch, screen unlock, a
+  // glance at a notification), which re-shows the soft keyboard even
+  // though the user only switched away and back. The kbd-diag log
+  // pinned this: ~11/162 input focuses fired with NO preceding tap,
+  // right after `visibility:visible` / lifecycle `resume` — the
+  // "switch back and the keyboard is already up; reload fixes it"
+  // report. Mirror tmux-web's blur-on-hide guard: drop focus from the
+  // Message box when the page is hidden, so there is nothing for Chrome
+  // to restore on resume. The draft text stays put (blur doesn't clear
+  // the value); the user taps once to resume typing.
+  function blurMsgBoxOnHide(reason) {
+    var el = document.getElementById('input-text');
+    if (!el || document.activeElement !== el) return;
+    try { el.blur(); emit('kbd-ov-blur-on-hide', { reason: reason }); }
+    catch (e) { emit('kbd-ov-blur-on-hide', { reason: reason, err: String(e) }); }
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') blurMsgBoxOnHide('hidden');
+  }, { passive: true });
+  // Page Lifecycle freeze can fire without a visibilitychange we observe.
+  document.addEventListener('freeze', function () { blurMsgBoxOnHide('freeze'); }, { passive: true });
+
   // ---- Settings → Keyboard toggle --------------------------------
   tv.contributes.settingsTab({
     id: 'mobile-cc-kbd-overlay',
