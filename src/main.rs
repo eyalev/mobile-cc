@@ -80,6 +80,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-pinch-zoom.js",    include_bytes!("../assets/mobile-cc-pinch-zoom.js")),
     ("mobile-cc-scrollback.js",    include_bytes!("../assets/mobile-cc-scrollback.js")),
     ("mobile-cc-cc-search.js",     include_bytes!("../assets/mobile-cc-cc-search.js")),
+    ("mobile-cc-topics.js",        include_bytes!("../assets/mobile-cc-topics.js")),
     ("mobile-cc-tabs.js",          include_bytes!("../assets/mobile-cc-tabs.js")),
     ("mobile-cc-native-screenshot.js", include_bytes!("../assets/mobile-cc-native-screenshot.js")),
     ("mobile-cc-download.js",      include_bytes!("../assets/mobile-cc-download.js")),

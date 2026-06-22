@@ -18,7 +18,9 @@
 //! client can jump straight to a running tab. Design notes:
 //! `.claude/cc-search.md`.
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -48,6 +50,10 @@ pub fn extra_api(cfg: CcSearchConfig) -> Box<dyn FnOnce(Router) -> Router + Send
             .route("/api/cc-search", get(cc_search))
             .route("/api/cc-session/:id", get(cc_session))
             .route("/api/cc-tab-summary", get(cc_tab_summary))
+            .route(
+                "/api/cc-session-summary",
+                get(get_session_summary).put(put_session_summary),
+            )
             .layer(Extension(Arc::new(cfg)))
     })
 }
@@ -568,6 +574,272 @@ fn newest_jsonl(dir: &std::path::Path) -> Option<PathBuf> {
         }
     }
     best.map(|(_, p)| p)
+}
+
+// ---- /api/cc-session-summary?session=<name> ---------------------------
+//
+// "Topics"-style per-session summary (what the session is about + what
+// happened). On-demand + CACHED — no background populator. The server builds
+// a compact digest from the transcript and caches the LLM result; GENERATION
+// stays browser-direct (Groq BYO key, same as the subtitle/STT path — no
+// server key plumbing). Flow:
+//   GET → cached fresh summary {cached:true, about, did, …}, OR
+//         {cached:false, digest, marker, turns} for the client to summarize.
+//   PUT → client posts the generated {about, did} back to cache it.
+// Cache: ~/.cache/mobile-cc/topics/<hash-of-transcript-path>.json, keyed on a
+// size-mtime growth marker; regenerate only when the transcript has grown.
+// force=1 bypasses the cache.
+
+#[derive(Deserialize)]
+struct SummaryQuery {
+    session: String,
+    #[serde(default)]
+    force: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CachedSummary {
+    marker: String,
+    about: String,
+    did: Vec<String>,
+    turns: usize,
+    generated_at: u64,
+}
+
+fn topics_dir() -> Option<PathBuf> {
+    dirs::cache_dir().map(|d| d.join("mobile-cc").join("topics"))
+}
+
+fn cache_path_for(transcript: &std::path::Path) -> Option<PathBuf> {
+    let mut h = DefaultHasher::new();
+    transcript.to_string_lossy().hash(&mut h);
+    topics_dir().map(|d| d.join(format!("{:016x}.json", h.finish())))
+}
+
+/// size-mtime growth marker for a transcript file.
+fn growth_marker(path: &std::path::Path) -> String {
+    match std::fs::metadata(path) {
+        Ok(m) => {
+            let mtime = m
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            format!("{}-{}", m.len(), mtime)
+        }
+        Err(_) => "0-0".to_string(),
+    }
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+async fn get_session_summary(
+    Extension(cfg): Extension<Arc<CcSearchConfig>>,
+    Query(q): Query<SummaryQuery>,
+) -> axum::response::Response {
+    let session = q.session.trim().to_string();
+    if session.is_empty() {
+        return (StatusCode::BAD_REQUEST, "missing session").into_response();
+    }
+    let force = q.force.unwrap_or(false);
+    let cfg2 = cfg.clone();
+    match tokio::task::spawn_blocking(move || session_summary_get(&cfg2, &session, force)).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("summary task failed: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+fn session_summary_get(cfg: &CcSearchConfig, session: &str, force: bool) -> serde_json::Value {
+    let cwd = match tmux_session_cwd(cfg.tmux_socket.as_deref(), session) {
+        Some(c) if !c.is_empty() => c,
+        _ => return serde_json::json!({ "session": session, "found": false }),
+    };
+    let dir = cfg.projects_root.join(encode_cwd(&cwd));
+    let path = match newest_jsonl(&dir) {
+        Some(p) => p,
+        None => return serde_json::json!({ "session": session, "found": false }),
+    };
+    let marker = growth_marker(&path);
+
+    if !force {
+        if let Some(cp) = cache_path_for(&path) {
+            if let Ok(txt) = std::fs::read_to_string(&cp) {
+                if let Ok(c) = serde_json::from_str::<CachedSummary>(&txt) {
+                    if c.marker == marker {
+                        return serde_json::json!({
+                            "session": session, "found": true, "cached": true,
+                            "about": c.about, "did": c.did, "turns": c.turns,
+                            "generated_at": c.generated_at,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let (digest, turns) = build_session_digest(&path);
+    serde_json::json!({
+        "session": session, "found": true, "cached": false,
+        "marker": marker, "turns": turns, "digest": digest,
+    })
+}
+
+#[derive(Deserialize)]
+struct PutSummary {
+    session: String,
+    marker: String,
+    about: String,
+    did: Vec<String>,
+    #[serde(default)]
+    turns: usize,
+}
+
+async fn put_session_summary(
+    Extension(cfg): Extension<Arc<CcSearchConfig>>,
+    Json(body): Json<PutSummary>,
+) -> axum::response::Response {
+    let session = body.session.trim().to_string();
+    if session.is_empty() {
+        return (StatusCode::BAD_REQUEST, "missing session").into_response();
+    }
+    let cfg2 = cfg.clone();
+    match tokio::task::spawn_blocking(move || session_summary_put(&cfg2, &session, body)).await {
+        Ok(Ok(())) => Json(serde_json::json!({ "ok": true })).into_response(),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, e).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("cache task failed: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+fn session_summary_put(cfg: &CcSearchConfig, session: &str, body: PutSummary) -> Result<(), String> {
+    let cwd = tmux_session_cwd(cfg.tmux_socket.as_deref(), session)
+        .filter(|c| !c.is_empty())
+        .ok_or_else(|| "session cwd not found".to_string())?;
+    let dir = cfg.projects_root.join(encode_cwd(&cwd));
+    let path = newest_jsonl(&dir).ok_or_else(|| "transcript not found".to_string())?;
+    let cp = cache_path_for(&path).ok_or_else(|| "no cache dir".to_string())?;
+    if let Some(parent) = cp.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
+    }
+    let rec = CachedSummary {
+        marker: body.marker,
+        about: body.about,
+        did: body.did,
+        turns: body.turns,
+        generated_at: now_secs(),
+    };
+    let txt = serde_json::to_string(&rec).map_err(|e| format!("serialize: {e}"))?;
+    std::fs::write(&cp, txt).map_err(|e| format!("write: {e}"))?;
+    Ok(())
+}
+
+/// Compact digest of a transcript for session-summary generation: user
+/// prompts (intent) + key tool actions (file edits, commands). Cost-guarded —
+/// a 500-turn session is sampled (head + tail), not dumped. Returns
+/// (digest, turn_count).
+fn build_session_digest(path: &std::path::Path) -> (String, usize) {
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return (String::new(), 0),
+    };
+    let mut prompts: Vec<String> = Vec::new();
+    let mut actions: Vec<String> = Vec::new();
+    let mut turns = 0usize;
+    for line in content.lines() {
+        let rec: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        match rec.get("type").and_then(|t| t.as_str()) {
+            Some("user") => {
+                turns += 1;
+                let t = extract_text(&rec);
+                let tr = t.trim();
+                if tr.chars().count() >= 4 && !tr.starts_with("[cc-com]") && !is_filler_prompt(tr) {
+                    prompts.push(tr.chars().take(400).collect());
+                }
+            }
+            Some("assistant") => {
+                turns += 1;
+                if let Some(arr) = rec
+                    .get("message")
+                    .and_then(|m| m.get("content"))
+                    .and_then(|c| c.as_array())
+                {
+                    for b in arr {
+                        if b.get("type").and_then(|t| t.as_str()) != Some("tool_use") {
+                            continue;
+                        }
+                        let name = b.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
+                        let detail = b
+                            .get("input")
+                            .and_then(|i| {
+                                i.get("file_path")
+                                    .or_else(|| i.get("path"))
+                                    .or_else(|| i.get("command"))
+                                    .or_else(|| i.get("pattern"))
+                                    .or_else(|| i.get("description"))
+                            })
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        let act = if detail.is_empty() {
+                            name.to_string()
+                        } else {
+                            format!("{name}: {}", detail.chars().take(80).collect::<String>())
+                        };
+                        actions.push(act);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Cost guard: keep the head (what it's ABOUT) + the tail (what HAPPENED).
+    let pick = |v: &[String], head: usize, tail: usize| -> Vec<String> {
+        if v.len() <= head + tail {
+            v.to_vec()
+        } else {
+            let mut out = v[..head].to_vec();
+            out.push("…".to_string());
+            out.extend_from_slice(&v[v.len() - tail..]);
+            out
+        }
+    };
+    let prompts = pick(&prompts, 4, 24);
+    let actions = pick(&actions, 0, 60);
+
+    let mut digest = String::new();
+    if !prompts.is_empty() {
+        digest.push_str("USER PROMPTS (oldest→newest):\n");
+        for p in &prompts {
+            digest.push_str("- ");
+            digest.push_str(p);
+            digest.push('\n');
+        }
+    }
+    if !actions.is_empty() {
+        digest.push_str("\nKEY ACTIONS (tools/files, recent):\n");
+        for a in &actions {
+            digest.push_str("- ");
+            digest.push_str(a);
+            digest.push('\n');
+        }
+    }
+    (digest.chars().take(8000).collect(), turns)
 }
 
 // ---- helpers ----------------------------------------------------------
