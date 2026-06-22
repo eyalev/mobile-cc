@@ -54,6 +54,10 @@ pub fn extra_api(cfg: CcSearchConfig) -> Box<dyn FnOnce(Router) -> Router + Send
                 "/api/cc-session-summary",
                 get(get_session_summary).put(put_session_summary),
             )
+            .route(
+                "/api/cc-session-turns",
+                get(get_session_turns).put(put_session_turns),
+            )
             .layer(Extension(Arc::new(cfg)))
     })
 }
@@ -840,6 +844,366 @@ fn build_session_digest(path: &std::path::Path) -> (String, usize) {
         }
     }
     (digest.chars().take(8000).collect(), turns)
+}
+
+// ---- /api/cc-session-turns?session=<name>&limit=<n> -------------------
+//
+// tmux-web-style TURN timeline, MOBILE-SCOPED (active session only; no
+// cross-project populator, no filters, no background service). Segments the
+// transcript into turns (one real user prompt → the agent activity until the
+// next prompt) and returns, per turn: derived tags (kind, files edited, git
+// commits, error flag) + a per-turn digest for LLM summarization. Per-turn
+// summaries are cached by the turn's user-msg UUID — each turn is summarized
+// exactly ONCE, ever (turns are immutable). The LAST turn is flagged `open`
+// (its outcome window may still be growing) so the client re-summarizes it
+// (throttled) rather than trusting a stale cache. Generation stays
+// browser-direct (client summarizes the digest via Groq, PUTs {uuid, summary}
+// back). Cost guard: only the last `limit` turns (client defaults to a small
+// recent window + lazy load-more). Cache: ~/.cache/mobile-cc/topics-turns/.
+
+#[derive(Deserialize)]
+struct TurnsQuery {
+    session: String,
+    limit: Option<usize>,
+}
+
+struct RawTurn {
+    uuid: String,
+    ts: String,
+    end_ts: String,
+    user_text: String,
+    tools: std::collections::BTreeMap<String, u32>,
+    files: Vec<String>,
+    commits: std::collections::BTreeSet<String>,
+    has_errors: bool,
+    digest: String,
+}
+
+fn turns_cache_path(transcript: &std::path::Path) -> Option<PathBuf> {
+    let mut h = DefaultHasher::new();
+    transcript.to_string_lossy().hash(&mut h);
+    dirs::cache_dir().map(|d| {
+        d.join("mobile-cc")
+            .join("topics-turns")
+            .join(format!("{:016x}.json", h.finish()))
+    })
+}
+
+fn load_turns_cache(transcript: &std::path::Path) -> HashMap<String, String> {
+    turns_cache_path(transcript)
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+/// Scan text for git short-hashes (7..=12 hex, mixing a digit and a-f, on
+/// word boundaries). Hand-rolled — no regex dep in this crate.
+fn find_commit_hashes(text: &str, out: &mut std::collections::BTreeSet<String>) {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if (bytes[i] as char).is_ascii_hexdigit() {
+            let start = i;
+            while i < bytes.len() && (bytes[i] as char).is_ascii_hexdigit() {
+                i += 1;
+            }
+            let tok = &text[start..i];
+            let len = tok.len();
+            let prev_ok = start == 0 || !(bytes[start - 1] as char).is_ascii_alphanumeric();
+            let next_ok = i >= bytes.len() || !(bytes[i] as char).is_ascii_alphanumeric();
+            if (7..=12).contains(&len)
+                && prev_ok
+                && next_ok
+                && tok.bytes().any(|b| b.is_ascii_digit())
+                && tok.bytes().any(|b| matches!(b, b'a'..=b'f' | b'A'..=b'F'))
+                && out.len() < 5
+            {
+                out.insert(tok[..8.min(len)].to_string());
+            }
+        } else {
+            i += 1;
+        }
+    }
+}
+
+/// Tool-mix → coarse kind, mirroring tmux-web's heuristic.
+fn derive_kind(tools: &std::collections::BTreeMap<String, u32>) -> &'static str {
+    let g = |k: &str| *tools.get(k).unwrap_or(&0);
+    let edit = g("Edit") + g("Write") + g("NotebookEdit") + g("MultiEdit");
+    let explore = g("Read") + g("Grep") + g("Glob");
+    let bash = g("Bash");
+    if edit > 3 {
+        "feature"
+    } else if edit > 0 {
+        "patch"
+    } else if bash > 5 && explore == 0 {
+        "ops"
+    } else if explore > 5 && edit == 0 {
+        "explore"
+    } else if tools.is_empty() {
+        "discuss"
+    } else {
+        "work"
+    }
+}
+
+fn basename_str(p: &str) -> String {
+    p.rsplit('/').next().unwrap_or(p).to_string()
+}
+
+/// Segment a transcript into turns. A turn starts at a real user prompt
+/// (string content, not a command/caveat wrapper or cc-com message) and spans
+/// the agent activity until the next such prompt.
+fn segment_turns(content: &str) -> Vec<RawTurn> {
+    let mut turns: Vec<RawTurn> = Vec::new();
+    let mut cur: Option<RawTurn> = None;
+    for line in content.lines() {
+        let rec: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let ty = rec.get("type").and_then(|t| t.as_str()).unwrap_or("");
+        let ts = rec
+            .get("timestamp")
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string();
+        let content_is_string = rec
+            .get("message")
+            .and_then(|m| m.get("content"))
+            .map(|c| c.is_string())
+            .unwrap_or(false);
+
+        // Turn boundary: a real user prompt.
+        if ty == "user" && content_is_string {
+            let text = extract_text(&rec); // strips wrappers → "" if a wrapper
+            let trimmed = text.trim();
+            if !trimmed.is_empty() && !trimmed.starts_with("[cc-com]") {
+                if let Some(t) = cur.take() {
+                    turns.push(t);
+                }
+                let uuid = rec
+                    .get("uuid")
+                    .and_then(|u| u.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let mut t = RawTurn {
+                    uuid,
+                    ts: ts.clone(),
+                    end_ts: ts.clone(),
+                    user_text: trimmed.chars().take(300).collect(),
+                    tools: std::collections::BTreeMap::new(),
+                    files: Vec::new(),
+                    commits: std::collections::BTreeSet::new(),
+                    has_errors: false,
+                    digest: String::new(),
+                };
+                t.digest.push_str("[USER] ");
+                t.digest
+                    .push_str(&trimmed.chars().take(500).collect::<String>());
+                t.digest.push('\n');
+                cur = Some(t);
+                continue;
+            }
+        }
+
+        // Accumulate into the current turn's window.
+        let t = match cur.as_mut() {
+            Some(t) => t,
+            None => continue,
+        };
+        if !ts.is_empty() {
+            t.end_ts = ts;
+        }
+        let arr = rec
+            .get("message")
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_array());
+        let arr = match arr {
+            Some(a) => a,
+            None => continue,
+        };
+        for b in arr {
+            match b.get("type").and_then(|x| x.as_str()) {
+                Some("text") if ty == "assistant" => {
+                    if let Some(tx) = b.get("text").and_then(|x| x.as_str()) {
+                        if t.digest.len() < 1800 {
+                            t.digest.push_str("[ASSISTANT] ");
+                            t.digest.push_str(&tx.chars().take(300).collect::<String>());
+                            t.digest.push('\n');
+                        }
+                    }
+                }
+                Some("tool_use") => {
+                    let name = b.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
+                    *t.tools.entry(name.to_string()).or_insert(0) += 1;
+                    let input = b.get("input");
+                    if matches!(name, "Edit" | "Write" | "MultiEdit" | "NotebookEdit") {
+                        if let Some(fp) = input
+                            .and_then(|i| i.get("file_path").or_else(|| i.get("path")))
+                            .and_then(|v| v.as_str())
+                        {
+                            let bn = basename_str(fp);
+                            if !t.files.contains(&bn) && t.files.len() < 8 {
+                                t.files.push(bn);
+                            }
+                        }
+                    }
+                    if t.digest.len() < 1800 {
+                        let detail = input
+                            .and_then(|i| {
+                                i.get("file_path")
+                                    .or_else(|| i.get("command"))
+                                    .or_else(|| i.get("pattern"))
+                            })
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        t.digest.push_str("[TOOL] ");
+                        t.digest.push_str(name);
+                        if !detail.is_empty() {
+                            t.digest.push_str(": ");
+                            t.digest
+                                .push_str(&detail.chars().take(80).collect::<String>());
+                        }
+                        t.digest.push('\n');
+                    }
+                }
+                Some("tool_result") => {
+                    if b.get("is_error").and_then(|e| e.as_bool()).unwrap_or(false) {
+                        t.has_errors = true;
+                    }
+                    if let Some(txt) = b.get("content").and_then(|c| c.as_str()) {
+                        find_commit_hashes(txt, &mut t.commits);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    if let Some(t) = cur.take() {
+        turns.push(t);
+    }
+    turns
+}
+
+async fn get_session_turns(
+    Extension(cfg): Extension<Arc<CcSearchConfig>>,
+    Query(q): Query<TurnsQuery>,
+) -> axum::response::Response {
+    let session = q.session.trim().to_string();
+    if session.is_empty() {
+        return (StatusCode::BAD_REQUEST, "missing session").into_response();
+    }
+    let limit = q.limit.unwrap_or(12).clamp(1, 100);
+    let cfg2 = cfg.clone();
+    match tokio::task::spawn_blocking(move || session_turns(&cfg2, &session, limit)).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("turns task failed: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+fn session_turns(cfg: &CcSearchConfig, session: &str, limit: usize) -> serde_json::Value {
+    let cwd = match tmux_session_cwd(cfg.tmux_socket.as_deref(), session) {
+        Some(c) if !c.is_empty() => c,
+        _ => return serde_json::json!({ "session": session, "found": false }),
+    };
+    let dir = cfg.projects_root.join(encode_cwd(&cwd));
+    let path = match newest_jsonl(&dir) {
+        Some(p) => p,
+        None => return serde_json::json!({ "session": session, "found": false }),
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return serde_json::json!({ "session": session, "found": false }),
+    };
+    let raw = segment_turns(&content);
+    if raw.is_empty() {
+        return serde_json::json!({ "session": session, "found": true, "total": 0, "turns": [] });
+    }
+    let cache = load_turns_cache(&path);
+    let total = raw.len();
+    let last_uuid = raw[total - 1].uuid.clone();
+    let start = total.saturating_sub(limit);
+    let turns: Vec<serde_json::Value> = raw[start..]
+        .iter()
+        .map(|t| {
+            let open = t.uuid == last_uuid;
+            let summary = if open { None } else { cache.get(&t.uuid).cloned() };
+            serde_json::json!({
+                "uuid": t.uuid,
+                "ts": t.ts,
+                "end_ts": t.end_ts,
+                "user_text": t.user_text,
+                "kind": derive_kind(&t.tools),
+                "files": t.files,
+                "commits": t.commits.iter().cloned().collect::<Vec<_>>(),
+                "tools": t.tools.keys().cloned().collect::<Vec<_>>(),
+                "has_errors": t.has_errors,
+                "open": open,
+                "digest": t.digest.chars().take(2000).collect::<String>(),
+                "summary": summary,
+            })
+        })
+        .collect();
+    serde_json::json!({ "session": session, "found": true, "total": total, "turns": turns })
+}
+
+#[derive(Deserialize)]
+struct TurnSummaryIn {
+    uuid: String,
+    summary: String,
+}
+
+#[derive(Deserialize)]
+struct PutTurns {
+    session: String,
+    summaries: Vec<TurnSummaryIn>,
+}
+
+async fn put_session_turns(
+    Extension(cfg): Extension<Arc<CcSearchConfig>>,
+    Json(body): Json<PutTurns>,
+) -> axum::response::Response {
+    let session = body.session.trim().to_string();
+    if session.is_empty() {
+        return (StatusCode::BAD_REQUEST, "missing session").into_response();
+    }
+    let cfg2 = cfg.clone();
+    match tokio::task::spawn_blocking(move || session_turns_put(&cfg2, &session, body)).await {
+        Ok(Ok(())) => Json(serde_json::json!({ "ok": true })).into_response(),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, e).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("turns cache task failed: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+fn session_turns_put(cfg: &CcSearchConfig, session: &str, body: PutTurns) -> Result<(), String> {
+    let cwd = tmux_session_cwd(cfg.tmux_socket.as_deref(), session)
+        .filter(|c| !c.is_empty())
+        .ok_or_else(|| "session cwd not found".to_string())?;
+    let dir = cfg.projects_root.join(encode_cwd(&cwd));
+    let path = newest_jsonl(&dir).ok_or_else(|| "transcript not found".to_string())?;
+    let cp = turns_cache_path(&path).ok_or_else(|| "no cache dir".to_string())?;
+    if let Some(parent) = cp.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
+    }
+    let mut cache = load_turns_cache(&path);
+    for s in body.summaries {
+        let sum = s.summary.trim();
+        if !s.uuid.is_empty() && !sum.is_empty() {
+            cache.insert(s.uuid, sum.chars().take(280).collect());
+        }
+    }
+    let txt = serde_json::to_string(&cache).map_err(|e| format!("serialize: {e}"))?;
+    std::fs::write(&cp, txt).map_err(|e| format!("write: {e}"))?;
+    Ok(())
 }
 
 // ---- helpers ----------------------------------------------------------
