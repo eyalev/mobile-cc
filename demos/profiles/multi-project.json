@@ -1,0 +1,12 @@
+{
+  "_comment": "A demo PROFILE seeds the tmux sessions + project-grouped pinned tabs a UI demo is captured against. See demos/CONVENTIONS.md 'Profiles'. The tab rail's group name is auto-derived from each session-name prefix (api-claude1 -> group 'api'); `mock` picks the cell-grid content cat'd into a session (others fall back to default_mock); `active` is the session shown on top (its pane becomes TTV_PANE).",
+  "id": "multi-project",
+  "description": "An 'api' project with 3 Claude Code sessions + a 'docs' project — the 'juggle every project from one screen' hero state.",
+  "projects": [
+    { "name": "api",  "sessions": ["api-claude1", "api-claude2", "api-claude3"] },
+    { "name": "docs", "sessions": ["docs-claude1"] }
+  ],
+  "active": "api-claude1",
+  "mock": { "api-claude1": "fastapi-mock.txt" },
+  "default_mock": "cc-tui-mock.txt"
+}

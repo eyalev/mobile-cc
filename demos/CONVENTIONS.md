@@ -92,19 +92,48 @@ and looks blurry.** So:
 
 ## How to run
 
+The one-command path — stands up an **isolated synthetic daemon**, applies the
+demo's profile, captures, and tears down (no live `:7800`, no real sessions):
+
+```sh
+demos/local-capture.sh use-flow   # capture one UI demo end-to-end, isolated
+```
+
+The lower-level entrypoint (assumes a daemon is already running at
+`MOBILE_CC_URL`, capture pane `TTV_PANE`):
+
 ```sh
 demos/run.sh                 # the whole suite (regression gate)
 demos/run.sh use-flow        # one demo
 demos/run.sh --list          # what exists
 ```
 
-UI demos need a mobile-cc daemon (default `https://127.0.0.1:7800/`, override
-`MOBILE_CC_URL`) whose capture pane (`TTV_PANE`) runs **seeded, synthetic**
-content — never real secrets. Terminal demos run the real install paths in a
-temp prefix and clean up after themselves.
+Terminal demos run the real install paths in a temp prefix and clean up after
+themselves. `run.sh` publishes each passing demo's media into
+`docs/media/<media>.*` and reminds you to re-upload changed mp4s (below).
 
-`run.sh` publishes each passing demo's media into `docs/media/<media>.*` and
-then reminds you to re-upload changed mp4s (next section).
+## Profiles (the demo's seeded world)
+
+A UI demo is captured against a **profile** — `demos/profiles/<name>.json` —
+that describes the projects, tmux sessions, mock content, and the
+project-grouped pinned tabs the capture should show. A demo opts in via its
+manifest `profile` field (`local-capture.sh` reads it). This is how the README
+"See it" clip shows the real **multi-project tab rail** (an `api` project with
+three Claude Code sessions + a `docs` project) instead of one bare session.
+
+Key facts the profile system relies on:
+
+- **Tab groups** come from **pinned** sessions (daemon state key
+  `ttv-plugin:ttyview-tabs:pins` = `[{id, session}, …]`). The group label is
+  auto-derived from the session-name prefix — `api-claude1` → group `api`.
+- **`local-capture.sh`** creates the sessions on a dedicated `tmux -L` socket,
+  `cat`s each session's mock fixture (`demos/fixtures/*.txt`) into it, starts
+  the isolated daemon, then PUTs the pins (via `lib/profile.mjs`) so the rail
+  renders grouped. The profile's `active` session becomes `TTV_PANE`.
+- **Add a scenario** = add a `demos/profiles/<name>.json` (+ any new mock
+  fixtures) and point a demo's manifest `profile` at it. No code change. Use
+  this for other workflow shots (e.g. a permission-prompt scenario, a
+  single-session beginner view).
 
 ## The README embed step
 

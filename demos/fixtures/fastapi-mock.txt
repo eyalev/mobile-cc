@@ -1,0 +1,28 @@
+  ❯ What HTTP endpoints does this service expose? Give me a quick table.
+
+● This is a small FastAPI service (`app.py`). It exposes two endpoints:
+
+    Method   Path            Handler   Returns
+    ──────   ────────────    ───────   ──────────────────────────
+    GET      /health         health    {"ok": true}
+    GET      /users/{uid}    user      {"id": uid, "name": "Ada"}
+                                        — uid is an int path param
+
+  FastAPI also auto-generates `/docs`, `/redoc`, and `/openapi.json`,
+  but those two above are the only routes defined in the code.
+
+      @app.get("/health")
+      def health():
+          return {"ok": True}
+
+      @app.get("/users/{uid}")
+      def user(uid: int):
+          return {"id": uid, "name": "Ada"}
+
+✻ Baked for 9s
+
+  ❯ add a POST endpoint to create a user
+
+────────────────────────────────────────────────────────────
+  [Opus 4.8 (1M context)] api
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

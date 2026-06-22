@@ -6,8 +6,9 @@
       "id": "use-flow",
       "kind": "ui",
       "title": "Drive a live Claude Code session",
-      "description": "The real Claude Code TUI rendered live in the browser — quick-keys row, type a prompt, Send, watch CC work. The README 'See it' clip.",
+      "description": "The real Claude Code TUI rendered live in the browser — project-grouped tabs (api ×3 + docs), quick-keys row, a reply composed in the Message box. The README 'See it' clip.",
       "media": "use",
+      "profile": "multi-project",
       "readme_section": "See it",
       "attachment_url": "https://github.com/user-attachments/assets/e580857a-fc23-4d0b-92e2-d2fa0180a3c0"
     },
