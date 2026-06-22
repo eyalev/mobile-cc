@@ -4,9 +4,10 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-**Drive Claude Code from your phone (or desktop).** mobile-cc serves your live
-Claude Code sessions to any browser — read the conversation, type back, paste a
-screenshot, and switch between projects, from the couch or the desk.
+**Drive Claude Code from your phone (or desktop) — a mobile-first terminal web
+UI.** mobile-cc serves your live Claude Code sessions to any browser — read the
+conversation, type back, paste a screenshot, and switch between projects, from
+the couch or the desk.
 
 <p align="center">
   <img src="docs/media/hero.png" alt="The real Claude Code TUI in mobile-cc on a phone, with project-grouped session tabs below" width="300">
