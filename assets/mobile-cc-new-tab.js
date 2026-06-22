@@ -185,7 +185,11 @@
     // top-right if the anchor has no geometry.
     var r = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
     if (r && r.width) {
-      menu.style.right = Math.max(6, window.innerWidth - r.right) + 'px';
+      // Left-anchored to the button but clamped to the viewport so it never
+      // runs off either edge.
+      var mw = menu.offsetWidth || 230;
+      var left = Math.min(Math.max(6, r.left), window.innerWidth - mw - 6);
+      menu.style.left = Math.max(6, left) + 'px';
       if (r.top > window.innerHeight / 2) {
         menu.style.bottom = (window.innerHeight - r.top + 6) + 'px'; // open upward
       } else {

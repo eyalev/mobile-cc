@@ -85,8 +85,12 @@
     menu.appendChild(menuItem('Rename…', function () { closeMenu(); renameFlow(session); }));
     menu.appendChild(menuItem('Kill session', function () { closeMenu(); killFlow(session); }, true));
     document.body.appendChild(menu);
+    // Position left-anchored to the button but CLAMPED to the viewport, so a
+    // menu opened from a left-edge tab doesn't run off-screen (was clipping).
     var r = anchor.getBoundingClientRect();
-    menu.style.right = Math.max(6, window.innerWidth - r.right) + 'px';
+    var mw = menu.offsetWidth || 200;
+    var left = Math.min(Math.max(6, r.left), window.innerWidth - mw - 6);
+    menu.style.left = Math.max(6, left) + 'px';
     if (r.top > window.innerHeight / 2) menu.style.bottom = (window.innerHeight - r.top + 6) + 'px';
     else menu.style.top = (r.bottom + 6) + 'px';
     outside = function (e) { if (menu && !menu.contains(e.target) && e.target !== anchor) closeMenu(); };
