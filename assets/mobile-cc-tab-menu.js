@@ -126,13 +126,10 @@
     hdr.textContent = session;
     hdr.style.cssText = 'padding:4px 12px 8px;color:var(--ttv-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
     menu.appendChild(hdr);
+    menu.appendChild(menuItem('Subtitle…', function () { closeMenu(); subtitleFlow(session); }));
     menu.appendChild(menuItem('Rename…', function () { closeMenu(); renameFlow(session); }));
     menu.appendChild(menuItem('Move to project…', function () { closeMenu(); openMoveDialog(session); }));
-    var inRecents = (function () {
-      try { var r = tv.storage('ttyview-tabs').get('recents'); return Array.isArray(r) && r.indexOf(session) !== -1; }
-      catch (e) { return false; }
-    })();
-    if (inRecents) menu.appendChild(menuItem('Remove from recents', function () { closeMenu(); removeFromRecents(session); }));
+    menu.appendChild(menuItem('Remove from recents', function () { closeMenu(); removeFromRecents(session); }));
     menu.appendChild(menuItem('Kill session', function () { closeMenu(); killFlow(session); }, true));
     document.body.appendChild(menu);
     // Position left-anchored to the button but CLAMPED to the viewport, so a
@@ -143,7 +140,17 @@
     menu.style.left = Math.max(6, left) + 'px';
     if (r.top > window.innerHeight / 2) menu.style.bottom = (window.innerHeight - r.top + 6) + 'px';
     else menu.style.top = (r.bottom + 6) + 'px';
-    outside = function (e) { if (menu && !menu.contains(e.target) && e.target !== anchor) closeMenu(); };
+    // Close on outside click — but NOT when the click is on any ⋮ button
+    // (its own click handler toggles). Using the ⋮ class instead of the
+    // captured `anchor` ref fixes the "first tap to close does nothing" bug:
+    // the observer re-injects ⋮ buttons, so `anchor` could be a stale node and
+    // a tap on the fresh ⋮ would close-then-reopen.
+    outside = function (e) {
+      if (!menu) return;
+      if (menu.contains(e.target)) return;
+      if (e.target.closest && e.target.closest('.mcc-tabmenu-btn')) return;
+      closeMenu();
+    };
     setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
   }
 
@@ -185,6 +192,66 @@
           close();
           apiRename(session, to).then(function () { tv.refreshPanes(); flash('Renamed to ' + to); })
             .catch(function (e) { flash('Rename failed: ' + e.message, true); });
+        } },
+      ],
+    });
+  }
+
+  // Set / clear / AI-generate a tab's subtitle (the per-session custom tag
+  // rendered under the name). Commits through ttyview-tabs' public
+  // window.ttvTabsSetLabel (re-renders immediately); falls back to a
+  // storage write + reload if that API isn't present. The ✨ button shows
+  // only when window.ttvTagSuggest exists (mobile-cc-tabs + a Groq key).
+  function subtitleFlow(session) {
+    var inp, genBtn;
+    var cur = '';
+    try { cur = (window.ttvTabsGetLabel && window.ttvTabsGetLabel(session)) || ''; } catch (e) {}
+    openModal({
+      title: 'Tab subtitle',
+      body: function (modal) {
+        var hint = document.createElement('p');
+        hint.textContent = 'A short note shown under the tab name — what this session is about. Leave empty to clear.';
+        hint.style.cssText = 'margin:0 0 10px;color:var(--ttv-muted);font-size:12px;line-height:1.4;';
+        modal.appendChild(hint);
+        inp = document.createElement('input');
+        inp.type = 'text'; inp.value = cur; inp.placeholder = 'e.g. fixing keyboard bug';
+        inp.maxLength = 40;
+        inp.autocapitalize = 'off'; inp.autocomplete = 'off'; inp.spellcheck = false;
+        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+        modal.appendChild(inp);
+        if (typeof window.ttvTagSuggest === 'function') {
+          var row = document.createElement('div');
+          row.style.cssText = 'margin-top:10px;';
+          genBtn = mkBtn('✨ Generate with AI', function () {
+            genBtn.disabled = true;
+            var old = genBtn.textContent; genBtn.textContent = '✨ Generating…';
+            Promise.resolve().then(function () { return window.ttvTagSuggest(session); })
+              .then(function (s) { inp.value = s; })
+              .catch(function (e) { flash('AI failed: ' + e.message, true); })
+              .then(function () { genBtn.disabled = false; genBtn.textContent = old; });
+          });
+          row.appendChild(genBtn);
+          modal.appendChild(row);
+        }
+        setTimeout(function () { inp.focus(); inp.select(); }, 0);
+      },
+      buttons: [
+        { label: 'Cancel', onTap: function (close) { close(); } },
+        { label: 'Save', onTap: function (close) {
+          var val = (inp.value || '').trim();
+          close();
+          if (typeof window.ttvTabsSetLabel === 'function') {
+            window.ttvTabsSetLabel(session, val);
+            flash(val ? 'Subtitle set' : 'Subtitle cleared');
+          } else {
+            try {
+              var s = tv.storage('ttyview-tabs'); var l = s.get('labels') || {};
+              if (val) l[session] = val; else delete l[session];
+              s.set('labels', l);
+            } catch (e) {}
+            flash('Subtitle saved — reloading…');
+            setTimeout(function () { try { location.reload(); } catch (e) {} }, 400);
+          }
         } },
       ],
     });
@@ -274,7 +341,12 @@
       if (t.classList.contains('ttvtab-railbtn') || t.classList.contains('ttvtab-add') ||
           t.id === 'mcc-newtab-railbtn' || t.classList.contains('missing')) continue;
       if (t.querySelector('.mcc-tabmenu-btn')) continue;
-      var session = t.title;
+      // ttyview-tabs sets a CLEAN session on dataset.session; t.title is
+      // polluted with the long-press hint ("mcc17 (press & hold to mark
+      // todo/done)"), which broke subtitle save (wrong key) + AI (no pane
+      // match). Prefer dataset.session; strip a trailing " (...)" hint as
+      // a fallback for older renders.
+      var session = t.dataset.session || (t.title || '').replace(/\s+\(.*\)\s*$/, '');
       if (!session) continue;
       if (getComputedStyle(t).position === 'static') t.style.position = 'relative';
       var dots = document.createElement('button');
