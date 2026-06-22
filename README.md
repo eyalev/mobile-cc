@@ -4,9 +4,10 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-**Drive Claude Code from your phone (or desktop) — a mobile-first terminal web
-UI.** Read the conversation, type back, paste a screenshot, and switch between
-projects — from the beach or the desk.
+**Drive Claude Code from your phone (or desktop) — an installable web app for
+the real terminal.** Smooth terminal scrolling, one-tap switching across
+sessions and projects, and built-in plugins — quick-keys, voice input, image
+paste.
 
 <p align="center">
   <img src="docs/media/hero.png" alt="The real Claude Code TUI in mobile-cc on a phone, with project-grouped session tabs below" width="300">
