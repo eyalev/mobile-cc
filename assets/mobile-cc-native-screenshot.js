@@ -44,6 +44,14 @@
     catch (e) { console.log('[mcc-screenshot]', msg); }
   }
 
+  // Diagnostics → daemon diag.jsonl. Answers "why isn't the chip showing /
+  // working": whether Capacitor's bridge was ever detected, how long it took
+  // to reveal, and each grab's outcome.
+  function diag(cat, data) {
+    try { if (typeof window.ttvDiag === 'function') window.ttvDiag(cat, data); } catch (e) {}
+  }
+  diag('mcc-shot-init', { capacitor: !!window.Capacitor, native: detectNative() });
+
   function dataUrlToFile(dataUrl, name, mime) {
     var comma = dataUrl.indexOf(',');
     var b64 = dataUrl.slice(comma + 1);
@@ -67,20 +75,22 @@
   function grab() {
     if (busy) return;
     var p = plugin();
-    if (!p) { flash('Screenshot needs the mobile-cc app'); return; }
+    if (!p) { flash('Screenshot needs the mobile-cc app'); diag('mcc-shot-grab', { ok: false, reason: 'no-plugin' }); return; }
     busy = true;
     flash('Fetching last screenshot…');
     p.lastScreenshot().then(function (res) {
       busy = false;
-      if (!res || !res.dataUrl) { flash('No screenshot found'); return; }
+      if (!res || !res.dataUrl) { flash('No screenshot found'); diag('mcc-shot-grab', { ok: false, reason: 'empty' }); return; }
       var file = dataUrlToFile(res.dataUrl, res.name, res.mime);
       feedToImagePaste(file);
       var ageSec = res.takenAt ? Math.max(0, Math.round((Date.now() - res.takenAt) / 1000)) : null;
       flash(ageSec != null ? ('Attached screenshot (' + ageSec + 's ago)') : 'Attached screenshot');
+      diag('mcc-shot-grab', { ok: true, ageSec: ageSec, bytes: res.bytes || null });
     }).catch(function (err) {
       busy = false;
       var m = (err && (err.message || err.errorMessage)) || String(err);
       flash('Screenshot failed: ' + m);
+      diag('mcc-shot-grab', { ok: false, reason: 'error', msg: m });
       console.warn('[mobile-cc-native-screenshot]', err);
     });
   }
@@ -106,17 +116,22 @@
       slot.appendChild(btn);
 
       // Reveal once the Capacitor bridge is present (poll ~10s for the race).
-      var poll = null;
+      var poll = null, started = Date.now();
       function reveal() {
         if (!detectNative()) return false;
         plugin();
         btn.style.display = '';
+        diag('mcc-shot-reveal', { afterMs: Date.now() - started });
         return true;
       }
       if (!reveal()) {
         var tries = 0;
         poll = setInterval(function () {
-          if (reveal() || ++tries > 40) { clearInterval(poll); poll = null; }
+          if (reveal()) { clearInterval(poll); poll = null; }
+          else if (++tries > 40) {
+            clearInterval(poll); poll = null;
+            diag('mcc-shot-no-native', { tries: tries, capacitor: !!window.Capacitor });
+          }
         }, 250);
       }
       return function unmount() { if (poll) clearInterval(poll); btn.remove(); };

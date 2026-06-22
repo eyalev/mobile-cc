@@ -30,6 +30,14 @@
   var URL_RE = /(?:https?:\/\/|www\.)[^\s]+/gi;
   var PATH_RE = /[A-Za-z0-9._+@~-]*(?:\/[A-Za-z0-9._+@~-]+)+\/?/g;
 
+  // Diagnostics → daemon diag.jsonl (surfaced by ttyview-logs). Records the
+  // decision points behind "I tapped a path and got no menu": tap outcomes
+  // with bail reason, path-like taps that MISSED linkification (line-wrap /
+  // scan-race / chat-view), and a per-scan marked-cell count.
+  function diag(cat, data) {
+    try { if (typeof window.ttvDiag === 'function') window.ttvDiag(cat, data); } catch (e) {}
+  }
+
   function injectStyle() {
     if (document.getElementById('mcc-download-styles')) return;
     var s = document.createElement('style');
@@ -262,6 +270,7 @@
       scanRow(row);
       if (row.classList.contains('frozen')) row.dataset.mccScanned = '1';
     }
+    diag('mcc-link-scan', { rows: rows.length, marked: host.getElementsByClassName('mcc-link').length });
   }
 
   // Reconstruct the token under a tapped cell, expanding to whitespace bounds.
@@ -286,14 +295,33 @@
   function onDown(e) { downTs = Date.now(); downX = e.clientX; downY = e.clientY; }
   function onUp(e) {
     var cell = e.target;
-    if (!cell || !cell.classList || !cell.classList.contains('mcc-link')) return;
-    if (Date.now() - downTs > 350) return;                          // long-press → native select
-    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) return;
+    if (!cell || !cell.classList || !cell.classList.contains('ttv-cell')) return;
+    var isLink = cell.classList.contains('mcc-link');
+    var heldMs = Math.round(Date.now() - downTs);
+    var moved = Math.round(Math.hypot(e.clientX - downX, e.clientY - downY));
     var tok = tokenAtCell(cell);
-    if (!tok) return;
-    e.preventDefault(); e.stopPropagation();                        // own the tap
-    var rect = cell.getBoundingClientRect();
-    openMenu(tok, classify(tok), rect);
+
+    if (isLink) {
+      var bail = heldMs > 350 ? 'long-press'        // long-press → native select
+               : moved > 10 ? 'moved'
+               : !tok ? 'no-token' : null;
+      if (bail) { diag('mcc-link-tap', { opened: false, bail: bail, heldMs: heldMs, moved: moved }); return; }
+      e.preventDefault(); e.stopPropagation();       // own the tap
+      var type = classify(tok);
+      diag('mcc-link-tap', { opened: true, type: type, len: tok.length, heldMs: heldMs });
+      openMenu(tok, type, cell.getBoundingClientRect());
+      return;
+    }
+    // Unmarked cell that still reconstructs to a path/URL token → linkify
+    // MISSED it (line-wrap fragment, scan race, or chat view). High-signal
+    // record for "I tapped a path and got no menu".
+    if (tok) {
+      diag('mcc-link-miss', {
+        head: tok.slice(0, 16), len: tok.length,
+        frozen: !!(cell.parentNode && cell.parentNode.classList &&
+                   cell.parentNode.classList.contains('frozen')),
+      });
+    }
   }
 
   function wire() {
@@ -334,4 +362,5 @@
   if (wire()) { clearInterval(iv); scanAll(); }
   try { tv.on('grid-loaded', function () { closeMenu(); scanAll(); }); } catch (e) {}
   try { tv.on('pane-changed', function () { closeMenu(); setTimeout(scanAll, 50); }); } catch (e) {}
+  diag('mcc-link-init', { android: isAndroid(), native: isNative() });
 })();
