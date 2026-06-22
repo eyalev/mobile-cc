@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-**Drive Claude Code from your phone — or any browser.** mobile-cc puts your
+**Drive Claude Code from your phone (or desktop).** mobile-cc puts your
 Claude Code sessions on a tap-friendly web page: read the conversation, type
 back, and switch between projects — no copy-paste fights, nothing to memorize.
 
