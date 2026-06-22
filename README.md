@@ -4,18 +4,18 @@
 [![Release](https://img.shields.io/github/v/release/eyalev/mobile-cc?sort=semver)](https://github.com/eyalev/mobile-cc/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-**Drive Claude Code from your phone (or desktop).** mobile-cc puts your
-Claude Code sessions on a tap-friendly web page: read the conversation, type
-back, and switch between projects — no copy-paste fights, nothing to memorize.
+**Drive Claude Code from your phone (or desktop).** mobile-cc serves your live
+Claude Code sessions to any browser — read the conversation, type back, paste a
+screenshot, and switch between projects, from the couch or the desk.
 
 <p align="center">
   <img src="docs/media/hero.png" alt="The real Claude Code TUI in mobile-cc on a phone, with project-grouped session tabs below" width="300">
 </p>
 
-It runs as one ~9 MB binary on the **same machine** as Claude Code and serves
-a web UI you open from your phone or your desktop. It uses `tmux` under the
-hood to keep sessions alive across disconnects — but **you never have to learn
-tmux**: mobile-cc creates, names, and switches sessions for you, from buttons.
+A single binary runs alongside Claude Code and keeps your sessions alive in the
+background — close the tab, switch devices, come back hours later, and you pick
+up exactly where you left off. There's no tmux to learn: mobile-cc creates,
+names, and switches sessions for you, from buttons.
 
 ---
 
