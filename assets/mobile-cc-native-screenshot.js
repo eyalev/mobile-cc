@@ -1,16 +1,22 @@
 // mobile-cc-native-screenshot — one-tap "attach last screenshot" chip.
 //
-// Only active inside the native Capacitor shell (android-app/). It calls
-// the native LastScreenshot plugin, which reads the newest image in the
-// device's Screenshots bucket straight from MediaStore (no picker, no
-// Syncthing), then feeds it into the EXISTING ttyview-image-paste
-// pipeline by dispatching a synthetic `drop` event with a DataTransfer —
-// so the queue / thumbnail preview / upload / send-interception all reuse
-// image-paste's code unchanged. In a plain browser this plugin is a
-// no-op (the chip never renders), so the PWA is untouched.
+// Active inside the native Capacitor shell (android-app/). It calls the native
+// LastScreenshot plugin, which reads the newest image in the device's
+// Screenshots bucket straight from MediaStore (no picker, no Syncthing), then
+// feeds it into the EXISTING ttyview-image-paste pipeline by dispatching a
+// synthetic `drop` event with a DataTransfer — so the queue / thumbnail
+// preview / upload / send-interception all reuse image-paste's code unchanged.
+// In a plain browser the button stays hidden, so the PWA is untouched.
 //
-// Touch handling mirrors mobile-cc-commands / ttyview-quickkeys:
-// pointerup (Android Chrome eats the synthetic click), tabIndex=-1 +
+// IMPORTANT (load-order race fix): the Capacitor native bridge is injected by
+// the native layer and may not be present when this plugin first runs. The old
+// version read window.Capacitor ONCE at load and bailed permanently, so a race
+// hid the button forever even in the app. Now we ALWAYS contribute the chip
+// (so the slot is reserved in time) but render it hidden, then poll for the
+// bridge and reveal it once isNativePlatform() is true.
+//
+// Touch handling mirrors mobile-cc-commands / ttyview-quickkeys: pointerup
+// (Android Chrome eats the synthetic click), tabIndex=-1 +
 // mousedown.preventDefault so a tap never blurs the Message box.
 (function () {
   var tv = window.ttyview;
@@ -19,18 +25,18 @@
     return;
   }
 
-  // Gate on the native shell. In a normal browser Capacitor is absent or
-  // isNativePlatform() is false → we contribute nothing.
-  var cap = window.Capacitor;
-  var isNative = !!(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform());
-  if (!isNative) return;
+  function detectNative() {
+    var cap = window.Capacitor;
+    return !!(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform());
+  }
 
-  var LastScreenshot;
-  try {
-    LastScreenshot = cap.registerPlugin('LastScreenshot');
-  } catch (e) {
-    console.warn('[mobile-cc-native-screenshot] LastScreenshot plugin missing', e);
-    return;
+  var _plugin;
+  function plugin() {
+    if (!_plugin && window.Capacitor && window.Capacitor.registerPlugin) {
+      try { _plugin = window.Capacitor.registerPlugin('LastScreenshot'); }
+      catch (e) { console.warn('[mobile-cc-native-screenshot] plugin missing', e); }
+    }
+    return _plugin;
   }
 
   function flash(msg) {
@@ -60,9 +66,11 @@
   var busy = false;
   function grab() {
     if (busy) return;
+    var p = plugin();
+    if (!p) { flash('Screenshot needs the mobile-cc app'); return; }
     busy = true;
     flash('Fetching last screenshot…');
-    LastScreenshot.lastScreenshot().then(function (res) {
+    p.lastScreenshot().then(function (res) {
       busy = false;
       if (!res || !res.dataUrl) { flash('No screenshot found'); return; }
       var file = dataUrlToFile(res.dataUrl, res.name, res.mime);
@@ -89,14 +97,29 @@
       // Camera-with-clock glyph: "the most recent capture".
       btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M3 7h3l1.5-2h9L18 7h3v12H3z"/><circle cx="12" cy="13" r="3.2"/><path d="M12 11.6v1.6l1 0.8"/></svg>';
       btn.style.color = 'var(--ttv-accent)';
+      btn.style.display = 'none';        // hidden until the native bridge is confirmed
       btn.addEventListener('pointerup', function (e) {
         if (e.button !== undefined && e.button !== 0) return;
         grab();
       });
-      // Cancel desktop focus-on-mousedown (touch path is covered by tabIndex=-1).
       btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
       slot.appendChild(btn);
-      return function unmount() { btn.remove(); };
+
+      // Reveal once the Capacitor bridge is present (poll ~10s for the race).
+      var poll = null;
+      function reveal() {
+        if (!detectNative()) return false;
+        plugin();
+        btn.style.display = '';
+        return true;
+      }
+      if (!reveal()) {
+        var tries = 0;
+        poll = setInterval(function () {
+          if (reveal() || ++tries > 40) { clearInterval(poll); poll = null; }
+        }, 250);
+      }
+      return function unmount() { if (poll) clearInterval(poll); btn.remove(); };
     },
   });
 })();

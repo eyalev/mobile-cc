@@ -13,10 +13,20 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Dark system bars with light icons (see MainActivity for the
+             runtime belt-and-suspenders). -->
+        <item name="android:statusBarColor">#1A1A1A</item>
+        <item name="android:navigationBarColor">#1A1A1A</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- Dark system bars during splash too, so there's no light flash. -->
+        <item name="android:statusBarColor">#1A1A1A</item>
+        <item name="android:navigationBarColor">#1A1A1A</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>
