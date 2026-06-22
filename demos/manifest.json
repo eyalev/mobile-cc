@@ -29,6 +29,22 @@
       "profile": "multi-project"
     },
     {
+      "id": "chat-view",
+      "kind": "ui",
+      "title": "Read the session as a chat transcript",
+      "description": "Flip from the live terminal to the chat-style transcript reader (ttyview-cc). Switched via the internal view API — the build ships no UI control for it (see UX issue). Captured, not README-linked.",
+      "media": "chat-view",
+      "profile": "multi-project"
+    },
+    {
+      "id": "new-session",
+      "kind": "ui",
+      "title": "Start a session from a button",
+      "description": "Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.",
+      "media": "new-session",
+      "profile": "multi-project"
+    },
+    {
       "id": "paste-flow",
       "kind": "ui",
       "title": "Image paste end-to-end",
