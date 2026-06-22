@@ -75,25 +75,40 @@
   var GROQ_BASE = 'https://api.groq.com/openai/v1';
   var GROQ_MODEL = 'llama-3.3-70b-versatile';
 
+  // How many latest user prompts the AI summarizes from. Adjustable in
+  // Settings → Tab Subtitles. Stored in this plugin's scoped storage.
+  var SELF_STORE = tv.storage('mobile-cc-tabs');
+  var SUBTITLE_N_DEFAULT = 6;
+  function subtitleN() {
+    var v = parseInt(SELF_STORE.get('subtitleN'), 10);
+    return (v >= 1 && v <= 20) ? v : SUBTITLE_N_DEFAULT;
+  }
+
   // Best source = the CC transcript (the actual conversation). The daemon's
-  // /api/cc-tab-summary resolves session → cwd → newest transcript and
-  // returns the first + last user prompts. Returns null when there's no CC
-  // transcript (non-CC shell, fresh session) → caller falls back to pane
-  // text. Returns { context, src }.
+  // /api/cc-tab-summary resolves session → cwd → newest transcript and returns
+  // the last N substantive user prompts (current focus; the original goal is
+  // skipped — long sessions drift). Returns null when there's no CC transcript
+  // (non-CC shell, fresh session) → caller falls back to pane text.
   async function gatherContext(session) {
     // 1) Transcript (preferred).
     try {
-      var r = await fetch('/api/cc-tab-summary?session=' + encodeURIComponent(session));
+      var r = await fetch('/api/cc-tab-summary?session=' + encodeURIComponent(session) +
+                          '&n=' + subtitleN());
       if (r.ok) {
         var d = await r.json();
-        if (d && d.found && (d.first || (d.recent && d.recent.length))) {
-          var parts = [];
-          if (d.first) parts.push('ORIGINAL TASK:\n' + d.first);
-          if (d.recent && d.recent.length) {
-            parts.push('RECENT REQUESTS (newest last):\n' +
-              d.recent.map(function (x) { return '- ' + x; }).join('\n'));
-          }
-          return { context: parts.join('\n\n').slice(0, 3500), src: 'transcript' };
+        // New shape: d.prompts (last N). Back-compat: old server returned
+        // d.first/d.recent — fold those in so a pre-bake preview still works.
+        var ps = (d && d.prompts) || [];
+        if ((!ps.length) && d) {
+          if (d.recent && d.recent.length) ps = d.recent;
+          else if (d.first) ps = [d.first];
+        }
+        if (d && d.found && ps.length) {
+          return {
+            context: 'RECENT REQUESTS (newest last):\n' +
+              ps.map(function (x) { return '- ' + x; }).join('\n'),
+            src: 'transcript',
+          };
         }
       }
     } catch (_) {}
@@ -156,4 +171,50 @@
     try { if (window.ttvDiag) window.ttvDiag('tag-suggest', { session: session, out: out, src: ctx.src }); } catch (_) {}
     return out;
   };
+
+  // ---- Settings → Tab Subtitles (adjust how many prompts AI uses) ---
+  if (tv.contributes && tv.contributes.settingsTab) {
+    tv.contributes.settingsTab({
+      id: 'mobile-cc-tabs',
+      title: 'Tab Subtitles',
+      render: function (container) {
+        container.innerHTML = '';
+        var intro = document.createElement('p');
+        intro.style.cssText = 'color:var(--ttv-muted);font-size:12px;margin:0 0 16px;';
+        intro.textContent =
+          'When you ✨ Generate a tab subtitle, the AI reads your most recent ' +
+          'prompts in that session. More prompts = broader context; fewer = ' +
+          'tighter focus on what you are doing right now.';
+        container.appendChild(intro);
+
+        var row = document.createElement('label');
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;color:var(--ttv-fg);font-size:14px;';
+        var span = document.createElement('span');
+        span.textContent = 'Latest prompts to summarize';
+        var num = document.createElement('input');
+        num.type = 'number'; num.min = '1'; num.max = '20'; num.step = '1';
+        num.value = String(subtitleN());
+        num.style.cssText = 'width:64px;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:6px 8px;font:inherit;font-size:14px;';
+        var range = document.createElement('input');
+        range.type = 'range'; range.min = '1'; range.max = '20'; range.step = '1';
+        range.value = String(subtitleN());
+        range.style.cssText = 'flex:1;min-width:0;';
+        function commit(v) {
+          var n = Math.max(1, Math.min(20, parseInt(v, 10) || SUBTITLE_N_DEFAULT));
+          num.value = String(n); range.value = String(n);
+          SELF_STORE.set('subtitleN', n);
+        }
+        num.addEventListener('change', function () { commit(num.value); });
+        range.addEventListener('input', function () { commit(range.value); });
+        row.appendChild(span); row.appendChild(num);
+        container.appendChild(row);
+        container.appendChild(range);
+
+        var hint = document.createElement('div');
+        hint.style.cssText = 'color:var(--ttv-muted);font-size:11px;margin-top:8px;';
+        hint.textContent = 'Default 6. cc-com messages and one-word replies (continue, yes…) are skipped automatically.';
+        container.appendChild(hint);
+      },
+    });
+  }
 })();

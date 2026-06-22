@@ -395,20 +395,24 @@ fn load_session(cfg: &CcSearchConfig, id: &str) -> Result<Vec<PreviewMsg>, Strin
     Ok(msgs)
 }
 
-// ---- /api/cc-tab-summary?session=<name> -------------------------------
+// ---- /api/cc-tab-summary?session=<name>&n=<count> ---------------------
 //
 // Distilled CC-transcript text for a tmux session, used by the client's AI
 // subtitle generator (window.ttvTagSuggest). The terminal screen is mostly
 // CC TUI chrome — a poor summary source — so we read the actual conversation
 // instead: resolve session → pane cwd → CC project dir → newest transcript,
-// then return the FIRST substantive user prompt (original goal) plus the last
-// few user prompts (current focus). Tool/thinking/system noise is already
-// dropped by extract_text. found=false → the client falls back to scraping
-// the pane (non-CC shells, or no transcript yet).
+// then return the LAST N *substantive* user prompts (current focus). We
+// deliberately do NOT special-case the first prompt — long sessions drift, so
+// the original goal is often stale. `n` is client-adjustable (Settings → Tab
+// Subtitles). Noise (cc-com messages, one-word continuations like "continue"/
+// "yes", and tool/command/caveat wrappers via extract_text) is filtered so a
+// slot isn't wasted. found=false → the client falls back to scraping the pane.
 
 #[derive(Deserialize)]
 struct TabSummaryQuery {
     session: String,
+    /// How many latest substantive user prompts to return (clamped 1..=20).
+    n: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -416,10 +420,8 @@ struct TabSummary {
     session: String,
     cwd: String,
     found: bool,
-    /// Original task: the first substantive user prompt.
-    first: String,
-    /// Recent focus: the last few user prompts, oldest→newest.
-    recent: Vec<String>,
+    /// The last N substantive user prompts, oldest→newest.
+    prompts: Vec<String>,
 }
 
 async fn cc_tab_summary(
@@ -430,8 +432,9 @@ async fn cc_tab_summary(
     if session.is_empty() {
         return (StatusCode::BAD_REQUEST, "missing session").into_response();
     }
+    let n = q.n.unwrap_or(6).clamp(1, 20);
     let cfg2 = cfg.clone();
-    match tokio::task::spawn_blocking(move || tab_summary(&cfg2, &session)).await {
+    match tokio::task::spawn_blocking(move || tab_summary(&cfg2, &session, n)).await {
         Ok(s) => Json(s).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -441,13 +444,36 @@ async fn cc_tab_summary(
     }
 }
 
-fn tab_summary(cfg: &CcSearchConfig, session: &str) -> TabSummary {
+/// One-word continuations / acks that carry no task signal.
+fn is_filler_prompt(t: &str) -> bool {
+    let l = t.trim().to_lowercase();
+    matches!(
+        l.as_str(),
+        "continue"
+            | "continue."
+            | "go on"
+            | "go"
+            | "next"
+            | "yes"
+            | "yep"
+            | "yeah"
+            | "no"
+            | "ok"
+            | "okay"
+            | "sure"
+            | "do it"
+            | "proceed"
+            | "y"
+            | "go ahead"
+    )
+}
+
+fn tab_summary(cfg: &CcSearchConfig, session: &str, n: usize) -> TabSummary {
     let mut out = TabSummary {
         session: session.to_string(),
         cwd: String::new(),
         found: false,
-        first: String::new(),
-        recent: Vec::new(),
+        prompts: Vec::new(),
     };
     let cwd = match tmux_session_cwd(cfg.tmux_socket.as_deref(), session) {
         Some(c) if !c.is_empty() => c,
@@ -472,9 +498,13 @@ fn tab_summary(cfg: &CcSearchConfig, session: &str) -> TabSummary {
         if rec.get("type").and_then(|t| t.as_str()) != Some("user") {
             continue;
         }
-        let t = extract_text(&rec); // already strips command/caveat wrappers + tool blocks
-        if t.chars().count() < 4 {
+        let t = extract_text(&rec); // strips command/caveat wrappers + tool blocks
+        let trimmed = t.trim();
+        if trimmed.chars().count() < 4 {
             continue;
+        }
+        if trimmed.starts_with("[cc-com]") || is_filler_prompt(trimmed) {
+            continue; // inter-agent chatter / bare continuations carry no signal
         }
         users.push(t);
     }
@@ -482,11 +512,12 @@ fn tab_summary(cfg: &CcSearchConfig, session: &str) -> TabSummary {
         return out;
     }
     out.found = true;
-    // Cap each prompt so a giant paste doesn't blow the LLM context.
-    let clip = |s: &String| -> String { s.chars().take(600).collect() };
-    out.first = clip(&users[0]);
-    let start = users.len().saturating_sub(3);
-    out.recent = users[start..].iter().map(clip).collect();
+    // Last N, oldest→newest; clip each so a giant paste can't blow the context.
+    let start = users.len().saturating_sub(n);
+    out.prompts = users[start..]
+        .iter()
+        .map(|s| s.chars().take(600).collect())
+        .collect();
     out
 }
 
