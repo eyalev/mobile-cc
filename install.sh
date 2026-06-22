@@ -54,6 +54,18 @@ mkdir -p "$PREFIX"
 # to bind any non-loopback address — the safe ways to reach it from another
 # device all involve a fronting layer that provides auth (ssh -L, Tailscale,
 # cloudflared, reverse proxy with auth). See the README section linked below.
+# Reject any BIND containing characters outside a safe host:port set (spaces,
+# newlines, shell/unit-file metacharacters). The loopback glob below is not a
+# sufficient sanitizer on its own — `127.0.0.1:*` would also match
+# `127.0.0.1:7800 --some-flag` — and $BIND is later interpolated unquoted into
+# the systemd unit's ExecStart, so an unsanitized value could inject extra CLI
+# flags or unit directives.
+case "$BIND" in
+  *[!0-9A-Za-z.:_\[\]-]*)
+    echo "mobile-cc: MOBILE_CC_BIND='$BIND' contains invalid characters." >&2
+    exit 1
+    ;;
+esac
 case "$BIND" in
   127.0.0.1:*|localhost:*|\[::1\]:*)
     : # loopback — proceed
@@ -195,6 +207,7 @@ else
   fi
 
   # 3. SHA-256 (always — integrity baseline)
+  SHA_VERIFIED=0
   if curl -fsSL --max-time 30 "${URL}.sha256" -o "$TMP/dl.tar.gz.sha256" 2>/dev/null; then
     expected=$(awk '{print $1}' "$TMP/dl.tar.gz.sha256")
     if   command -v sha256sum >/dev/null 2>&1; then
@@ -202,18 +215,36 @@ else
     elif command -v shasum >/dev/null 2>&1; then
       actual=$(shasum -a 256 "$TMP/dl.tar.gz" | awk '{print $1}')
     else
-      echo "mobile-cc: WARNING — neither sha256sum nor shasum found; skipping checksum." >&2
-      actual="$expected"
+      actual=""   # no checksum tool — handled below (never fabricate a match)
     fi
-    if [ "$expected" != "$actual" ]; then
+    if [ -z "$actual" ]; then
+      if [ "$STRONG_VERIFIED" = 1 ]; then
+        echo "      note: no sha256sum/shasum on PATH; relying on the signature/provenance above." >&2
+      elif [ "${MOBILE_CC_INSECURE:-0}" = 1 ]; then
+        echo "mobile-cc: WARNING — no checksum tool and MOBILE_CC_INSECURE=1; installing unverified." >&2
+      else
+        fatal_verify "cannot verify download — no minisign/gh and no sha256sum/shasum on PATH (set MOBILE_CC_INSECURE=1 to override)"
+      fi
+    elif [ "$expected" != "$actual" ]; then
       echo "  expected: $expected" >&2
       echo "  actual:   $actual" >&2
       fatal_verify "SHA-256 checksum mismatch on downloaded binary"
+    else
+      echo "      ✓ SHA-256 OK"
+      SHA_VERIFIED=1
     fi
-    echo "      ✓ SHA-256 OK"
-  elif [ "$STRONG_VERIFIED" = 0 ]; then
-    echo "mobile-cc: WARNING — no signature, no provenance, and no .sha256 could be" >&2
-    echo "  fetched. The download is unverified (relying on TLS only)." >&2
+  fi
+
+  # Fail CLOSED if nothing verified the artifact (no strong verifier AND no
+  # checksum could be fetched) — TLS alone is not enough. An explicit
+  # MOBILE_CC_INSECURE=1 opts out (e.g. an air-gapped mirror without siblings).
+  if [ "$STRONG_VERIFIED" = 0 ] && [ "$SHA_VERIFIED" = 0 ]; then
+    if [ "${MOBILE_CC_INSECURE:-0}" = 1 ]; then
+      echo "mobile-cc: WARNING — download is UNVERIFIED (no signature, provenance, or" >&2
+      echo "  checksum). Proceeding because MOBILE_CC_INSECURE=1 (relying on TLS only)." >&2
+    else
+      fatal_verify "download is unverified — no signature, no provenance, no .sha256 (set MOBILE_CC_INSECURE=1 to override)"
+    fi
   fi
 
   tar -xzf "$TMP/dl.tar.gz" -C "$TMP"

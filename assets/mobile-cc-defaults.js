@@ -41,13 +41,18 @@
   } catch (_) { /* private mode etc. — pickInitialPane falls back to first pane */ }
 
   // Seed the tabs plugin's settings for the mobile-cc shape: a 3-row
-  // tab grid (4 tabs per row, pinned mode) at the bottom of the
+  // tab grid (3 tabs per row, pinned mode) at the bottom of the
   // screen. Deliberately OUTSIDE the run-once sentinel and guarded on
   // key absence instead: it must reach existing installs that predate
   // the tab grid, while never clobbering a user's own customization
   // (any Settings edit writes the key, which blocks re-seeding).
   // Plugin storage is server-synced, so one browser seeding covers
   // every device.
+  //
+  // maxPerRow MUST match mobile-cc-tabs.js's seededPerRow value (3): that
+  // plugin loads after this one and overrides maxPerRow to 3, so keeping
+  // them in agreement removes the contradiction and makes the result
+  // independent of plugin load order.
   try {
     var tabsStore = window.ttyview.storage('ttyview-tabs');
     if (tabsStore && tabsStore.get('settings') == null) {
@@ -56,7 +61,7 @@
       // reads as a confusing lone tab above the grid, so mobile-cc ships it
       // off. Re-enable any time via Settings → Pinned Tabs → "Show recent
       // tabs row" (the 🕘 rail mode still gives on-demand recents).
-      tabsStore.set('settings', { rows: 3, maxPerRow: 4, mode: 'pinned', recentRow: false });
+      tabsStore.set('settings', { rows: 3, maxPerRow: 3, mode: 'pinned', recentRow: false });
     }
 
     // Pin the "mcc" group to its own color. The tabs plugin derives a

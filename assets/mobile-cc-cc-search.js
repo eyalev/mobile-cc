@@ -37,6 +37,7 @@
   var kwTimer = null, aiTimer = null;
   var kwSeq = 0, aiSeq = 0;
   var lastResults = [];
+  var lastResultsQ = '';      // the query lastResults belongs to (couples lane B to lane A)
   var sortMode = STORAGE.get('sortMode') === 'recent' ? 'recent' : 'relevance';
   var sortRow = null;
 
@@ -189,13 +190,26 @@
   function doKeywordSearch(q) {
     var seq = ++kwSeq;
     fetch('/api/cc-search?q=' + encodeURIComponent(q) + '&limit=20')
-      .then(function (r) { return r.ok ? r.json() : []; })
+      // A non-2xx response is an error, NOT "zero matches" — surface it so a
+      // backend failure (ripgrep missing, perms) doesn't masquerade as an
+      // empty result set.
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
       .then(function (list) {
         if (seq !== kwSeq) return;            // stale
         lastResults = list;
+        lastResultsQ = q;
         renderResults(list, q);
+        scheduleAi(q);                        // arm lane B against THIS query's results
       })
-      .catch(function () { if (seq === kwSeq) statusEl.textContent = 'Search error.'; });
+      .catch(function () { if (seq === kwSeq && statusEl) statusEl.textContent = 'Search error.'; });
+  }
+
+  // Lane B is armed from lane A's success handler (not an independent timer) so
+  // the AI pick can only ever rerank candidates that belong to the current
+  // query — never a previous query's results that are still in lastResults.
+  function scheduleAi(q) {
+    clearTimeout(aiTimer);
+    aiTimer = setTimeout(function () { doAiPick(q); }, 450);
   }
 
   // ---- lane B: Groq AI pick --------------------------------------------
@@ -222,6 +236,7 @@
     if (!aiEnabled()) { renderAiBox('hidden'); return; }
     var key = groqKey();
     if (!key) { renderAiBox('hidden'); return; }
+    if (lastResultsQ !== q) return;          // results aren't for this query (yet)
     var cands = lastResults.slice(0, 12);
     if (!cands.length) { renderAiBox('hidden'); return; }
     var seq = ++aiSeq;
@@ -266,11 +281,11 @@
     var q = input.value.trim();
     renderAiBox('hidden');
     clearTimeout(kwTimer); clearTimeout(aiTimer);
-    if (!q) { lastResults = []; renderResults([], ''); return; }
+    if (!q) { lastResults = []; lastResultsQ = ''; renderResults([], ''); return; }
     statusEl.textContent = 'Searching…';
+    // Lane A runs first; lane B (AI pick) is armed from lane A's success
+    // handler (scheduleAi) so it only reranks results for THIS query.
     kwTimer = setTimeout(function () { doKeywordSearch(q); }, 150);
-    // Lane B waits for a typing pause and for Lane A to have populated.
-    aiTimer = setTimeout(function () { doAiPick(q); }, 600);
   }
 
   // ---- actions ----------------------------------------------------------
@@ -299,6 +314,7 @@
   }
 
   function preview(r) {
+    var seq = kwSeq;                          // closeOverlay() bumps kwSeq → invalidates this load
     resultsEl.innerHTML = '';
     aiBox.style.display = 'none';
     statusEl.textContent = 'Loading transcript…';
@@ -327,6 +343,7 @@
     fetch('/api/cc-session/' + encodeURIComponent(r.session_id))
       .then(function (resp) { return resp.ok ? resp.json() : []; })
       .then(function (msgs) {
+        if (seq !== kwSeq || !statusEl) return;   // overlay closed mid-load
         statusEl.textContent = msgs.length + ' messages';
         var q = input.value.trim();
         body.innerHTML = msgs.map(function (m) {
@@ -339,7 +356,7 @@
             highlight((m.text || '').slice(0, 4000), q) + '</div></div>';
         }).join('');
       })
-      .catch(function () { statusEl.textContent = 'Could not load transcript.'; });
+      .catch(function () { if (seq === kwSeq && statusEl) statusEl.textContent = 'Could not load transcript.'; });
   }
 
   // ---- overlay open/close ----------------------------------------------

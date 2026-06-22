@@ -6,7 +6,8 @@
 //! points the browser at:
 //!
 //!   GET /api/download?path=<abs-or-~ path>[&name=<override>]
-//!     → streams the file with `Content-Disposition: attachment`.
+//!     → sends the file (read into memory, capped) with
+//!       `Content-Disposition: attachment`.
 //!
 //! Security: only files that canonicalize to *under one of `roots`* are
 //! served; `..`/symlink escapes are rejected post-canonicalization. mobile-cc
@@ -90,6 +91,24 @@ fn content_type_for(path: &FsPath) -> &'static str {
     }
 }
 
+/// Read a file into memory, enforcing the byte cap AT READ TIME (the `metadata`
+/// size check is advisory — the file could grow between the check and the read,
+/// so we re-cap here rather than trust the earlier length). Reads one byte past
+/// the cap to detect an over-size file and reject instead of buffering it.
+fn read_capped(path: &FsPath, cap: u64) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    let f = std::fs::File::open(path)?;
+    let mut buf = Vec::new();
+    f.take(cap + 1).read_to_end(&mut buf)?;
+    if buf.len() as u64 > cap {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "file exceeds size cap",
+        ));
+    }
+    Ok(buf)
+}
+
 /// Strip characters that would break the `Content-Disposition` header.
 fn sanitize_filename(name: &str) -> String {
     name.chars()
@@ -109,18 +128,11 @@ async fn download(
         Err(_) => return (StatusCode::NOT_FOUND, "file not found").into_response(),
     };
 
-    let meta = match std::fs::metadata(&canonical) {
-        Ok(m) if m.is_file() => m,
-        Ok(_) => return (StatusCode::NOT_FOUND, "not a regular file").into_response(),
-        Err(_) => return (StatusCode::NOT_FOUND, "file not found").into_response(),
-    };
-    if meta.len() > MAX_BYTES {
-        return (StatusCode::PAYLOAD_TOO_LARGE, "file too large to download").into_response();
-    }
-
-    // Enforce the allowlist: canonical must be inside a canonicalized root.
-    // `Path::starts_with` is component-wise, so /home/eyalevil does NOT match
-    // root /home/eyalev — no prefix-escape.
+    // Enforce the allowlist BEFORE touching metadata, so the existence, type,
+    // and size of out-of-root paths aren't distinguishable (a 403 here vs a 404
+    // / 413 below would let a caller probe arbitrary paths). `Path::starts_with`
+    // is component-wise, so /home/eyalevil does NOT match root /home/eyalev — no
+    // prefix-escape.
     let allowed = cfg.roots.iter().any(|root| {
         std::fs::canonicalize(root)
             .map(|r| canonical.starts_with(&r))
@@ -128,6 +140,15 @@ async fn download(
     });
     if !allowed {
         return (StatusCode::FORBIDDEN, "path not in an allowed directory").into_response();
+    }
+
+    let meta = match std::fs::metadata(&canonical) {
+        Ok(m) if m.is_file() => m,
+        Ok(_) => return (StatusCode::NOT_FOUND, "not a regular file").into_response(),
+        Err(_) => return (StatusCode::NOT_FOUND, "file not found").into_response(),
+    };
+    if meta.len() > MAX_BYTES {
+        return (StatusCode::PAYLOAD_TOO_LARGE, "file too large to download").into_response();
     }
 
     let ct = content_type_for(&canonical);
@@ -143,7 +164,7 @@ async fn download(
         .unwrap_or_else(|| "download".to_string());
 
     let path2 = canonical.clone();
-    let bytes = match tokio::task::spawn_blocking(move || std::fs::read(&path2)).await {
+    let bytes = match tokio::task::spawn_blocking(move || read_capped(&path2, MAX_BYTES)).await {
         Ok(Ok(b)) => b,
         _ => return (StatusCode::INTERNAL_SERVER_ERROR, "read failed").into_response(),
     };
@@ -189,5 +210,21 @@ mod tests {
     #[test]
     fn sanitize_strips_quote_and_newlines() {
         assert_eq!(sanitize_filename("a\"b\nc"), "abc");
+    }
+
+    #[test]
+    fn read_capped_allows_within_cap_and_rejects_over() {
+        use std::io::Write;
+        let dir = std::env::temp_dir().join(format!("mcc-dl-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let p = dir.join("f.bin");
+        std::fs::File::create(&p).unwrap().write_all(&[0u8; 100]).unwrap();
+        // Under cap → returns the bytes.
+        assert_eq!(read_capped(&p, 1000).unwrap().len(), 100);
+        // Exactly at cap → ok.
+        assert_eq!(read_capped(&p, 100).unwrap().len(), 100);
+        // Over cap → error, not a truncated/unbounded buffer.
+        assert!(read_capped(&p, 50).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -205,7 +205,17 @@
         var rb = document.createElement('input');
         rb.type = 'radio'; rb.name = 'mcc-pz'; rb.checked = (mode() === o.v);
         rb.style.cssText = 'width:18px;height:18px;flex:none;margin-top:1px;';
-        rb.addEventListener('change', function () { if (rb.checked) { STORAGE.set(MODE_KEY, o.v); applyMode(); } });
+        rb.addEventListener('change', function () {
+          if (!rb.checked) return;
+          STORAGE.set(MODE_KEY, o.v);
+          // Leaving pinch zoom must not strand the terminal: clear any residual
+          // transform/font and restore auto-fit (sharp-mode pinch set
+          // ttv-autofit='false'), else 'off' would freeze the view shrunk with
+          // auto-fit disabled across reloads. Done here (the explicit switch),
+          // not in applyMode, so a pane-change re-apply of 'off' won't fight A±.
+          if (o.v === 'off') { resetScale(); resetFont(); }
+          applyMode();
+        });
         row.appendChild(rb);
         var txt = document.createElement('div');
         var t = document.createElement('div');

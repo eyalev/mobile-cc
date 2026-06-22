@@ -133,12 +133,14 @@ async fn main() -> Result<()> {
         .with_context(|| format!("creating {}", plugins_dir.display()))?;
 
     // Seed each bundled plugin source file. We rewrite on every startup if the
-    // file is missing OR shorter than what we ship — covers the case where the
-    // user upgrades mobile-cc and a plugin's source has grown.
+    // file is missing OR its content differs from what we ship — so an upgrade
+    // always refreshes the on-disk copy, including a same-length edit that a
+    // size-only check would miss. Plugins are small, so reading them back to
+    // compare is cheap.
     for (filename, bytes) in PLUGIN_SOURCES {
         let dest = plugins_dir.join(filename);
-        let needs_write = match std::fs::metadata(&dest) {
-            Ok(meta) => meta.len() as usize != bytes.len(),
+        let needs_write = match std::fs::read(&dest) {
+            Ok(cur) => cur.as_slice() != *bytes,
             Err(_) => true,
         };
         if needs_write {

@@ -115,11 +115,19 @@
     if (isAndroid()) {
       var scheme = url.slice(0, url.indexOf(':'));              // http | https
       var rest = url.replace(/^https?:\/\//i, '');              // host/path?query#frag
-      var intentUrl = 'intent://' + rest + '#Intent;scheme=' + scheme +
-        ';package=com.android.chrome;action=android.intent.action.VIEW;' +
-        'S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
-      window.location.href = intentUrl;
-      return;
+      // A '#' or ';' in the URL would break — or be used to HIJACK — the
+      // intent: URI grammar: Android parses the first '#Intent;...;end', so an
+      // embedded '#Intent;...' in attacker-influenced terminal text could
+      // inject arbitrary intent fields (action/package/...). Only use the
+      // intent form for grammar-safe URLs; anything else falls back to a normal
+      // new tab (may land in the PWA window, but never launches a forged intent).
+      if (rest.indexOf('#') < 0 && rest.indexOf(';') < 0) {
+        var intentUrl = 'intent://' + rest + '#Intent;scheme=' + scheme +
+          ';package=com.android.chrome;action=android.intent.action.VIEW;' +
+          'S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
+        window.location.href = intentUrl;
+        return;
+      }
     }
     window.open(url, '_blank');
   }
