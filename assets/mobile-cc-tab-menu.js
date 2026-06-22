@@ -40,6 +40,50 @@
     setTimeout(function () { t.remove(); }, 3500);
   }
 
+  // ---- projects (groups are derived from session names) ----
+  // Mirrors ttyview-tabs' deriveGroup: `<group>(-claude|-cc|-agent)?<digits>`.
+  function deriveGroup(session) {
+    var m = /^([a-zA-Z][\w.-]*?)(?:[-_](?:claude|cc|agent))?[-_]?(\d+)$/.exec(session || '');
+    return m ? m[1] : null;
+  }
+  function existingNames() {
+    var s = {}; (tv.listPanes() || []).forEach(function (p) { s[p.session] = 1; }); return s;
+  }
+  function getGroups() {
+    var set = {};
+    (tv.listPanes() || []).forEach(function (p) { var g = deriveGroup(p.session); if (g) set[g] = 1; });
+    return Object.keys(set).sort();
+  }
+  // Lowest free `<base><N>` (base e.g. "api-claude").
+  function numberedName(base) {
+    var names = existingNames();
+    for (var i = 1; i < 999; i++) { if (!names[base + i]) return base + i; }
+    return base + Date.now();
+  }
+  // Move = rename so the name groups under <project> (grouping is name-based).
+  function moveToProject(session, project) {
+    var to = numberedName(project + '-claude');
+    apiRename(session, to)
+      .then(function () { return tv.refreshPanes(); })
+      .then(function () {
+        var p = (tv.listPanes() || []).find(function (x) { return x.session === to; });
+        if (p) { try { tv.selectPane(p.id); } catch (e) {} }
+        flash('Moved to ' + project + ' (' + to + ')');
+      })
+      .catch(function (e) { flash('Move failed: ' + e.message, true); });
+  }
+  // Remove a session from the tabs "recents" MRU. The tabs plugin caches
+  // recents in memory, so a reload is needed for the recent row to reflect it.
+  function removeFromRecents(session) {
+    try {
+      var s = tv.storage('ttyview-tabs');
+      var r = s.get('recents');
+      if (Array.isArray(r)) s.set('recents', r.filter(function (x) { return x !== session; }));
+    } catch (e) {}
+    flash('Removed from recents — refreshing…');
+    setTimeout(function () { try { location.reload(); } catch (e) {} }, 450);
+  }
+
   function mkBtn(label, onTap, danger) {
     var b = document.createElement('button');
     b.type = 'button'; b.tabIndex = -1; b.textContent = label;
@@ -83,6 +127,12 @@
     hdr.style.cssText = 'padding:4px 12px 8px;color:var(--ttv-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
     menu.appendChild(hdr);
     menu.appendChild(menuItem('Rename…', function () { closeMenu(); renameFlow(session); }));
+    menu.appendChild(menuItem('Move to project…', function () { closeMenu(); openMoveDialog(session); }));
+    var inRecents = (function () {
+      try { var r = tv.storage('ttyview-tabs').get('recents'); return Array.isArray(r) && r.indexOf(session) !== -1; }
+      catch (e) { return false; }
+    })();
+    if (inRecents) menu.appendChild(menuItem('Remove from recents', function () { closeMenu(); removeFromRecents(session); }));
     menu.appendChild(menuItem('Kill session', function () { closeMenu(); killFlow(session); }, true));
     document.body.appendChild(menu);
     // Position left-anchored to the button but CLAMPED to the viewport, so a
@@ -164,6 +214,51 @@
             }
             flash('Killed ' + session);
           }).catch(function (e) { flash('Kill failed: ' + e.message, true); });
+        } },
+      ],
+    });
+  }
+
+  function openMoveDialog(session) {
+    var cur = deriveGroup(session);
+    var groups = getGroups().filter(function (g) { return g !== cur; });
+    var inp;
+    var dlg = openModal({
+      title: 'Move "' + session + '" to project',
+      body: function (modal, close) {
+        var hint = document.createElement('p');
+        hint.textContent = 'Pick a project (the tab is renamed to <project>-claude<N> so it groups there), or make a new one.';
+        hint.style.cssText = 'margin:0 0 12px;color:var(--ttv-muted);font-size:12px;line-height:1.4;';
+        modal.appendChild(hint);
+        if (groups.length) {
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;';
+          groups.forEach(function (g) {
+            var chip = document.createElement('button');
+            chip.type = 'button'; chip.tabIndex = -1; chip.textContent = g;
+            chip.style.cssText = 'border:1px solid var(--ttv-border,#3a3a3a);border-radius:999px;background:transparent;color:var(--ttv-fg);font-size:13px;padding:5px 12px;cursor:pointer;';
+            chip.addEventListener('mousedown', function (e) { e.preventDefault(); });
+            chip.addEventListener('click', function () { close(); moveToProject(session, g); });
+            wrap.appendChild(chip);
+          });
+          modal.appendChild(wrap);
+        }
+        var lbl = document.createElement('label');
+        lbl.textContent = 'New project';
+        lbl.style.cssText = 'display:block;font-size:12px;color:var(--ttv-muted);margin-bottom:4px;';
+        modal.appendChild(lbl);
+        inp = document.createElement('input');
+        inp.type = 'text'; inp.placeholder = 'project name'; inp.autocapitalize = 'off'; inp.autocomplete = 'off'; inp.spellcheck = false;
+        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+        modal.appendChild(inp);
+      },
+      buttons: [
+        { label: 'Cancel', onTap: function (close) { close(); } },
+        { label: 'Create & move', onTap: function (close) {
+          var name = sanitize(inp.value);
+          if (!name) { close(); return; }
+          close();
+          moveToProject(session, name);
         } },
       ],
     });
