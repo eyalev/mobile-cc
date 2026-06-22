@@ -81,7 +81,7 @@ is even mentioned.
 curl -fsSL https://mobile-cc.dev/install.sh | bash
 ```
 
-https://github.com/user-attachments/assets/878e6bb2-de91-4613-b6b8-077f2aac4dae
+https://github.com/user-attachments/assets/e38891e6-946f-41db-b7de-c65f66f2a6b2
 
 This downloads the binary to `~/.local/bin/mobile-cc` from
 [GitHub Releases](https://github.com/eyalev/mobile-cc/releases/latest),
