@@ -2,6 +2,7 @@ package dev.mobilecc.app;
 
 import android.Manifest;
 import android.content.ContentResolver;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -37,6 +38,29 @@ public class LastScreenshotPlugin extends Plugin {
     // READ_MEDIA_IMAGES is API 33+; older devices use READ_EXTERNAL_STORAGE.
     private String alias() {
         return Build.VERSION.SDK_INT >= 33 ? "mediaImages" : "extStorage";
+    }
+
+    /**
+     * Open a URL in the system default browser (ACTION_VIEW) — explicitly NOT
+     * an in-app Custom Tab and NOT this WebView. Used by the linkify menu's
+     * "Open" action so URLs always leave the app.
+     */
+    @PluginMethod
+    public void openUrl(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.isEmpty()) {
+            call.reject("no url");
+            return;
+        }
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            i.addCategory(Intent.CATEGORY_BROWSABLE);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("open failed: " + e.getMessage(), e);
+        }
     }
 
     @PluginMethod
