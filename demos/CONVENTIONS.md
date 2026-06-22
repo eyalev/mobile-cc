@@ -135,6 +135,30 @@ Key facts the profile system relies on:
   this for other workflow shots (e.g. a permission-prompt scenario, a
   single-session beginner view).
 
+## Authoring UI workflows (gotchas)
+
+- **Prefer the `window.ttyview` API for hooks** — `getActivePane()`,
+  `selectPane(id)`, `openPanePicker()`, `sendInput()`, `listPanes()`. They're
+  stable and make robust `validate()`s (e.g. assert
+  `getActivePane().session === '…'`).
+- **The tab rail + input bar live in a fixed bottom container.** Playwright's
+  `locator.click()` refuses them ("element is outside of the viewport" even
+  though it's visible) because it can't scroll a fixed element to center. Tap
+  them by dispatching the pointer sequence on the element inside
+  `page.evaluate` instead:
+  ```js
+  el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  el.dispatchEvent(new PointerEvent('pointerup',   { bubbles: true }));
+  el.click();
+  ```
+  (This fires the same touch handler a real tap does — see `tab-switch.mjs` /
+  `pane-picker.mjs`.) This is a Playwright-actionability quirk, **not** proof
+  the control is unreachable on a real touch device.
+- **Useful selectors:** tabs `.pp-item[data-pane-id]` (active = `.pp-item.active`),
+  new-session `#mcc-newtab-railbtn`, pane picker `#pane-picker-overlay.open`,
+  command palette `#cmd-palette-overlay`, IO `#input-text` / `#send-btn` /
+  `#grid-host` / `#ttv-img-preview`, the `▶ cc` command chip.
+
 ## The README embed step
 
 GitHub strips hand-written `<video>` tags. An mp4 only renders as an inline

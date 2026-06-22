@@ -7,6 +7,6 @@
     { "name": "docs", "sessions": ["docs-claude1"] }
   ],
   "active": "api-claude1",
-  "mock": { "api-claude1": "fastapi-mock.txt" },
+  "mock": { "api-claude1": "fastapi-mock.txt", "docs-claude1": "docs-mock.txt" },
   "default_mock": "cc-tui-mock.txt"
 }

@@ -13,11 +13,28 @@
       "attachment_url": "https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d"
     },
     {
+      "id": "tab-switch",
+      "kind": "ui",
+      "title": "Switch projects with one tap",
+      "description": "Start in the api project, tap the docs project's tab, land on it — the project-grouped tab rail in action. Captured, not README-linked (yet).",
+      "media": "tab-switch",
+      "profile": "multi-project"
+    },
+    {
+      "id": "pane-picker",
+      "kind": "ui",
+      "title": "Pick a session from the picker",
+      "description": "Open the pane picker (Recent + project groups + ＋ New session) and jump to a session. Captured, not README-linked (yet).",
+      "media": "pane-picker",
+      "profile": "multi-project"
+    },
+    {
       "id": "paste-flow",
       "kind": "ui",
       "title": "Image paste end-to-end",
-      "description": "Paste a screenshot into the Message box -> uploads to the daemon -> Claude Code's vision pipeline reads the [image:/abs/path]. Regression test only for now (not embedded in README).",
-      "media": null
+      "description": "Paste a screenshot into the Message box -> uploads to the daemon -> Claude Code's vision pipeline reads the [image:/abs/path]. Captured, not README-linked (yet).",
+      "media": "paste",
+      "profile": "multi-project"
     },
     {
       "id": "install",
