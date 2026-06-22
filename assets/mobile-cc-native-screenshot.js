@@ -32,11 +32,20 @@
 
   var _plugin;
   function plugin() {
-    if (!_plugin && window.Capacitor && window.Capacitor.registerPlugin) {
-      try { _plugin = window.Capacitor.registerPlugin('LastScreenshot'); }
+    if (_plugin) return _plugin;
+    var cap = window.Capacitor;
+    if (!cap) return null;
+    // A remote server.url gets the native-injected bridge, which exposes
+    // plugins under Capacitor.Plugins.<Name> but NOT registerPlugin (that's a
+    // @capacitor/core helper the bundled web app would provide). Prefer
+    // Capacitor.Plugins; fall back to registerPlugin for a bundled context.
+    if (cap.Plugins && cap.Plugins.LastScreenshot) {
+      _plugin = cap.Plugins.LastScreenshot;
+    } else if (typeof cap.registerPlugin === 'function') {
+      try { _plugin = cap.registerPlugin('LastScreenshot'); }
       catch (e) { console.warn('[mobile-cc-native-screenshot] plugin missing', e); }
     }
-    return _plugin;
+    return _plugin || null;
   }
 
   function flash(msg) {
@@ -51,6 +60,20 @@
     try { if (typeof window.ttvDiag === 'function') window.ttvDiag(cat, data); } catch (e) {}
   }
   diag('mcc-shot-init', { capacitor: !!window.Capacitor, native: detectNative() });
+  // One-shot shape probe: how does the injected bridge expose plugins? Confirms
+  // whether registerPlugin is missing (remote server.url) and whether
+  // Capacitor.Plugins.LastScreenshot is reachable.
+  (function () {
+    var cap = window.Capacitor;
+    if (!cap) return;
+    diag('mcc-shot-cap', {
+      register: typeof cap.registerPlugin,
+      hasPlugins: !!cap.Plugins,
+      hasLS: !!(cap.Plugins && cap.Plugins.LastScreenshot),
+      lsType: cap.Plugins && cap.Plugins.LastScreenshot ? typeof cap.Plugins.LastScreenshot : null,
+      resolved: !!plugin(),
+    });
+  })();
 
   function dataUrlToFile(dataUrl, name, mime) {
     var comma = dataUrl.indexOf(',');

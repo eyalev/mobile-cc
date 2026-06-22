@@ -90,10 +90,18 @@
   }
   var _plugin;
   function nativePlugin() {
-    if (!_plugin && window.Capacitor && window.Capacitor.registerPlugin) {
-      _plugin = window.Capacitor.registerPlugin('LastScreenshot');
+    if (_plugin) return _plugin;
+    var cap = window.Capacitor;
+    if (!cap) return null;
+    // Remote server.url → injected bridge exposes plugins under
+    // Capacitor.Plugins.<Name>, not via registerPlugin (a @capacitor/core
+    // helper). Prefer Plugins; fall back to registerPlugin if present.
+    if (cap.Plugins && cap.Plugins.LastScreenshot) {
+      _plugin = cap.Plugins.LastScreenshot;
+    } else if (typeof cap.registerPlugin === 'function') {
+      try { _plugin = cap.registerPlugin('LastScreenshot'); } catch (e) {}
     }
-    return _plugin;
+    return _plugin || null;
   }
 
   function flash(msg) { try { if (tv.toast) tv.toast(msg); } catch (e) {} }
