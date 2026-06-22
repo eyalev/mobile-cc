@@ -37,6 +37,23 @@
   var kwTimer = null, aiTimer = null;
   var kwSeq = 0, aiSeq = 0;
   var lastResults = [];
+  var sortMode = STORAGE.get('sortMode') === 'recent' ? 'recent' : 'relevance';
+  var sortRow = null;
+
+  // Client-side re-sort of the daemon's results (the daemon returns them
+  // relevance-sorted; this also powers the "Most recent" toggle without a
+  // refetch).
+  function applySort(list) {
+    var arr = list.slice();
+    if (sortMode === 'recent') {
+      arr.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    } else {
+      arr.sort(function (a, b) {
+        return (b.score - a.score) || (b.date || '').localeCompare(a.date || '');
+      });
+    }
+    return arr;
+  }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -60,26 +77,43 @@
   }
 
   // ---- rendering --------------------------------------------------------
-  function resultRow(r, q) {
+  function resultRow(r, q, relPct) {
     var row = document.createElement('div');
     row.style.cssText =
       'padding:10px 12px;border-bottom:1px solid var(--ttv-border,#2a2a2a);cursor:pointer;';
     var badge = r.open
       ? '<span style="color:#3ddc84;font-size:11px;font-weight:700;">● open</span>'
       : '<span style="color:var(--ttv-muted,#888);font-size:11px;">closed</span>';
+    // Whose message the snippet matched — your prompt vs Claude's reply.
+    var isMine = r.role === 'user';
+    var speaker = isMine
+      ? '<span style="color:' + ACCENT + ';font-weight:700;">You:</span> '
+      : '<span style="color:#7fb2ff;font-weight:700;">Claude:</span> ';
+    // When sorting by recency, accent the date so the sort key is obvious.
+    var recent = sortMode === 'recent';
+    var dateStyle = recent
+      ? 'flex:none;color:' + ACCENT + ';font-size:11px;font-weight:700;'
+      : 'flex:none;color:var(--ttv-muted,#888);font-size:11px;';
     row.innerHTML =
       '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">' +
         '<div style="font-weight:700;color:var(--ttv-fg,#eee);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
           esc(r.label) + '</div>' +
-        '<div style="flex:none;color:var(--ttv-muted,#888);font-size:11px;">' + esc(fmtDate(r.date)) + '</div>' +
+        '<div style="' + dateStyle + '">' + esc(fmtDate(r.date)) + '</div>' +
       '</div>' +
       '<div style="margin-top:3px;font-size:12px;color:var(--ttv-fg,#ccc);line-height:1.35;' +
         'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' +
-        highlight(r.snippet, q) + '</div>' +
+        speaker + highlight(r.snippet, q) + '</div>' +
       '<div style="margin-top:4px;display:flex;gap:10px;align-items:center;font-size:11px;color:var(--ttv-muted,#888);">' +
         badge +
         '<span>' + r.match_count + ' match' + (r.match_count === 1 ? '' : 'es') + '</span>' +
+        '<span title="relevance">' + relPct + '% rel</span>' +
         (r.open ? '' : '<span style="margin-left:auto;color:' + ACCENT + ';">Preview · Reopen ▾</span>') +
+      '</div>' +
+      // Relevance meter — the bar that makes the ranking legible. Dimmed
+      // when sorting by recency (relevance isn't the sort key then).
+      '<div style="margin-top:5px;height:3px;border-radius:2px;background:var(--ttv-border,#333);">' +
+        '<div style="height:100%;width:' + relPct + '%;border-radius:2px;background:' + ACCENT + ';' +
+        (recent ? 'opacity:.4;' : '') + '"></div>' +
       '</div>';
     row.addEventListener('click', function () {
       if (r.open) jumpTo(r);
@@ -91,12 +125,64 @@
   function renderResults(list, q) {
     if (!resultsEl) return;
     resultsEl.innerHTML = '';
+    styleSortChips();
     if (!list.length) {
       statusEl.textContent = q ? 'No matches.' : '';
       return;
     }
     statusEl.textContent = list.length + ' session' + (list.length === 1 ? '' : 's');
-    list.forEach(function (r) { resultsEl.appendChild(resultRow(r, q)); });
+    var sorted = applySort(list);
+    var maxScore = sorted.reduce(function (m, r) { return Math.max(m, r.score || 0); }, 0.0001);
+    sorted.forEach(function (r) {
+      var pct = Math.max(6, Math.round(((r.score || 0) / maxScore) * 100));
+      resultsEl.appendChild(resultRow(r, q, pct));
+    });
+  }
+
+  // ---- sort toggle (Relevance / Most recent) ----------------------------
+  function buildSortRow() {
+    sortRow = document.createElement('div');
+    sortRow.style.cssText =
+      'display:flex;gap:8px;align-items:center;padding:2px 12px 8px;flex-wrap:wrap;';
+    var lbl = document.createElement('span');
+    lbl.style.cssText = 'font-size:11px;color:var(--ttv-muted,#888);';
+    lbl.textContent = 'Sort:';
+    sortRow.appendChild(lbl);
+    [['relevance', 'Relevance'], ['recent', 'Most recent']].forEach(function (m) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.dataset.mode = m[0];
+      chip.textContent = m[1];
+      chip.onclick = function () {
+        if (sortMode === m[0]) return;
+        sortMode = m[0];
+        STORAGE.set('sortMode', sortMode);
+        renderResults(lastResults, input ? input.value.trim() : '');
+      };
+      sortRow.appendChild(chip);
+    });
+    var legend = document.createElement('span');
+    legend.className = 'mcc-sort-legend';
+    legend.style.cssText = 'font-size:11px;color:var(--ttv-muted,#777);margin-left:auto;';
+    sortRow.appendChild(legend);
+    styleSortChips();
+  }
+  function styleSortChips() {
+    if (!sortRow) return;
+    Array.prototype.forEach.call(sortRow.querySelectorAll('button'), function (chip) {
+      var on = chip.dataset.mode === sortMode;
+      chip.style.cssText =
+        'cursor:pointer;border-radius:999px;padding:3px 11px;font-size:12px;font-family:inherit;' +
+        'border:1px solid ' + ACCENT + ';' +
+        (on ? 'background:' + ACCENT + ';color:#1b1b1b;font-weight:700;'
+            : 'background:transparent;color:' + ACCENT + ';');
+    });
+    var legend = sortRow.querySelector('.mcc-sort-legend');
+    if (legend) {
+      legend.textContent = sortMode === 'recent'
+        ? 'newest first'
+        : 'best match · your prompts · recency';
+    }
   }
 
   // ---- lane A: keyword search ------------------------------------------
@@ -274,11 +360,37 @@
       'border-radius:8px;background:var(--ttv-bg-elev2,#1c1c1c);color:var(--ttv-fg,#eee);' +
       'font-size:15px;font-family:inherit;';
     input.addEventListener('input', onInput);
+    // Visible AI-pick toggle (filled coral = on). Auto-fires on a typing
+    // pause when on; tapping with a query already typed runs it now.
+    var aiBtn = document.createElement('button');
+    aiBtn.type = 'button';
+    function styleAiBtn() {
+      var on = aiEnabled();
+      aiBtn.textContent = '✨ AI';
+      aiBtn.title = on ? 'AI pick: on — tap to turn off' : 'AI pick: off — tap to turn on';
+      aiBtn.style.cssText =
+        'flex:none;cursor:pointer;border-radius:8px;padding:8px 11px;font-size:13px;' +
+        'font-weight:700;font-family:inherit;white-space:nowrap;border:1px solid ' + ACCENT + ';' +
+        (on ? 'background:' + ACCENT + ';color:#1b1b1b;' : 'background:transparent;color:' + ACCENT + ';');
+    }
+    styleAiBtn();
+    aiBtn.onclick = function () {
+      if (!groqKey()) {
+        if (tv.toast) tv.toast('Add a Groq key in Settings → Voice Input to use AI pick.');
+        return;
+      }
+      STORAGE.set('aiEnabled', !aiEnabled());
+      styleAiBtn();
+      var q = input.value.trim();
+      if (aiEnabled() && q) doAiPick(q);
+      else renderAiBox('hidden');
+    };
+
     var close = document.createElement('button');
     close.type = 'button'; close.textContent = '✕';
     close.style.cssText = 'flex:none;background:transparent;border:none;color:var(--ttv-fg,#eee);font-size:20px;cursor:pointer;padding:4px 8px;';
     close.onclick = closeOverlay;
-    top.appendChild(input); top.appendChild(close);
+    top.appendChild(input); top.appendChild(aiBtn); top.appendChild(close);
 
     statusEl = document.createElement('div');
     statusEl.style.cssText = 'padding:4px 12px;font-size:11px;color:var(--ttv-muted,#888);';
@@ -291,8 +403,11 @@
     resultsEl = document.createElement('div');
     resultsEl.style.cssText = 'flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;';
 
+    buildSortRow();
+
     overlay.appendChild(top);
     overlay.appendChild(statusEl);
+    overlay.appendChild(sortRow);
     overlay.appendChild(aiBox);
     overlay.appendChild(resultsEl);
     document.body.appendChild(overlay);
@@ -302,7 +417,7 @@
   function closeOverlay() {
     clearTimeout(kwTimer); clearTimeout(aiTimer);
     kwSeq++; aiSeq++;
-    if (overlay) { overlay.remove(); overlay = null; input = resultsEl = aiBox = statusEl = null; }
+    if (overlay) { overlay.remove(); overlay = null; input = resultsEl = aiBox = statusEl = sortRow = null; }
   }
 
   // ---- contributions ----------------------------------------------------
@@ -314,7 +429,17 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.title = 'Search your sessions';
-      btn.textContent = '🔍';
+      // Inline SVG magnifier (stroke = currentColor) so it matches the
+      // app's other header icons / theme instead of an emoji glyph. Keep
+      // the default header-button box (bg/border/padding from core CSS) —
+      // only `cursor` is overridden, exactly like the other header widgets.
+      btn.innerHTML =
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" ' +
+        'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" ' +
+        'stroke-linejoin="round" aria-hidden="true" focusable="false" ' +
+        'style="display:inline-block;vertical-align:middle;">' +
+        '<circle cx="10.5" cy="10.5" r="6.5"></circle>' +
+        '<line x1="20" y1="20" x2="15.5" y2="15.5"></line></svg>';
       btn.style.cssText = 'cursor:pointer;';
       btn.addEventListener('click', openOverlay);
       slot.appendChild(btn);
