@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent}</style></head>
+<body>
+<!--
+  Native-app launcher icon variant. Same terminal-card glyph as the PWA icon
+  (assets/pwa/icons/icon-source.html) but a CORAL background (the mobile-cc
+  rail-accent) instead of the PWA's blue gradient — so the two "mobile-cc"
+  home-screen icons are easy to tell apart (blue = PWA, coral = native app).
+
+  Modes via ?mode=:
+    full  — coral gradient + card        (legacy square icon / icon-only)
+    bg    — coral gradient only          (adaptive background layer)
+    fg    — card only, transparent, scaled into the adaptive safe zone
+-->
+<svg id="icon" width="1024" height="1024" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mccGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F0A07E"/><stop offset="1" stop-color="#C25A3C"/>
+    </linearGradient>
+  </defs>
+  <rect id="bg" width="512" height="512" fill="url(#mccGrad)"/>
+  <g id="card">
+    <rect x="76" y="104" width="360" height="304" rx="36" fill="#15181d"/>
+    <circle cx="124" cy="152" r="13" fill="#3d4b5a"/>
+    <circle cx="166" cy="152" r="13" fill="#3d4b5a"/>
+    <path d="M140 230 L226 296 L140 362" stroke="#ffe0d2" stroke-width="34"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+</svg>
+<script>
+  const p = new URLSearchParams(location.search);
+  const size = parseInt(p.get('size') || '1024', 10);
+  const mode = p.get('mode') || 'full';
+  const svg = document.getElementById('icon');
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  if (mode === 'bg') {
+    document.getElementById('card').remove();
+  } else if (mode === 'fg') {
+    document.getElementById('bg').remove();
+    // Scale the card into the adaptive safe zone (~same as maskable 80%).
+    document.getElementById('card').setAttribute(
+      'transform', 'translate(256,256) scale(0.84) translate(-256,-256)');
+  }
+</script>
+</body></html>
