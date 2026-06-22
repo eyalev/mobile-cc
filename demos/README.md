@@ -1,10 +1,24 @@
 # Mobile CC — release-demos pipeline
 
+> **Read [`CONVENTIONS.md`](CONVENTIONS.md) first.** It is the canonical
+> "demos-as-tests" convention — the one rule (no hand-made media), the
+> manifest registry, the resolution standard, and the agent checklist.
+> This file is the implementation reference for the contract types.
+
 Per-release workflow captures. Doubles as a visual regression test:
 each workflow's `run()` choreography must complete + its `validate()`
 must pass, otherwise the release blocks. The same script that gates
 the release also produces the marketing media that lands at
 [mobile-cc.dev/demos/](https://mobile-cc.dev/).
+
+Run everything (or one demo) through the single entrypoint:
+
+```sh
+demos/run.sh            # the whole suite
+demos/run.sh use-flow   # one demo
+demos/run.sh --list     # what's registered
+node demos/check.mjs    # consistency + resolution gate (also runs in CI)
+```
 
 ## Layout
 

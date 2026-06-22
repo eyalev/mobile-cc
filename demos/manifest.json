@@ -1,0 +1,42 @@
+{
+  "_comment": "Registry of every mobile-cc demo. The single source of truth — agents add/update an entry here when they ship a feature. See demos/CONVENTIONS.md. `media` is the docs/media/<media>.{mp4,gif,png} basename a demo publishes; omit (null) for test-only workflows not embedded anywhere. `attachment_url` is the GitHub user-attachments player URL embedded in README.md (GitHub strips <video> tags, so mp4s are embedded via that URL). `recapture_pending` downgrades the resolution gate to a warning for a known-stale asset.",
+  "min_video_width": 640,
+  "demos": [
+    {
+      "id": "use-flow",
+      "kind": "ui",
+      "title": "Drive a live Claude Code session",
+      "description": "The real Claude Code TUI rendered live in the browser — quick-keys row, type a prompt, Send, watch CC work. The README 'See it' clip.",
+      "media": "use",
+      "readme_section": "See it",
+      "attachment_url": "https://github.com/user-attachments/assets/7f12acc8-9788-4e5d-b07e-e02b90cb2595",
+      "recapture_pending": true,
+      "recapture_reason": "current use.mp4 is a 300px-wide pre-convention ad-hoc capture; regenerate sharp with `demos/run.sh use-flow` against a daemon whose capture pane runs a seeded Claude Code session, then drop this flag"
+    },
+    {
+      "id": "paste-flow",
+      "kind": "ui",
+      "title": "Image paste end-to-end",
+      "description": "Paste a screenshot into the Message box -> uploads to the daemon -> Claude Code's vision pipeline reads the [image:/abs/path]. Regression test only for now (not embedded in README).",
+      "media": null
+    },
+    {
+      "id": "install",
+      "kind": "terminal",
+      "title": "Install via curl | bash",
+      "description": "The `curl ... | bash` install flow: download from GitHub Releases, verify (minisign/provenance/sha256), drop the systemd user unit, print the URL.",
+      "media": "install",
+      "readme_section": "2. Install mobile-cc",
+      "attachment_url": "https://github.com/user-attachments/assets/e38891e6-946f-41db-b7de-c65f66f2a6b2"
+    },
+    {
+      "id": "brew-install",
+      "kind": "terminal",
+      "title": "Install via Homebrew",
+      "description": "`brew install eyalev/tap/mobile-cc` — the tap install path (binary only, no systemd unit).",
+      "media": "brew-install",
+      "readme_section": "2. Install mobile-cc",
+      "attachment_url": "https://github.com/user-attachments/assets/af1e0d4e-0d51-4584-9abe-457793d43678"
+    }
+  ]
+}

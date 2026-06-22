@@ -1,7 +1,8 @@
 // Shared Playwright + ffmpeg helpers used by the runner.
 //
 // What this module owns:
-//   - browser/context lifecycle (Pixel-7 viewport, 2× DPR, ignoreHTTPSErrors)
+//   - browser/context lifecycle (Pixel-7 viewport, 3× DPR → native-res
+//     recording, ignoreHTTPSErrors)
 //   - recordVideo → WebM, ffmpeg → MP4 (H.264) + GIF (15 fps, 256-color
 //     palette, Floyd-Steinberg dither — no banding)
 //   - WorkflowCtx implementation (idle / recordStep / dispatchPaste /
@@ -13,11 +14,29 @@ import { readFileSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
+// --- Capture standard (single source of truth — see demos/CONVENTIONS.md) ---
+//
+// NATIVE-RESOLUTION FLOOR. Record at viewport × DPR so GitHub never has to
+// upscale the embedded player. The blurry 300px-wide use.mp4 was caused by
+// violating exactly this: a sub-native source stretched to fill the README
+// column on a 3×-DPR phone. 412×915 is a real phone CSS viewport; ×3 DPR
+// yields a 1236-wide capture, comfortably above the MIN_WIDTH gate in
+// demos/check.mjs. Bump DPR (not the CSS viewport) to go sharper — that keeps
+// the real mobile layout while raising pixel density.
+const DPR = 3;
+
 const VIEW = {
   ...devices['Pixel 7'],
   isMobile: false,
   hasTouch: false,
-  deviceScaleFactor: 2,
+  deviceScaleFactor: DPR,
+};
+
+// Video frame size = device pixels (CSS viewport × DPR). Playwright scales the
+// rendered frames to this; matching it to the backing buffer = 1:1, crisp.
+const RECORD_SIZE = {
+  width: VIEW.viewport.width * DPR,
+  height: VIEW.viewport.height * DPR,
 };
 
 /**
@@ -38,7 +57,7 @@ export async function setupCapture({ daemonUrl, paneId, outDir }) {
     ignoreHTTPSErrors: true,
     recordVideo: {
       dir: outDir,
-      size: { width: VIEW.viewport.width, height: VIEW.viewport.height },
+      size: RECORD_SIZE,
     },
   });
 

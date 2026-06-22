@@ -14,7 +14,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$HERE/.." && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"   # demos/terminal/ → repo root
 OUT="$ROOT/docs/media/install.gif"
 OUT_MP4="$ROOT/docs/media/install.mp4"
 OUT_POSTER="$ROOT/docs/media/install.png"
