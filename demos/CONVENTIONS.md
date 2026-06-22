@@ -102,20 +102,60 @@ temp prefix and clean up after themselves.
 `run.sh` publishes each passing demo's media into `docs/media/<media>.*` and
 then reminds you to re-upload changed mp4s (next section).
 
-## The README embed step (manual, unavoidable)
+## The README embed step
 
 GitHub strips hand-written `<video>` tags. An mp4 only renders as an inline
-player via a `github.com/user-attachments/assets/<uuid>` URL, which is minted
-by **uploading the file through GitHub's web composer** (drag it into an
-issue/comment — issue #1 hosts ours; don't delete it). So after regenerating
-an mp4:
+player via a `github.com/user-attachments/assets/<uuid>` URL, minted by
+uploading the file through a GitHub web composer. After regenerating an mp4:
 
-1. Re-upload it to user-attachments.
-2. Update its `attachment_url` in **both** `README.md` and `manifest.json`.
+1. Mint a fresh user-attachments URL (automated recipe below, or drag the file
+   into any GitHub issue/comment).
+2. Finalize it: reference the URL from **issue #1** (`gh issue edit 1`).
+   Unposted/abandoned attachments **404 anonymously** — they only become
+   publicly served once referenced by posted content. Issue #1 exists solely
+   to keep these public; don't delete it.
+3. Update the `attachment_url` in **both** `README.md` and `manifest.json`.
 
 The committed `docs/media/<media>.mp4` is the source-of-truth artifact; the
 attachment URL is just the README's player handle. `check.mjs` verifies every
 `attachment_url` is actually referenced in the README.
+
+### Automated re-upload (agent-browser + a logged-in Chrome)
+
+Proven recipe — works headless against the CDP debug Chrome (logged into
+GitHub). **Key gotcha:** use the **`issues/new`** form's textarea (placeholder
+`Type your description here…`) — its drop handler honors synthetic events. The
+issue-#1 *comment* box is the newer React composer and silently ignores
+synthetic drops, which is the trap that wastes an hour.
+
+```sh
+# 1. open the new-issue composer
+agent-browser --cdp 9222 tab new "https://github.com/eyalev/mobile-cc/issues/new"
+agent-browser --cdp 9222 wait --load networkidle
+
+# 2. fetch the committed mp4 SAME-ORIGIN (it must already be pushed to main),
+#    build a File, and dispatch a synthetic drop on the description textarea:
+cat <<'EOF' | agent-browser --cdp 9222 eval --stdin
+(async()=>{
+  const r=await fetch('https://github.com/<owner>/<repo>/raw/main/docs/media/<media>.mp4',{cache:'no-store'});
+  if(!r.ok) return 'FETCH_FAIL '+r.status;
+  const file=new File([await r.blob()],'<media>.mp4',{type:'video/mp4'});
+  const ta=[...document.querySelectorAll('textarea')].find(t=>/description/i.test(t.placeholder||''))||[...document.querySelectorAll('textarea')].pop();
+  if(!ta) return 'NO_TEXTAREA';
+  ta.value=''; ta.focus();
+  const dt=new DataTransfer(); dt.items.add(file);
+  for(const type of ['dragenter','dragover','drop']){const ev=new DragEvent(type,{bubbles:true,cancelable:true,composed:true});Object.defineProperty(ev,'dataTransfer',{value:dt});ta.dispatchEvent(ev);}
+  return 'dropped';
+})()
+EOF
+
+# 3. poll the textarea until GitHub replaces the placeholder with the URL:
+#    grep its .value for https://github.com/user-attachments/assets/<uuid>
+# 4. gh issue edit 1 --repo <owner>/<repo> --body "...new URL..."   (finalize)
+# 5. close the new-issue tab WITHOUT submitting (the asset is already minted)
+# 6. swap the URL into README.md + manifest.json, commit, push
+# 7. verify anon: curl -I the URL → HTTP 200, type=video/mp4
+```
 
 ## Determinism
 
