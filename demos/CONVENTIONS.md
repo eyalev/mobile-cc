@@ -76,10 +76,14 @@ GitHub stretches an embedded video to fill the content column; on a 3×-DPR
 phone that's ~1200 device pixels. **A source narrower than that gets upscaled
 and looks blurry.** So:
 
-- **UI demos** record at **viewport × DPR** (currently 412×915 CSS × 3 = a
-  1236-wide capture). This is set once in `lib/capture.mjs` (`DPR`,
-  `RECORD_SIZE`) — never tune resolution per-workflow. Go sharper by raising
-  `DPR`, not by changing the CSS viewport (that would change the mobile layout).
+- **UI demos** are captured as a **`page.screenshot` filmstrip** at device
+  resolution (412×915 CSS × DPR 3 → sharp 1236-wide frames), assembled with
+  ffmpeg. This is set once in `lib/capture.mjs` (`DPR`, the filmstrip loop) —
+  never tune per-workflow; go sharper by raising `DPR`, not the CSS viewport.
+  **Do NOT use Playwright `recordVideo` or CDP `Page.startScreencast`** — both
+  capture at CSS-viewport resolution and ignore `deviceScaleFactor` (recordVideo
+  also *pads* a larger `size` into a corner → the gray-void bug). `page.screenshot`
+  is the only DPR-honouring capture path.
 - **Terminal demos** record with a large `--font-size` so text stays crisp
   after GitHub's downscale.
 - `check.mjs` fails the build if a committed mp4 is under `min_video_width`
