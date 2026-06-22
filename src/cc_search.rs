@@ -47,6 +47,7 @@ pub fn extra_api(cfg: CcSearchConfig) -> Box<dyn FnOnce(Router) -> Router + Send
         router
             .route("/api/cc-search", get(cc_search))
             .route("/api/cc-session/:id", get(cc_session))
+            .route("/api/cc-tab-summary", get(cc_tab_summary))
             .layer(Extension(Arc::new(cfg)))
     })
 }
@@ -392,6 +393,150 @@ fn load_session(cfg: &CcSearchConfig, id: &str) -> Result<Vec<PreviewMsg>, Strin
         msgs = msgs.split_off(n - 400);
     }
     Ok(msgs)
+}
+
+// ---- /api/cc-tab-summary?session=<name> -------------------------------
+//
+// Distilled CC-transcript text for a tmux session, used by the client's AI
+// subtitle generator (window.ttvTagSuggest). The terminal screen is mostly
+// CC TUI chrome — a poor summary source — so we read the actual conversation
+// instead: resolve session → pane cwd → CC project dir → newest transcript,
+// then return the FIRST substantive user prompt (original goal) plus the last
+// few user prompts (current focus). Tool/thinking/system noise is already
+// dropped by extract_text. found=false → the client falls back to scraping
+// the pane (non-CC shells, or no transcript yet).
+
+#[derive(Deserialize)]
+struct TabSummaryQuery {
+    session: String,
+}
+
+#[derive(Serialize)]
+struct TabSummary {
+    session: String,
+    cwd: String,
+    found: bool,
+    /// Original task: the first substantive user prompt.
+    first: String,
+    /// Recent focus: the last few user prompts, oldest→newest.
+    recent: Vec<String>,
+}
+
+async fn cc_tab_summary(
+    Extension(cfg): Extension<Arc<CcSearchConfig>>,
+    Query(q): Query<TabSummaryQuery>,
+) -> axum::response::Response {
+    let session = q.session.trim().to_string();
+    if session.is_empty() {
+        return (StatusCode::BAD_REQUEST, "missing session").into_response();
+    }
+    let cfg2 = cfg.clone();
+    match tokio::task::spawn_blocking(move || tab_summary(&cfg2, &session)).await {
+        Ok(s) => Json(s).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("summary task failed: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+fn tab_summary(cfg: &CcSearchConfig, session: &str) -> TabSummary {
+    let mut out = TabSummary {
+        session: session.to_string(),
+        cwd: String::new(),
+        found: false,
+        first: String::new(),
+        recent: Vec::new(),
+    };
+    let cwd = match tmux_session_cwd(cfg.tmux_socket.as_deref(), session) {
+        Some(c) if !c.is_empty() => c,
+        _ => return out,
+    };
+    out.cwd = cwd.clone();
+    let dir = cfg.projects_root.join(encode_cwd(&cwd));
+    let path = match newest_jsonl(&dir) {
+        Some(p) => p,
+        None => return out,
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return out,
+    };
+    let mut users: Vec<String> = Vec::new();
+    for line in content.lines() {
+        let rec: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if rec.get("type").and_then(|t| t.as_str()) != Some("user") {
+            continue;
+        }
+        let t = extract_text(&rec); // already strips command/caveat wrappers + tool blocks
+        if t.chars().count() < 4 {
+            continue;
+        }
+        users.push(t);
+    }
+    if users.is_empty() {
+        return out;
+    }
+    out.found = true;
+    // Cap each prompt so a giant paste doesn't blow the LLM context.
+    let clip = |s: &String| -> String { s.chars().take(600).collect() };
+    out.first = clip(&users[0]);
+    let start = users.len().saturating_sub(3);
+    out.recent = users[start..].iter().map(clip).collect();
+    out
+}
+
+/// `tmux display-message` for a session's current pane cwd. None on any error.
+fn tmux_session_cwd(socket: Option<&str>, session: &str) -> Option<String> {
+    let mut cmd = Command::new("tmux");
+    if let Some(s) = socket {
+        cmd.arg("-L").arg(s);
+    }
+    cmd.arg("display-message")
+        .arg("-p")
+        .arg("-t")
+        .arg(session)
+        .arg("#{pane_current_path}");
+    let out = cmd.output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() {
+        None
+    } else {
+        Some(s)
+    }
+}
+
+/// CC encodes a project dir name from the cwd by replacing every
+/// non-alphanumeric byte with '-' (e.g. `/home/u/p` → `-home-u-p`).
+fn encode_cwd(cwd: &str) -> String {
+    cwd.chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
+}
+
+/// Newest `*.jsonl` in a dir by mtime, or None if the dir is absent/empty.
+fn newest_jsonl(dir: &std::path::Path) -> Option<PathBuf> {
+    let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+    for e in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = e.path();
+        if p.extension().and_then(|x| x.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let mt = e.metadata().and_then(|m| m.modified()).ok();
+        if let Some(mt) = mt {
+            if best.as_ref().map(|(b, _)| mt > *b).unwrap_or(true) {
+                best = Some((mt, p));
+            }
+        }
+    }
+    best.map(|(_, p)| p)
 }
 
 // ---- helpers ----------------------------------------------------------
