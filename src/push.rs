@@ -153,6 +153,12 @@ pub fn routes(state: Arc<PushState>) -> Router {
         .route("/api/push/settings", post(set_settings))
         .route("/api/push/test", post(test_push))
         .layer(Extension(state))
+        // Same-origin guard (mirrors ttyview-core's WS origin check) — blocks a
+        // cross-origin page the user visits from driving these endpoints. See
+        // src/origin.rs. Origin-less (non-browser) callers pass, as on the WS
+        // path; the SSRF guard in `subscribe`/`deliver` is the caller-
+        // independent protection.
+        .layer(axum::middleware::from_fn(crate::origin::origin_guard))
 }
 
 // ---- route handlers ---------------------------------------------------
@@ -165,6 +171,15 @@ async fn subscribe(
     Extension(s): Extension<Arc<PushState>>,
     Json(sub): Json<Subscription>,
 ) -> impl IntoResponse {
+    // SSRF guard: the endpoint is a URL the daemon POSTs to from the server,
+    // so reject any non-public target before it can be stored or dispatched.
+    if !crate::origin::is_safe_push_endpoint(&sub.endpoint) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "ok": false, "error": "invalid endpoint" })),
+        )
+            .into_response();
+    }
     {
         let mut subs = s.subs.lock().await;
         // Dedupe by endpoint.
@@ -173,7 +188,7 @@ async fn subscribe(
         }
         persist_subs(&s, &subs);
     }
-    Json(serde_json::json!({ "ok": true }))
+    Json(serde_json::json!({ "ok": true })).into_response()
 }
 
 #[derive(Deserialize)]
@@ -194,10 +209,11 @@ async fn unsubscribe(
 }
 
 async fn status(Extension(s): Extension<Arc<PushState>>) -> impl IntoResponse {
-    let count = s.subs.lock().await.len();
+    // L4: deliberately NOT exposing the subscription count — a caller learns
+    // only whether idle alerts are on + the (public) VAPID key. The client
+    // derives "subscribed on this device" from the SW, not from a count.
     let idle = s.settings.lock().await.idle_enabled;
     Json(serde_json::json!({
-        "count": count,
         "vapidPublicKey": s.vapid_public_b64,
         "idleEnabled": idle,
     }))
@@ -282,6 +298,12 @@ async fn deliver(state: &Arc<PushState>, title: &str, body: &str, kind: &str) ->
     let mut sent = 0usize;
     let mut dead: Vec<String> = Vec::new();
     for sub in &subs {
+        // Belt-and-suspenders: `subscribe` already rejects non-public
+        // endpoints, but never POST to one even if an older/hand-edited
+        // subscriptions.json slipped one in.
+        if !crate::origin::is_safe_push_endpoint(&sub.endpoint) {
+            continue;
+        }
         let info = SubscriptionInfo::new(
             sub.endpoint.clone(),
             sub.keys.p256dh.clone(),

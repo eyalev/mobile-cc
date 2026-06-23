@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 mod cc_search;
 mod download;
+mod origin;
 mod push;
 
 /// Drive Claude Code from your phone. A focused, mobile-first packaging of
