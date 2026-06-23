@@ -101,10 +101,7 @@ fn read_capped(path: &FsPath, cap: u64) -> std::io::Result<Vec<u8>> {
     let mut buf = Vec::new();
     f.take(cap + 1).read_to_end(&mut buf)?;
     if buf.len() as u64 > cap {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "file exceeds size cap",
-        ));
+        return Err(std::io::Error::other("file exceeds size cap"));
     }
     Ok(buf)
 }
