@@ -400,15 +400,10 @@
       // a fallback for older renders.
       var session = t.dataset.session || (t.title || '').replace(/\s+\(.*\)\s*$/, '');
       if (!session) continue;
-      if (getComputedStyle(t).position === 'static') t.style.position = 'relative';
       var dots = document.createElement('button');
       dots.type = 'button'; dots.tabIndex = -1; dots.className = 'mcc-tabmenu-btn';
       dots.textContent = '⋮';
       dots.setAttribute('data-session', session);
-      dots.style.cssText =
-        'position:absolute;top:0;right:0;width:22px;height:22px;line-height:20px;text-align:center;' +
-        'background:transparent;border:0;color:var(--ttv-muted,#9aa);font-size:16px;cursor:pointer;' +
-        'border-radius:6px;z-index:2;opacity:0.75;';
       (function (sessName, el) {
         function stop(e) { e.stopPropagation(); }
         el.addEventListener('pointerdown', stop, true);
@@ -419,7 +414,22 @@
           if (menu) closeMenu(); else openTabMenu(el, sessName);
         });
       })(session, dots);
-      t.appendChild(dots);
+      // Place the ⋮ as the LAST child of the name-row (.ttvtab-head, added by
+      // ttyview-tabs) so the row reads: name … dot ⋮ (dot immediately left of
+      // the ⋮), vertically centred by the row's align-items:center. Under
+      // body.ttv-tall-tabs (always on in mobile-cc) .ttvtab-head is a real flex
+      // row. Fall back to the absolute corner for embedders without it.
+      var base = 'width:22px;height:22px;line-height:22px;text-align:center;background:transparent;' +
+        'border:0;color:var(--ttv-muted,#9aa);font-size:16px;cursor:pointer;border-radius:6px;opacity:0.75;';
+      var head = t.querySelector('.ttvtab-head');
+      if (head) {
+        dots.style.cssText = 'flex:none;' + base;
+        head.appendChild(dots);
+      } else {
+        if (getComputedStyle(t).position === 'static') t.style.position = 'relative';
+        dots.style.cssText = 'position:absolute;top:0;right:0;z-index:2;' + base;
+        t.appendChild(dots);
+      }
     }
   }
 
@@ -445,12 +455,10 @@
     st.textContent =
       '.ttvtab-content > .ttvtab-group{order:1;}' +
       '.ttvtab-content > .ttvtab-row{order:2;border-top:1px solid var(--ttv-border,#3a3a3a);padding-top:5px;margin-top:3px;}' +
-      '.ttvtab-content > .ttvtab-row + .ttvtab-row{border-top:0;padding-top:0;margin-top:0;}' +
-      // Status dot lives at top:3/right:3 (ttyview-core); our 22px ⋮ menu sits
-      // at top:0/right:0 and was covering it. Shift the dot LEFT of the ⋮ so
-      // they're adjacent (not overlapping) in the top-right corner. Tab dots
-      // only — group-header dots are .ttvtab-ghead .ttvtab-dot (position:static).
-      '.ttvtab:not(.ttvtab-railbtn) .ttvtab-dot{right:25px !important;}';
+      '.ttvtab-content > .ttvtab-row + .ttvtab-row{border-top:0;padding-top:0;margin-top:0;}';
+      // (The status dot + ⋮ now sit inside the .ttvtab-head flex row — name …
+      // dot ⋮ — so the old absolute dot-offset hack is gone; centring is the
+      // row's align-items:center.)
     document.head.appendChild(st);
   }
   injectUngroupedStyle();
