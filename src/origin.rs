@@ -7,12 +7,12 @@
 //!     enforce same-origin on cross-site `fetch`/form POSTs reaching a
 //!     credential-less local daemon, so a page the user visits could
 //!     otherwise drive /api/push/*. We reject any request whose `Origin`
-//!     authority doesn't match the request `Host`. Origin-less (non-browser)
-//!     callers are allowed, exactly as the WS path does — those are outside
-//!     the browser-CSRF threat model and are already covered by the
-//!     "tailnet-reach implies a shell" model. `ttyview-core`'s
-//!     `origin_allowed` is `pub(crate)`, so this is a faithful local copy
-//!     rather than a re-export.
+//!     authority doesn't match the request `Host`, AND — in strict mode, used
+//!     for /api/push/* — any request with NO `Origin` at all. push has no
+//!     legitimate non-browser caller, so this is intentionally stricter than
+//!     the WS path (which allows Origin-less server clients like the sandbox
+//!     spectator). `ttyview-core`'s `origin_allowed` is `pub(crate)`, so this
+//!     is a faithful local copy rather than a re-export.
 //!
 //!   * `is_safe_push_endpoint` — an SSRF guard for the Web Push subscription
 //!     endpoint. That URL is POSTed to FROM THE SERVER, so a malicious
@@ -43,17 +43,19 @@ fn origin_authority(origin: &str) -> Option<&str> {
     None
 }
 
-/// True if the request should be accepted. Rules (identical to ws.rs):
-///   1. No / empty / "null" Origin → allow (non-browser caller).
+/// True if the request should be accepted.
+///   1. No / empty / "null" Origin → allow UNLESS `strict` (non-browser caller).
+///      The WS path is non-strict; /api/push/* is strict (it has no legitimate
+///      non-browser caller, so an Origin-less request is rejected).
 ///   2. Origin authority == Host → allow (same-origin).
 ///   3. Otherwise reject (cross-origin browser request).
-pub fn origin_allowed(headers: &HeaderMap) -> bool {
+pub fn origin_allowed(headers: &HeaderMap, strict: bool) -> bool {
     let origin = match headers
         .get(header::ORIGIN)
         .and_then(|v| v.to_str().ok())
     {
-        None => return true,
-        Some(s) if s.is_empty() || s == "null" => return true,
+        None => return !strict,
+        Some(s) if s.is_empty() || s == "null" => return !strict,
         Some(s) => s,
     };
     if let Some(host) = headers.get(header::HOST).and_then(|v| v.to_str().ok()) {
@@ -64,9 +66,12 @@ pub fn origin_allowed(headers: &HeaderMap) -> bool {
     false
 }
 
-/// axum middleware applying `origin_allowed` to every wrapped route.
+/// axum middleware for /api/push/* — STRICT same-origin: rejects cross-origin
+/// requests AND Origin-less ones. push has no legitimate non-browser caller, so
+/// this is intentionally stricter than ttyview-core's WS check (which allows
+/// Origin-less server clients like the sandbox spectator).
 pub async fn origin_guard(req: Request, next: Next) -> Response {
-    if origin_allowed(req.headers()) {
+    if origin_allowed(req.headers(), true) {
         next.run(req).await
     } else {
         (StatusCode::FORBIDDEN, "origin not allowed").into_response()
@@ -169,28 +174,40 @@ mod tests {
     }
 
     #[test]
-    fn no_origin_allowed() {
-        assert!(origin_allowed(&h(&[("host", "x.ts.net")])));
+    fn no_origin_strict_rejected_lenient_allowed() {
+        let hm = h(&[("host", "x.ts.net")]);
+        // strict (push) rejects an Origin-less request …
+        assert!(!origin_allowed(&hm, true));
+        // … while non-strict (the WS-mirror) allows it.
+        assert!(origin_allowed(&hm, false));
+        // "null"/empty Origin is opaque → same treatment as no Origin.
+        let hm_null = h(&[("origin", "null"), ("host", "x.ts.net")]);
+        assert!(!origin_allowed(&hm_null, true));
+        assert!(origin_allowed(&hm_null, false));
     }
 
     #[test]
-    fn same_origin_allowed() {
-        assert!(origin_allowed(&h(&[
-            ("origin", "https://x.ts.net"),
-            ("host", "x.ts.net"),
-        ])));
-        assert!(origin_allowed(&h(&[
-            ("origin", "http://127.0.0.1:7800"),
-            ("host", "127.0.0.1:7800"),
-        ])));
+    fn same_origin_allowed_both_modes() {
+        for strict in [true, false] {
+            assert!(origin_allowed(
+                &h(&[("origin", "https://x.ts.net"), ("host", "x.ts.net")]),
+                strict
+            ));
+            assert!(origin_allowed(
+                &h(&[("origin", "http://127.0.0.1:7800"), ("host", "127.0.0.1:7800")]),
+                strict
+            ));
+        }
     }
 
     #[test]
-    fn cross_origin_rejected() {
-        assert!(!origin_allowed(&h(&[
-            ("origin", "https://evil.example"),
-            ("host", "x.ts.net"),
-        ])));
+    fn cross_origin_rejected_both_modes() {
+        for strict in [true, false] {
+            assert!(!origin_allowed(
+                &h(&[("origin", "https://evil.example"), ("host", "x.ts.net")]),
+                strict
+            ));
+        }
     }
 
     #[test]

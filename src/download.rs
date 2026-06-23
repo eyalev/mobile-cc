@@ -71,6 +71,19 @@ fn expand_tilde(input: &str, home: Option<&FsPath>) -> PathBuf {
     PathBuf::from(input)
 }
 
+/// True if any component of `path` is a dotfile/dotdir (a name starting with
+/// '.'). Intended for the CANONICAL path (canonicalize resolves `.`/`..`, so a
+/// remaining leading-dot component is a genuine hidden name, never a traversal
+/// artefact). Uses lossy UTF-8 — a leading ASCII '.' (0x2E) always survives, so
+/// a non-UTF8 dotfile name can't slip through.
+fn has_hidden_component(path: &FsPath) -> bool {
+    use std::path::Component;
+    path.components().any(|c| match c {
+        Component::Normal(os) => os.to_string_lossy().starts_with('.'),
+        _ => false,
+    })
+}
+
 fn content_type_for(path: &FsPath) -> &'static str {
     let ext = path
         .extension()
@@ -124,6 +137,18 @@ async fn download(
         Ok(p) => p,
         Err(_) => return (StatusCode::NOT_FOUND, "file not found").into_response(),
     };
+
+    // Deny any path with a hidden (dotfile/dotdir) component. This subsumes the
+    // sensitive-subtree denylist in one rule — ~/.ssh, ~/.config/mobile-cc (the
+    // VAPID private key + push subs), ~/.aws, ~/.gnupg, ~/.netrc … are all
+    // dotpaths. Checked on the CANONICAL path so a non-hidden symlink that
+    // resolves into a dotpath can't dodge it (canonicalize has already resolved
+    // `.`/`..`, so any remaining leading-dot component is a genuine hidden name).
+    // Returns 404 (not 403) so a hidden file's existence isn't confirmed.
+    // Tradeoff (accepted): a deliberately-hidden dotfile can't be tap-downloaded.
+    if has_hidden_component(&canonical) {
+        return (StatusCode::NOT_FOUND, "file not found").into_response();
+    }
 
     // Enforce the allowlist BEFORE touching metadata, so the existence, type,
     // and size of out-of-root paths aren't distinguishable (a 403 here vs a 404
@@ -231,6 +256,42 @@ mod tests {
         assert_eq!(read_capped(&p, 100).unwrap().len(), 100);
         // Over cap → error, not a truncated/unbounded buffer.
         assert!(read_capped(&p, 50).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn hidden_component_detects_dotpaths() {
+        // Dotfile / dotdir anywhere in the path → hidden.
+        assert!(has_hidden_component(FsPath::new("/home/u/.ssh/id_rsa")));
+        assert!(has_hidden_component(FsPath::new(
+            "/home/u/.config/mobile-cc/push/vapid_private.pem"
+        )));
+        assert!(has_hidden_component(FsPath::new("/home/u/.netrc")));
+        // Normal paths → allowed.
+        assert!(!has_hidden_component(FsPath::new("/home/u/project/app.apk")));
+        assert!(!has_hidden_component(FsPath::new("/home/u/Downloads/log.txt")));
+        // A dot mid-name (not a leading-dot component) is NOT hidden.
+        assert!(!has_hidden_component(FsPath::new("/home/u/v1.2.3/build.zip")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_to_dotpath_is_hidden_after_canonicalize() {
+        use std::os::unix::fs::symlink;
+        let dir = std::env::temp_dir().join(format!("mcc-hidden-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let secret = dir.join(".secret");
+        std::fs::write(&secret, b"x").unwrap();
+        let link = dir.join("innocent"); // non-hidden NAME …
+        symlink(&secret, &link).unwrap(); // … pointing at a dotfile
+
+        // The link's own path is NOT hidden — so the deny MUST run on the
+        // canonical target (which resolves to the dotfile) to catch the dodge.
+        assert!(!has_hidden_component(&link));
+        let canonical = std::fs::canonicalize(&link).unwrap();
+        assert!(has_hidden_component(&canonical));
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
