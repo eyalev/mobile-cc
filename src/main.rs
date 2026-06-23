@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 mod cc_search;
 mod download;
+mod push;
 
 /// Drive Claude Code from your phone. A focused, mobile-first packaging of
 /// ttyview-core — bundles the right plugin set, names the right defaults, and
@@ -86,6 +87,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-tab-topics.js",    include_bytes!("../assets/mobile-cc-tab-topics.js")),
     ("mobile-cc-native-screenshot.js", include_bytes!("../assets/mobile-cc-native-screenshot.js")),
     ("mobile-cc-download.js",      include_bytes!("../assets/mobile-cc-download.js")),
+    ("mobile-cc-push.js",          include_bytes!("../assets/mobile-cc-push.js")),
     // TEMP diagnostic — soft-keyboard-on-tab-switch tracer. Remove with
     // its assets/installed.json entry once the cause is pinned.
     ("mobile-cc-kbd-diag.js",      include_bytes!("../assets/mobile-cc-kbd-diag.js")),
@@ -208,12 +210,18 @@ async fn main() -> Result<()> {
         roots: dirs::home_dir().into_iter().collect(),
         home: dirs::home_dir(),
     };
-    // `extra_api` is a single hook — compose cc-search + download into one
-    // closure that mounts both route sets.
+    // Web Push: VAPID keygen on first run + subscription store + delivery
+    // worker. on_semantic (below) enqueues; the daemon idle sweep emits the
+    // idle event. See src/push.rs + .claude/web-push-design.md.
+    let push_state = push::init(config_dir.clone(), cli.tmux_socket.clone())?;
+
+    // `extra_api` is a single hook — compose cc-search + download + push
+    // into one closure that mounts all three route sets.
     let cc_api = cc_search::extra_api(cc_search_cfg);
     let dl_api = download::extra_api(download_cfg);
+    let push_router = push::routes(push_state.clone());
     let extra_api: Box<dyn FnOnce(axum::Router) -> axum::Router + Send> =
-        Box::new(move |router| dl_api(cc_api(router)));
+        Box::new(move |router| dl_api(cc_api(router)).merge(push_router));
 
     ttyview_core::cli::daemon::run_with_options_v2(ttyview_core::cli::daemon::RunOptions {
         addr: cli.bind,
@@ -235,6 +243,11 @@ async fn main() -> Result<()> {
         // CC-transcript search (/api/cc-search, /api/cc-session/:id) +
         // file download (/api/download). See src/cc_search.rs, src/download.rs.
         extra_api: Some(extra_api),
+        // Web Push triggers: on_semantic enqueues a push on CC permission
+        // prompts (always) + pane.idle_after_activity (opt-in in Settings).
+        // The idle sweep emits that event once a pane goes quiet for 60s.
+        on_semantic: Some(push::on_semantic_hook(push_state)),
+        idle_event_threshold: Some(std::time::Duration::from_secs(60)),
         ..Default::default()
     })
     .await

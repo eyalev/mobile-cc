@@ -38,6 +38,43 @@ self.addEventListener('fetch', (event) => {
   return;
 });
 
-// Future: push + notificationclick handlers will register here.
-// self.addEventListener('push', (event) => { ... });
-// self.addEventListener('notificationclick', (event) => { ... });
+// Web Push: the daemon (src/push.rs) sends a VAPID-signed, encrypted
+// payload { title, body, type, pane? }. We show it and, on tap, focus the
+// pane. tag=pane so repeated alerts for the same pane collapse instead of
+// stacking. Payload is deliberately minimal (session name only) — it can
+// surface on a lock screen.
+self.addEventListener('push', (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (_) {}
+  const title = d.title || 'mobile-cc';
+  const pane = d.pane || '';
+  const url = d.url || (pane ? '/?pane=' + encodeURIComponent(pane) : '/');
+  event.waitUntil(self.registration.showNotification(title, {
+    body: d.body || '',
+    icon: '/pwa/icons/icon-192.png',
+    badge: '/pwa/icons/icon-192.png',
+    tag: pane || d.type || 'mobile-cc',
+    renotify: true,
+    // Permission prompts block CC until answered — keep them sticky.
+    requireInteraction: d.type === 'permission',
+    data: { url },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const cs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of cs) {
+      if ('focus' in c) {
+        c.focus();
+        // The page (mobile-cc-push.js) selects the pane on this message —
+        // avoids a full reload when the PWA is already open.
+        c.postMessage({ type: 'mcc-focus-pane', url });
+        return;
+      }
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(url);
+  })());
+});
