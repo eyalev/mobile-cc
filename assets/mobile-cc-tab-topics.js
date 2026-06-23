@@ -267,6 +267,19 @@
     if (b) pendingMenuSession = b.getAttribute('data-session') || '';
   }, true);
 
+  // In topic mode the per-tab custom label is dormant (the tab + Recent topics
+  // show the AI topic instead), so mobile-cc-tab-menu's "tap to edit subtitle"
+  // preview at the TOP of the ⋮ menu — which still shows that dormant label —
+  // reads as inconsistent ("why is the top different?"). Hide it while topic
+  // mode is on; it reappears in label mode and "Subtitle…" still edits it.
+  function hideDormantLabelPreview(menu) {
+    if (subtitleSource() !== 'topic') return;
+    try {
+      var prev = menu.querySelector('button[title="Tap to edit subtitle"]');
+      if (prev) prev.style.display = 'none';
+    } catch (_) {}
+  }
+
   // Watch document.body for the ⋮ popover to appear, then graft topics in.
   function startMenuObserver() {
     if (!document.body) { document.addEventListener('DOMContentLoaded', startMenuObserver, { once: true }); return; }
@@ -276,7 +289,7 @@
           var added = muts[i].addedNodes;
           for (var j = 0; j < added.length; j++) {
             var n = added[j];
-            if (n.nodeType === 1 && n.id === 'mcc-tabmenu') injectMenuTopics(n);
+            if (n.nodeType === 1 && n.id === 'mcc-tabmenu') { hideDormantLabelPreview(n); injectMenuTopics(n); }
           }
         }
       }).observe(document.body, { childList: true });
