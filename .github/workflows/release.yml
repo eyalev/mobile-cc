@@ -25,6 +25,10 @@ permissions:
 env:
   TTYVIEW_REPO: ttyview/ttyview
   TTYVIEW_REF: v0.2.0   # tab menu/recents/topics/savePins/hydrate-fix (match across workflows)
+  # Pin the Rust toolchain — the release build is the one that SHIPS, so it's
+  # the most important to make reproducible. Keep in lockstep with ci.yml and
+  # macos-smoke.yml (and the local toolchain). Bump deliberately.
+  RUST_VERSION: '1.89.0'
   # Opt the JS-based actions (checkout, upload/download-artifact) into
   # Node 24 ahead of the GitHub default flip. Removable once the actions
   # ship Node 24 natively.
@@ -66,8 +70,9 @@ jobs:
           path: ttyview
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # action @ 2026-05-11
         with:
+          toolchain: ${{ env.RUST_VERSION }}
           targets: ${{ matrix.target }}
 
       - name: Cache cargo
