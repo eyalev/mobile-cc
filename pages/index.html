@@ -113,18 +113,14 @@
     left: 0;
     top: 0.4rem;
   }
-  .demo-placeholder {
-    margin: 2rem 0;
-    aspect-ratio: 9 / 16;
-    max-height: 24rem;
-    border: 1px dashed var(--code-border);
+  video.demo {
+    display: block;
+    width: 100%;
+    max-width: 20rem;
+    margin: 2rem auto;
+    border: 1px solid var(--code-border);
     border-radius: 6px;
-    display: grid;
-    place-items: center;
-    color: var(--fg-dim);
-    text-align: center;
-    padding: 1rem;
-    font-size: 0.9rem;
+    background: #000;
   }
   .alpha-pill {
     display: inline-block;
@@ -164,26 +160,27 @@
 <main>
   <span class="alpha-pill">pre-alpha · single maintainer</span>
   <h1>mobile-cc</h1>
-  <p class="tagline">Drive Claude Code from your phone (or desktop) — a mobile-first terminal web UI. Open a URL — no SSH client, no copy-paste hell.</p>
+  <p class="tagline">Drive Claude Code from your phone (or desktop) — an installable web app for the real terminal. Smooth terminal scrolling, one-tap switching across sessions and projects, and built-in plugins — quick-keys, voice input, image paste.</p>
 
   <div class="install-block" aria-label="Install command">
     <code id="install-cmd">curl -fsSL https://mobile-cc.dev/install.sh | bash</code>
     <button class="copy-btn" type="button" data-target="install-cmd" aria-label="Copy install command">copy</button>
   </div>
 
-  <div class="demo-placeholder" aria-label="Demo video placeholder">
-    [ demo video — coming soon ]
-  </div>
+  <video class="demo" controls muted playsinline preload="metadata"
+         src="https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d"
+         aria-label="mobile-cc demo — the live Claude Code TUI on a phone"></video>
 
   <h2>What you get</h2>
   <ul class="features">
-    <li>Chat-style transcript view rendered directly from Claude Code's JSONL on disk.</li>
-    <li>Quick-keys row above the soft keyboard — Esc, Tab, Ctrl-C, arrows.</li>
-    <li>Pinned tmux-pane tabs that survive tmux restarts.</li>
-    <li>Image paste / drag / pick — screenshots upload + inject as <code>[image: /path]</code>.</li>
-    <li>Pane picker with a Recent section.</li>
-    <li>Terminal-Green CRT theme.</li>
-    <li>One Rust binary, ~8 MB. No node, no python, no runtime.</li>
+    <li>The real Claude Code TUI, rendered live — syntax highlighting, dialogs, permission prompts and all.</li>
+    <li>Smooth terminal scrolling — pan a full session with your thumb, no jank.</li>
+    <li>One-tap switching across sessions and projects; tabs survive restarts, and a dot flags one waiting on you.</li>
+    <li>Quick-keys row — Esc, Tab, Ctrl-C, and the arrows phone keyboards hide.</li>
+    <li>Image paste / pick — attach a screenshot; it uploads and injects as <code>[image: /path]</code>.</li>
+    <li>Voice input — dictate a message (Web Speech, or Groq Whisper with a key).</li>
+    <li>Installable (PWA) — add it to your home screen; opens standalone.</li>
+    <li>One Rust binary, ~9 MB. No node, no python, no runtime.</li>
   </ul>
 
   <h2>How it runs</h2>
@@ -198,10 +195,10 @@
   Claude-Code-from-a-phone job.</p>
 
   <div class="security">
-    <p><strong>⚠️ Pre-alpha · expect reduced responsiveness through mid-June 2026.</strong></p>
-    <p>mobile-cc has no built-in authentication. Bind <code>127.0.0.1</code> and
-    tunnel privately; if you bind a public address, mobile-cc itself refuses to
-    start without an explicit double opt-in. See the
+    <p>mobile-cc has <strong>no built-in authentication</strong> and binds
+    <code>127.0.0.1</code> only — it refuses any non-loopback address. Reach it
+    from another device over <a href="https://tailscale.com/">Tailscale</a> or
+    <code>ssh -L</code>. See the
     <a href="https://github.com/eyalev/mobile-cc/blob/main/SECURITY.md">security policy</a>.</p>
   </div>
 
