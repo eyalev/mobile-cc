@@ -59,7 +59,18 @@
     var ev = buf.splice(0, buf.length);
     try { ws.send(JSON.stringify({ t: 'diag', events: ev })); } catch (_) { buf = ev.concat(buf); }
   }
-  setInterval(flush, 1000);
+  // Gate the 1 s flush on visibility — a backgrounded phone shouldn't wake
+  // a JS timer every second (battery-trio gating nit, 2026-06-23). Buffered
+  // diag still ships immediately on return + on the buf>=16 fast path.
+  var flushTimer = setInterval(flush, 1000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (flushTimer) { clearInterval(flushTimer); flushTimer = null; }
+    } else if (!flushTimer) {
+      flush();
+      flushTimer = setInterval(flush, 1000);
+    }
+  });
   connect();
   function emit(cat, data) {
     var rec = Object.assign({ cat: cat, ts: (function () { try { return Date.now(); } catch (_) { return 0; } })(), seq: ++SEQ }, data || {});
