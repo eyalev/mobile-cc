@@ -100,6 +100,14 @@
         'height:0;width:0;display:none;' +
       '}' +
       '.ttvtab:not(.ttvtab-railbtn).has-tag .ttvtab-label{text-align:left !important;}' +
+      // Keep the name row (name … dot ⋮) tight to its content instead of
+      // growing to fill the tall tab. Upstream sets .ttvtab-head{flex:1 1 auto}
+      // which, in mcc's taller 60px tabs, stretched the head and dropped a big
+      // gap between the name row and the subtitle below. flex:none collapses the
+      // head to one line height, so .has-tag's justify-content:center renders
+      // the name-row + subtitle as one centered block separated only by the 2px
+      // gap — and the ⋮ stays on the name row (align-items:center).
+      'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .ttvtab-head{flex:0 0 auto !important;}' +
       // per-mode height — !important beats upstream's hard-coded height:44px
       'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn){height:var(--mcc-tab-h-with,60px) !important;}' +
       'body.mcc-no-subtitles .ttvtab:not(.ttvtab-railbtn){height:var(--mcc-tab-h-without,30px) !important;}' +
