@@ -107,9 +107,21 @@
       })
       .catch(function (e) { flash('Move failed: ' + e.message, true); });
   }
-  // Remove a session from the tabs "recents" MRU. The tabs plugin caches
-  // recents in memory, so a reload is needed for the recent row to reflect it.
+  // Remove a session from the tabs "recents" MRU. Prefer ttyview-tabs'
+  // in-memory API (window.ttvTabsRemoveRecent) — it mutates the live recents
+  // array + re-renders with no reload. The old reload path silently failed:
+  // reload re-opens the last-viewed pane → noteRecent re-adds the session (the
+  // one you're viewing is always the newest recent), and hydrateServerState
+  // could race the fire-and-forget PUT. Fall back to storage+reload only when
+  // the API isn't present (older bundled ttyview-tabs).
   function removeFromRecents(session) {
+    if (typeof window.ttvTabsRemoveRecent === 'function') {
+      try {
+        var removed = window.ttvTabsRemoveRecent(session);
+        flash(removed ? 'Removed from recents' : 'Not in recents');
+        return;
+      } catch (e) {}
+    }
     try {
       var s = tv.storage('ttyview-tabs');
       var r = s.get('recents');
@@ -405,10 +417,21 @@
       dots.textContent = '⋮';
       dots.setAttribute('data-session', session);
       (function (sessName, el) {
+        // Swallow the WHOLE pointer gesture, not just the start. ttyview-tabs'
+        // tab button selects the pane on `pointerup` (→ pane-changed →
+        // noteRecent → the tab jumps to "most recent"). Stopping only
+        // pointerdown/touchstart left pointerup to bubble to the tab, so a tap
+        // on ⋮ silently switched to + "recent-ed" the tab. Stop pointerup /
+        // pointermove / touchend / touchmove too so opening the menu never
+        // touches recency or the active pane.
         function stop(e) { e.stopPropagation(); }
         el.addEventListener('pointerdown', stop, true);
+        el.addEventListener('pointerup', stop, true);
+        el.addEventListener('pointermove', stop, true);
         el.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
         el.addEventListener('touchstart', stop, true);
+        el.addEventListener('touchend', stop, true);
+        el.addEventListener('touchmove', stop, true);
         el.addEventListener('click', function (e) {
           e.preventDefault(); e.stopPropagation();
           if (menu) closeMenu(); else openTabMenu(el, sessName);
