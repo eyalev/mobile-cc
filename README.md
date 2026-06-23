@@ -149,14 +149,6 @@ to come — live in **[docs/tutorials](docs/tutorials/)**.
 
 ## What you get
 
-<!-- RELEASE-CAVEAT START (TEMPORARY — delete this whole block when a release after v0.4.0 ships) -->
-> ⚠️ **Newer than the installed release:** a few of these are on `main` now but
-> not yet in the **v0.4.0** binary that `curl … | bash` installs — the **3-way ＋
-> new-session menu**, **native screenshot-attach**, **tap-a-path-to-download**,
-> and **per-session topics**. A new release will close the gap (then this note
-> goes away).
-<!-- RELEASE-CAVEAT END -->
-
 - **No tmux knowledge required** — the **＋** on the tab rail spins up a
   session three ways (blank shell · shell with Claude Code · Claude Code in a
   project folder); switch and kill from buttons. Even if you live in tmux, you
