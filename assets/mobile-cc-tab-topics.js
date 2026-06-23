@@ -77,11 +77,21 @@
     if (!d || !d.found || !(d.turns || []).length) return null;
     return d.turns[d.turns.length - 1];      // server returns oldest→newest
   }
+  // Per-turn TIMELINE topic. Names what the turn ACCOMPLISHED (outcome, framed
+  // by the user's intent) — NOT an incidental step. The old "naming what was
+  // done" prompt fixated on actions and produced junk like "reading relevant
+  // code files" for a turn that actually BUILT the feature. Iterated against
+  // hand-written ideals via scripts/gen-topics.mjs (keep that prompt in sync).
   async function genTurn(digest) {
     var key = groqKey();
     if (!key) throw new Error('no key');
-    var sys = 'Summarize ONE turn of a Claude Code session in at most 8 words, lowercase, ' +
-      'naming what was done (a gerund phrase). No punctuation, no quotes, ONLY the phrase.';
+    var sys = 'You name what ONE turn of a Claude Code session accomplished, so a developer can scan ' +
+      'the session timeline. Read the USER REQUEST (first) and the substantive code changes, then reply ' +
+      'with a 3-7 word lowercase gerund phrase naming the OUTCOME — the feature added or the problem fixed, ' +
+      'framed from the user\'s intent (e.g. "building tab topics feature", "hiding dormant label preview", ' +
+      '"switching subtitle to throughline"). Do NOT name tools, file paths, test scripts, daemons, or other ' +
+      'scaffolding used along the way, and do NOT describe exploration (reading/searching files). ' +
+      'No punctuation, no quotes, no preamble — ONLY the phrase.';
     var r = await fetch(GROQ_BASE + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
