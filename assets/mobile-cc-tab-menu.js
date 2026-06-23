@@ -60,15 +60,50 @@
     for (var i = 1; i < 999; i++) { if (!names[base + i]) return base + i; }
     return base + Date.now();
   }
+  // When "Move to project" renames a session, the EXISTING pin still points at
+  // the OLD name. tmux keeps the pane id, but ttyview-tabs' resolvePin rejects
+  // an id whose session changed (its anti-id-recycling guard), so the old pin
+  // goes stale → renders as a dead "missing" tab and the moved session isn't
+  // grouped (the exact "move failed" symptom). Migrate the pin (+ its subtitle
+  // and todo/done mark) onto the new name, keep the pane id, and collapse any
+  // duplicate pin on that pane. Persisted to ttyview-tabs storage; a reload
+  // makes ttyview-tabs reload pins (it caches them in memory at init).
+  function migratePinAndMeta(from, to) {
+    try {
+      var st = tv.storage('ttyview-tabs');
+      var pane = (tv.listPanes() || []).find(function (x) { return x.session === to; });
+      var newId = pane ? pane.id : null;
+      var pins = st.get('pins'); if (!Array.isArray(pins)) pins = [];
+      var out = [], migrated = false;
+      for (var i = 0; i < pins.length; i++) {
+        var pin = pins[i] || {};
+        var hit = pin.session === from || (newId && pin.id === newId);
+        if (hit) {
+          if (migrated) continue;            // drop duplicate pins on this pane
+          migrated = true;
+          pin.session = to; if (newId) pin.id = newId;
+        }
+        out.push(pin);
+      }
+      st.set('pins', out);
+      ['labels', 'marks'].forEach(function (k) {
+        var m = st.get(k);
+        if (m && m[from] != null) { m[to] = m[from]; delete m[from]; st.set(k, m); }
+      });
+    } catch (e) {}
+  }
+
   // Move = rename so the name groups under <project> (grouping is name-based).
   function moveToProject(session, project) {
     var to = numberedName(project + '-claude');
     apiRename(session, to)
       .then(function () { return tv.refreshPanes(); })
       .then(function () {
-        var p = (tv.listPanes() || []).find(function (x) { return x.session === to; });
-        if (p) { try { tv.selectPane(p.id); } catch (e) {} }
-        flash('Moved to ' + project + ' (' + to + ')');
+        migratePinAndMeta(session, to);     // pin + subtitle/mark follow the rename
+        flash('Moved to ' + project + ' (' + to + ') — refreshing…');
+        // ttyview-tabs caches pins in memory; reload so the moved tab re-pins
+        // and groups under the project on the fresh render.
+        setTimeout(function () { try { location.reload(); } catch (e) {} }, 500);
       })
       .catch(function (e) { flash('Move failed: ' + e.message, true); });
   }
@@ -388,24 +423,55 @@
     }
   }
 
+  // ---- non-project (ungrouped) pinned tabs → bottom -----------------
+  // ttyview-tabs renders ungrouped pins as a headerless row ABOVE the project
+  // groups. Move them BELOW the groups, under a thin labelless divider, so the
+  // projects lead and loose one-off tabs (mcc-build, etc.) collect at the end.
+  // Pure DOM, mcc-only (panel/tmux-web never load this plugin). Idempotent: it
+  // only acts on rows that are still ABOVE the first group, so after a move the
+  // next observer tick is a no-op until ttyview-tabs re-renders (which resets
+  // content, and we re-apply). The divider has class mcc-ungrouped-sep.
+  function reorderUngrouped() {
+    var group = document.querySelector('.ttvtab-group');
+    if (!group || !group.parentNode) return;          // need ≥1 project group
+    var content = group.parentNode;
+    var old = content.querySelector(':scope > .mcc-ungrouped-sep');
+    if (old) old.remove();
+    // Leading direct-child .ttvtab-row(s) before the first group = ungrouped.
+    var rows = [], n = content.firstChild;
+    while (n && n !== group) {
+      var next = n.nextSibling;
+      if (n.nodeType === 1 && n.classList && n.classList.contains('ttvtab-row')) rows.push(n);
+      n = next;
+    }
+    if (!rows.length) return;                          // already at bottom
+    var sep = document.createElement('div');
+    sep.className = 'mcc-ungrouped-sep';
+    sep.style.cssText = 'height:0;border-top:1px solid var(--ttv-border,#3a3a3a);opacity:0.55;margin:8px 6px 4px;';
+    content.appendChild(sep);
+    rows.forEach(function (r) { content.appendChild(r); });
+  }
+
+  function paint() { injectButtons(); reorderUngrouped(); }
+
   var pending = false;
   function schedule() {
     if (pending) return; pending = true;
     var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-    raf(function () { pending = false; injectButtons(); });
+    raf(function () { pending = false; paint(); });
   }
   (function boot() {
     var tries = 0, attached = false;
     function attach() {
       var rail = document.querySelector('.ttvtab-rail');
       if (!rail) return false;
-      injectButtons();
+      paint();
       var host = rail.closest('[data-slot]') || rail.parentNode || document.body;
       try { new MutationObserver(schedule).observe(host, { childList: true, subtree: true }); attached = true; } catch (e) {}
       return true;
     }
     var iv = setInterval(function () { if (attach() || ++tries > 60) clearInterval(iv); }, 250);
     attach();
-    setInterval(function () { if (!attached) attach(); else injectButtons(); }, 2000);
+    setInterval(function () { if (!attached) attach(); else paint(); }, 2000);
   })();
 })();
