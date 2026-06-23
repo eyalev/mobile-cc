@@ -190,7 +190,10 @@ mod tests {
     fn tilde_expands_to_home() {
         let home = PathBuf::from("/home/u");
         assert_eq!(expand_tilde("~", Some(&home)), home);
-        assert_eq!(expand_tilde("~/a/b", Some(&home)), PathBuf::from("/home/u/a/b"));
+        assert_eq!(
+            expand_tilde("~/a/b", Some(&home)),
+            PathBuf::from("/home/u/a/b")
+        );
         // No home → left as-is.
         assert_eq!(expand_tilde("~/a", None), PathBuf::from("~/a"));
         // Non-tilde paths untouched.
@@ -204,7 +207,10 @@ mod tests {
             "application/vnd.android.package-archive"
         );
         assert_eq!(content_type_for(FsPath::new("/x/a.PNG")), "image/png");
-        assert_eq!(content_type_for(FsPath::new("/x/n")), "application/octet-stream");
+        assert_eq!(
+            content_type_for(FsPath::new("/x/n")),
+            "application/octet-stream"
+        );
     }
 
     #[test]
@@ -218,7 +224,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("mcc-dl-test-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let p = dir.join("f.bin");
-        std::fs::File::create(&p).unwrap().write_all(&[0u8; 100]).unwrap();
+        std::fs::File::create(&p)
+            .unwrap()
+            .write_all(&[0u8; 100])
+            .unwrap();
         // Under cap → returns the bytes.
         assert_eq!(read_capped(&p, 1000).unwrap().len(), 100);
         // Exactly at cap → ok.

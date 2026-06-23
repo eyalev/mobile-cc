@@ -1,6 +1,6 @@
 [package]
 name = "mobile-cc"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 description = "Drive Claude Code from your phone. Mobile-focused packaging of ttyview-core."
@@ -19,9 +19,10 @@ path = "src/main.rs"
 # constraint cargo would enforce if/when ttyview-core lands on crates.io;
 # it also lets cargo-deny's wildcard check pass. Keep this in lock-step
 # with the ttyview tag CI checks out (TTYVIEW_REF in the workflows) — the
-# v0.1.7 tag adds desktop auto-widen (fill wide viewports) on top of v0.1.6's
-# deep scrollback / `RunOptions.max_scrollback`.
-ttyview-core = { path = "../ttyview/crates/ttyview-core", version = "0.1.7" }
+# v0.2.0 tag adds the tab-card/menu/recents overhaul, per-session topics,
+# real-time STT, the savePins guard + hydrate-fail write-suppression, and the
+# RunOptions.extra_api hook the cc-search/topics endpoints mount on.
+ttyview-core = { path = "../ttyview/crates/ttyview-core", version = "0.2.0" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"

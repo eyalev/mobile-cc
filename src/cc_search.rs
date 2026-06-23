@@ -126,7 +126,11 @@ struct Agg {
     best_is_user: bool,
 }
 
-fn run_search(cfg: &CcSearchConfig, query: &str, limit: usize) -> Result<Vec<SearchResult>, String> {
+fn run_search(
+    cfg: &CcSearchConfig,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SearchResult>, String> {
     let tokens = tokenize(query);
     if tokens.is_empty() {
         return Ok(Vec::new());
@@ -736,7 +740,11 @@ async fn put_session_summary(
     }
 }
 
-fn session_summary_put(cfg: &CcSearchConfig, session: &str, body: PutSummary) -> Result<(), String> {
+fn session_summary_put(
+    cfg: &CcSearchConfig,
+    session: &str,
+    body: PutSummary,
+) -> Result<(), String> {
     let cwd = tmux_session_cwd(cfg.tmux_socket.as_deref(), session)
         .filter(|c| !c.is_empty())
         .ok_or_else(|| "session cwd not found".to_string())?;
@@ -1140,7 +1148,11 @@ fn session_turns(cfg: &CcSearchConfig, session: &str, limit: usize) -> serde_jso
         .iter()
         .map(|t| {
             let open = t.uuid == last_uuid;
-            let summary = if open { None } else { cache.get(&t.uuid).cloned() };
+            let summary = if open {
+                None
+            } else {
+                cache.get(&t.uuid).cloned()
+            };
             serde_json::json!({
                 "uuid": t.uuid,
                 "ts": t.ts,
@@ -1295,11 +1307,7 @@ fn make_snippet(text: &str, tokens: &[String]) -> String {
     }
     let _ = lower_chars;
     let width = 220usize;
-    let start = if found {
-        at.saturating_sub(60)
-    } else {
-        0
-    };
+    let start = if found { at.saturating_sub(60) } else { 0 };
     let end = (start + width).min(chars.len());
     let mut s: String = chars[start..end].iter().collect();
     if start > 0 {

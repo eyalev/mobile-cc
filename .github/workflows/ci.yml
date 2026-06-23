@@ -9,7 +9,7 @@ on:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: v0.1.7   # adds desktop auto-widen (match across workflows)
+  TTYVIEW_REF: v0.2.0   # tab menu/recents/topics/savePins/hydrate-fix (match across workflows)
   # Opt the JS-based actions (checkout, upload/download-artifact) into
   # Node 24 ahead of the GitHub-default flip (target: 2026-06-02).
   # Removable once the actions ship Node 24 natively.
