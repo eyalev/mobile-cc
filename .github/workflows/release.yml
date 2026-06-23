@@ -147,11 +147,17 @@ jobs:
             echo "::warning::MINISIGN_SECRET_KEY not set — skipping minisign signing."
             exit 0
           fi
-          sudo apt-get update -qq && sudo apt-get install -y -qq minisign
+          # minisign isn't reliably in the runner's apt sources ("Unable to
+          # locate package minisign") — fetch the official static linux binary.
+          curl -fsSL -o /tmp/minisign.tgz \
+            https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-linux.tar.gz
+          mkdir -p /tmp/ms && tar -xzf /tmp/minisign.tgz -C /tmp/ms
+          MINISIGN="$(find /tmp/ms -type f -name minisign -path '*x86_64*' | head -1)"
+          chmod +x "$MINISIGN"
           umask 077
           printf '%s\n' "$MINISIGN_SECRET_KEY" > minisign.key
           for f in artifacts/mobile-cc-*.tar.gz; do
-            minisign -Sm "$f" -s minisign.key < /dev/null
+            "$MINISIGN" -Sm "$f" -s minisign.key < /dev/null
             echo "signed $f -> ${f}.minisig"
           done
           rm -f minisign.key
