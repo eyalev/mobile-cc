@@ -40,6 +40,14 @@
     var v = SELF.get('showSubtitles');
     return (v === undefined || v === null) ? true : !!v;   // default ON
   }
+  // How the subtitle text behaves when it's longer than the tab is wide:
+  //   '2line'    → wrap to (up to) 2 lines, then clip   (default; original)
+  //   'ellipsis' → single line, truncated with an ellipsis
+  //   'scroll'   → single line, horizontally scrollable (swipe to read)
+  function subtitleMode() {
+    var v = SELF.get('subtitleMode');
+    return (v === 'ellipsis' || v === 'scroll' || v === '2line') ? v : '2line';
+  }
   function applyTabLayout() {
     var de = document.documentElement;
     de.style.setProperty('--mcc-tab-h-with', heightWith() + 'px');
@@ -51,6 +59,8 @@
     } else {
       b.classList.remove('ttv-tall-tabs'); b.classList.add('mcc-no-subtitles');
     }
+    b.classList.remove('mcc-sub-2line', 'mcc-sub-ellipsis', 'mcc-sub-scroll');
+    b.classList.add('mcc-sub-' + subtitleMode());
     // Nudge ttyview-tabs to recompute its reserved-area height for the new
     // per-tab height (it relayouts on viewport resize).
     try { window.dispatchEvent(new Event('resize')); } catch (_) {}
@@ -64,12 +74,30 @@
     var st = document.createElement('style');
     st.id = 'mcc-tab-tag-wrap';
     st.textContent =
+      // Base: left-align the tag; per-mode rules below control wrap/clip/scroll.
       '.ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{' +
+        'text-align:left !important;overflow-wrap:anywhere;' +
+      '}' +
+      // 2-line (default): wrap up to 2 lines then clip.
+      'body.mcc-sub-2line .ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{' +
         'white-space:normal !important;' +
         'display:-webkit-box;-webkit-box-orient:vertical;' +
         '-webkit-line-clamp:2;line-clamp:2;' +
-        'overflow:hidden;text-overflow:clip;overflow-wrap:anywhere;' +
-        'text-align:left !important;' +
+        'overflow:hidden;text-overflow:clip;' +
+      '}' +
+      // One line + ellipsis.
+      'body.mcc-sub-ellipsis .ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{' +
+        'white-space:nowrap !important;display:block;' +
+        'overflow:hidden;text-overflow:ellipsis;' +
+      '}' +
+      // One line, horizontally scrollable (hidden scrollbar; swipe to read).
+      'body.mcc-sub-scroll .ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{' +
+        'white-space:nowrap !important;display:block;' +
+        'overflow-x:auto;overflow-y:hidden;text-overflow:clip;' +
+        '-webkit-overflow-scrolling:touch;scrollbar-width:none;' +
+      '}' +
+      'body.mcc-sub-scroll .ttvtab:not(.ttvtab-railbtn) .ttvtab-tag::-webkit-scrollbar{' +
+        'height:0;width:0;display:none;' +
       '}' +
       '.ttvtab:not(.ttvtab-railbtn).has-tag .ttvtab-label{text-align:left !important;}' +
       // per-mode height — !important beats upstream's hard-coded height:44px
@@ -313,6 +341,50 @@
         tRow.appendChild(document.createTextNode('Show subtitles on tabs'));
         container.appendChild(tRow);
 
+        // Subtitle overflow mode — segmented control.
+        var modeWrap = document.createElement('div');
+        modeWrap.style.cssText = 'margin-bottom:18px;';
+        var modeLbl = document.createElement('div');
+        modeLbl.style.cssText = 'font-size:13px;color:var(--ttv-fg);margin-bottom:6px;';
+        modeLbl.textContent = 'Long subtitle text';
+        modeWrap.appendChild(modeLbl);
+        var seg = document.createElement('div');
+        seg.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+        var MODES = [
+          { id: '2line',    label: 'Two lines',  hint: 'Wraps to up to 2 lines, then clips.' },
+          { id: 'ellipsis', label: 'One line…',  hint: 'Single line, truncated with an ellipsis.' },
+          { id: 'scroll',   label: 'Scroll →',   hint: 'Single line you can swipe sideways to read.' },
+        ];
+        var modeHint = document.createElement('div');
+        modeHint.style.cssText = 'color:var(--ttv-muted);font-size:11px;margin-top:8px;';
+        function paintSeg() {
+          var cur = subtitleMode();
+          Array.prototype.forEach.call(seg.children, function (b) {
+            var on = b.dataset.mode === cur;
+            b.style.background = on ? 'var(--ttv-accent,#E8896B)' : 'var(--ttv-bg-elev2,#2d2d30)';
+            b.style.color = on ? '#1e1e1e' : 'var(--ttv-fg)';
+            b.style.borderColor = on ? 'var(--ttv-accent,#E8896B)' : 'var(--ttv-border,#3a3a3a)';
+          });
+          var m = MODES.filter(function (x) { return x.id === cur; })[0];
+          modeHint.textContent = m ? m.hint : '';
+        }
+        MODES.forEach(function (m) {
+          var b = document.createElement('button');
+          b.type = 'button'; b.tabIndex = -1; b.dataset.mode = m.id; b.textContent = m.label;
+          b.style.cssText = 'flex:1;min-width:96px;height:38px;font-size:13px;border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;cursor:pointer;';
+          b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+          b.addEventListener('click', function () {
+            SELF.set('subtitleMode', m.id);
+            applyTabLayout();
+            paintSeg();
+          });
+          seg.appendChild(b);
+        });
+        modeWrap.appendChild(seg);
+        modeWrap.appendChild(modeHint);
+        container.appendChild(modeWrap);
+        paintSeg();
+
         // A − / + stepper + number field. opts: {min,max,step,unit,after}.
         // `after` runs post-commit (height rows re-apply layout; the
         // tabs-per-row row schedules a reload — see below).
@@ -414,9 +486,32 @@
         perRowNote.textContent = 'Changing this refreshes the page to re-lay-out the tabs.';
         container.appendChild(perRowNote);
 
+        // Visible rows = the pinned area's HEIGHT in tab-rows (ttyview-tabs
+        // settings.rows). More tabs than fit scroll vertically within it.
+        // Same in-memory-cache constraint as maxPerRow → persist + reload.
+        function rowsGet() {
+          try {
+            var s = tv.storage('ttyview-tabs').get('settings') || {};
+            var v = parseInt(s.rows, 10);
+            return (isFinite(v) && v > 0) ? v : 4;
+          } catch (_) { return 4; }
+        }
+        function rowsSet(n) {
+          try {
+            var st = tv.storage('ttyview-tabs');
+            var s = st.get('settings') || {};
+            s.rows = n; st.set('settings', s);
+          } catch (_) {}
+        }
+        var rowsRow = stepperRow('Visible rows (pinned area height)',
+          'How many tab-rows tall the pinned area is. Extra tabs scroll within it.',
+          rowsGet, rowsSet, { min: 1, max: 8, step: 1, unit: 'rows', after: scheduleReload });
+        container.appendChild(rowsRow);
+
         // Dim the height row that isn't the active mode (still editable).
         function syncActive() {
           var on = showSubsPref();
+          modeWrap.style.opacity = on ? '1' : '0.45';
           withRow.style.opacity = on ? '1' : '0.45';
           withoutRow.style.opacity = on ? '0.45' : '1';
         }
