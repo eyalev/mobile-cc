@@ -28,6 +28,32 @@
     document.addEventListener('DOMContentLoaded', enableTall, { once: true });
   }
 
+  // ---- Subtitle wraps to 2 lines (was 1-line ellipsis) -------------
+  // ttyview-tabs renders the tag (subtitle) on a single nowrap line, so in
+  // a 3-per-row grid most 3-5 word subtitles get clipped ("improving
+  // session…"). Override to a 2-line clamp here (mcc-only — keeps upstream
+  // panel/tmux-web on the compact single line). The tab grows by at most one
+  // line; only tabs whose subtitle actually wraps get taller.
+  function injectTagWrapStyle() {
+    if (document.getElementById('mcc-tab-tag-wrap')) return;
+    if (!document.head) return;
+    var st = document.createElement('style');
+    st.id = 'mcc-tab-tag-wrap';
+    st.textContent =
+      '.ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{' +
+        'white-space:normal !important;' +
+        'display:-webkit-box;-webkit-box-orient:vertical;' +
+        '-webkit-line-clamp:2;line-clamp:2;' +
+        'overflow:hidden;text-overflow:clip;' +
+        'overflow-wrap:anywhere;' +
+      '}';
+    document.head.appendChild(st);
+  }
+  injectTagWrapStyle();
+  if (!document.head) {
+    document.addEventListener('DOMContentLoaded', injectTagWrapStyle, { once: true });
+  }
+
   // ---- 3-tabs-per-row default (client-side, one-time) --------------
   // maxPerRow lives in the SYNCED ttyview-tabs storage, which is
   // client-authoritative — a server-side PUT gets clobbered when the

@@ -124,8 +124,25 @@
       'border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);';
     var hdr = document.createElement('div');
     hdr.textContent = session;
-    hdr.style.cssText = 'padding:4px 12px 8px;color:var(--ttv-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    hdr.style.cssText = 'padding:4px 12px 2px;color:var(--ttv-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
     menu.appendChild(hdr);
+    // Full subtitle preview — the tab clips it, so this is where you read the
+    // whole thing. Wraps (no ellipsis); tap to jump into the edit flow. Hidden
+    // when the tab has no subtitle (the "Subtitle…" item still adds one).
+    var subText = '';
+    try { subText = (window.ttvTabsGetLabel && window.ttvTabsGetLabel(session)) || ''; } catch (e) {}
+    if (subText) {
+      var sub = document.createElement('button');
+      sub.type = 'button'; sub.tabIndex = -1; sub.textContent = subText;
+      sub.title = 'Tap to edit subtitle';
+      sub.style.cssText =
+        'display:block;width:100%;text-align:left;background:transparent;border:0;cursor:pointer;' +
+        'padding:0 12px 8px;margin:0;font:inherit;font-size:12px;line-height:1.4;' +
+        'color:var(--ttv-accent,#E8896B);white-space:normal;overflow-wrap:anywhere;';
+      sub.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      sub.addEventListener('click', function () { closeMenu(); subtitleFlow(session); });
+      menu.appendChild(sub);
+    }
     menu.appendChild(menuItem('Subtitle…', function () { closeMenu(); subtitleFlow(session); }));
     menu.appendChild(menuItem('Rename…', function () { closeMenu(); renameFlow(session); }));
     menu.appendChild(menuItem('Move to project…', function () { closeMenu(); openMoveDialog(session); }));
