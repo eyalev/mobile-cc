@@ -425,53 +425,50 @@
 
   // ---- non-project (ungrouped) pinned tabs → bottom -----------------
   // ttyview-tabs renders ungrouped pins as a headerless row ABOVE the project
-  // groups. Move them BELOW the groups, under a thin labelless divider, so the
-  // projects lead and loose one-off tabs (mcc-build, etc.) collect at the end.
-  // Pure DOM, mcc-only (panel/tmux-web never load this plugin). Idempotent: it
-  // only acts on rows that are still ABOVE the first group, so after a move the
-  // next observer tick is a no-op until ttyview-tabs re-renders (which resets
-  // content, and we re-apply). The divider has class mcc-ungrouped-sep.
-  function reorderUngrouped() {
-    var group = document.querySelector('.ttvtab-group');
-    if (!group || !group.parentNode) return;          // need ≥1 project group
-    var content = group.parentNode;
-    var old = content.querySelector(':scope > .mcc-ungrouped-sep');
-    if (old) old.remove();
-    // Leading direct-child .ttvtab-row(s) before the first group = ungrouped.
-    var rows = [], n = content.firstChild;
-    while (n && n !== group) {
-      var next = n.nextSibling;
-      if (n.nodeType === 1 && n.classList && n.classList.contains('ttvtab-row')) rows.push(n);
-      n = next;
-    }
-    if (!rows.length) return;                          // already at bottom
-    var sep = document.createElement('div');
-    sep.className = 'mcc-ungrouped-sep';
-    sep.style.cssText = 'height:0;border-top:1px solid var(--ttv-border,#3a3a3a);opacity:0.55;margin:8px 6px 4px;';
-    content.appendChild(sep);
-    rows.forEach(function (r) { content.appendChild(r); });
+  // groups. Push them BELOW the groups using CSS `order` — NOT DOM surgery.
+  // .ttvtab-content is flex-column; its direct .ttvtab-row children are the
+  // ungrouped rows (grouped tabs live inside .ttvtab-group), so `> .ttvtab-row`
+  // targets only ungrouped. A single divider line sits above the block via a
+  // top-border on the FIRST ungrouped row (DOM-consecutive, so `+ .ttvtab-row`
+  // clears it on the rest).
+  //
+  // WHY CSS, not moving nodes: render() restores content.scrollTop at the END
+  // of every re-render (dot-poll / output / semantic events fire these often).
+  // An earlier version MOVED the rows after that restore, so the layout shifted
+  // post-restore and the view JUMPED mid-scroll. CSS order is applied before
+  // layout, so scrollTop is restored against the final order — no jump.
+  function injectUngroupedStyle() {
+    if (document.getElementById('mcc-ungrouped-bottom')) return;
+    if (!document.head) return;
+    var st = document.createElement('style');
+    st.id = 'mcc-ungrouped-bottom';
+    st.textContent =
+      '.ttvtab-content > .ttvtab-group{order:1;}' +
+      '.ttvtab-content > .ttvtab-row{order:2;border-top:1px solid var(--ttv-border,#3a3a3a);padding-top:5px;margin-top:3px;}' +
+      '.ttvtab-content > .ttvtab-row + .ttvtab-row{border-top:0;padding-top:0;margin-top:0;}';
+    document.head.appendChild(st);
   }
-
-  function paint() { injectButtons(); reorderUngrouped(); }
+  injectUngroupedStyle();
+  if (!document.head) document.addEventListener('DOMContentLoaded', injectUngroupedStyle, { once: true });
 
   var pending = false;
   function schedule() {
     if (pending) return; pending = true;
     var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-    raf(function () { pending = false; paint(); });
+    raf(function () { pending = false; injectButtons(); });
   }
   (function boot() {
     var tries = 0, attached = false;
     function attach() {
       var rail = document.querySelector('.ttvtab-rail');
       if (!rail) return false;
-      paint();
+      injectButtons();
       var host = rail.closest('[data-slot]') || rail.parentNode || document.body;
       try { new MutationObserver(schedule).observe(host, { childList: true, subtree: true }); attached = true; } catch (e) {}
       return true;
     }
     var iv = setInterval(function () { if (attach() || ++tries > 60) clearInterval(iv); }, 250);
     attach();
-    setInterval(function () { if (!attached) attach(); else paint(); }, 2000);
+    setInterval(function () { if (!attached) attach(); else injectButtons(); }, 2000);
   })();
 })();
