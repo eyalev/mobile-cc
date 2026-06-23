@@ -145,7 +145,7 @@
         var st = await fetch('/api/push/status').then(function (r) { return r.json(); }).catch(function () { return {}; });
         idleCb.checked = !!st.idleEnabled;
         statusLine.textContent = subscribed
-          ? ('Enabled — ' + (st.count || 0) + ' device(s) subscribed.')
+          ? 'Enabled on this device.'
           : 'Notifications are off.';
         paint();
       }
