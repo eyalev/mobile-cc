@@ -241,15 +241,15 @@
     name: 'Session topics',
     preferredSlot: 'header-right',
     render: function (slot) {
-      // Follow the app-theme ACCENT (like the rail icons / Send button), not
-      // the default header fg or the coral brand. The SVG uses currentColor,
-      // so setting the button color is enough.
-      var btn = el('button', 'cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;padding:0;color:var(--ttv-accent,#569cd6);');
-      // App-theme SVG icon (inherits the accent via currentColor) — a "topics
-      // list" glyph for the session-timeline panel. No emoji: icons should be
-      // themable SVGs, not OS-rendered glyphs.
+      // Inherit the core "header button" chrome (dark bg + border + fg glyph)
+      // so it matches the sibling buttons (↻/⚙) EXACTLY. Do NOT override
+      // background/border/color — those overrides made it borderless +
+      // accent-blue. currentColor then resolves to var(--ttv-fg), like the
+      // other gray glyphs. Only inline-flex (to center the SVG) is kept.
+      var btn = el('button', 'cursor:pointer;display:inline-flex;align-items:center;justify-content:center;');
+      // Themable SVG "topics list" glyph (no emoji), sized to match ↻/⚙.
       btn.innerHTML =
-        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" ' +
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" ' +
         'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
         'stroke-linejoin="round" aria-hidden="true">' +
         '<circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/>' +
