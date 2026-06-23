@@ -313,8 +313,21 @@
         tRow.appendChild(document.createTextNode('Show subtitles on tabs'));
         container.appendChild(tRow);
 
-        // A height control with − / + stepper buttons + a number field.
-        function stepperRow(labelText, hintText, get, set) {
+        // A − / + stepper + number field. opts: {min,max,step,unit,after}.
+        // `after` runs post-commit (height rows re-apply layout; the
+        // tabs-per-row row schedules a reload — see below).
+        function stepperRow(labelText, hintText, get, set, opts) {
+          opts = opts || {};
+          var lo = opts.min != null ? opts.min : 20;
+          var hi = opts.max != null ? opts.max : 120;
+          var step = opts.step || 2;
+          var unitTxt = opts.unit != null ? opts.unit : 'px';
+          var after = opts.after || applyTabLayout;
+          function clampVal(v) {
+            var n = parseInt(v, 10);
+            if (!isFinite(n)) n = get();
+            return Math.max(lo, Math.min(hi, n));
+          }
           var wrap = document.createElement('div');
           wrap.style.cssText = 'margin-bottom:16px;';
           var lbl = document.createElement('div');
@@ -338,24 +351,26 @@
           }
           var minus = stepBtn('−');
           var num = document.createElement('input');
-          num.type = 'number'; num.min = '20'; num.max = '120'; num.step = '2';
+          num.type = 'number'; num.min = String(lo); num.max = String(hi); num.step = String(step);
           num.value = String(get());
           num.style.cssText = 'width:74px;height:42px;text-align:center;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;font:inherit;font-size:15px;';
           var plus = stepBtn('+');
           function commit(v) {
-            var n = clampH(v, get());
+            var n = clampVal(v);
             num.value = String(n);
             set(n);
-            applyTabLayout();
+            after();
           }
-          minus.addEventListener('click', function () { commit(get() - 2); });
-          plus.addEventListener('click', function () { commit(get() + 2); });
+          minus.addEventListener('click', function () { commit(get() - step); });
+          plus.addEventListener('click', function () { commit(get() + step); });
           num.addEventListener('change', function () { commit(num.value); });
           ctl.appendChild(minus); ctl.appendChild(num); ctl.appendChild(plus);
-          var unit = document.createElement('span');
-          unit.textContent = 'px';
-          unit.style.cssText = 'color:var(--ttv-muted);font-size:13px;';
-          ctl.appendChild(unit);
+          if (unitTxt) {
+            var unit = document.createElement('span');
+            unit.textContent = unitTxt;
+            unit.style.cssText = 'color:var(--ttv-muted);font-size:13px;';
+            ctl.appendChild(unit);
+          }
           wrap.appendChild(ctl);
           return wrap;
         }
@@ -366,6 +381,38 @@
           heightWithout, function (n) { SELF.set('tabHeightWithout', n); });
         container.appendChild(withRow);
         container.appendChild(withoutRow);
+
+        // Tabs per row — lives in ttyview-tabs' synced settings (maxPerRow).
+        // ttyview-tabs reads that into an in-memory copy at load and only
+        // re-renders from it; there's no public live setter, so we persist
+        // the value and (debounced) reload so the new row width takes effect.
+        function perRowGet() {
+          try {
+            var s = tv.storage('ttyview-tabs').get('settings') || {};
+            var v = parseInt(s.maxPerRow, 10);
+            return (isFinite(v) && v > 0) ? v : 3;
+          } catch (_) { return 3; }
+        }
+        function perRowSet(n) {
+          try {
+            var st = tv.storage('ttyview-tabs');
+            var s = st.get('settings') || {};
+            s.maxPerRow = n; st.set('settings', s);
+          } catch (_) {}
+        }
+        var reloadTimer = null;
+        function scheduleReload() {
+          if (reloadTimer) clearTimeout(reloadTimer);
+          perRowNote.textContent = 'Applying — the page will refresh…';
+          reloadTimer = setTimeout(function () { try { location.reload(); } catch (_) {} }, 700);
+        }
+        var perRowRow = stepperRow('Tabs per row', 'How many tabs fit across each row.',
+          perRowGet, perRowSet, { min: 1, max: 6, step: 1, unit: '', after: scheduleReload });
+        container.appendChild(perRowRow);
+        var perRowNote = document.createElement('div');
+        perRowNote.style.cssText = 'color:var(--ttv-muted);font-size:11px;margin:-8px 0 16px;';
+        perRowNote.textContent = 'Changing this refreshes the page to re-lay-out the tabs.';
+        container.appendChild(perRowNote);
 
         // Dim the height row that isn't the active mode (still editable).
         function syncActive() {
