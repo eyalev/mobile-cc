@@ -241,7 +241,24 @@
     name: 'Session topics',
     preferredSlot: 'header-right',
     render: function (slot) {
-      var btn = el('button', 'cursor:pointer;', '📋');
+      // Follow the app-theme ACCENT (like the rail icons / Send button), not
+      // the default header fg or the coral brand. The SVG uses currentColor,
+      // so setting the button color is enough.
+      var btn = el('button', 'cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;padding:0;color:var(--ttv-accent,#569cd6);');
+      // App-theme SVG icon (inherits the accent via currentColor) — a "topics
+      // list" glyph for the session-timeline panel. No emoji: icons should be
+      // themable SVGs, not OS-rendered glyphs.
+      btn.innerHTML =
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" ' +
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+        'stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/>' +
+        '<circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
+        '<circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/>' +
+        '<line x1="9" y1="6" x2="20" y2="6"/>' +
+        '<line x1="9" y1="12" x2="20" y2="12"/>' +
+        '<line x1="9" y1="18" x2="20" y2="18"/>' +
+        '</svg>';
       btn.type = 'button'; btn.title = 'Session topics';
       btn.addEventListener('click', open);
       slot.appendChild(btn);
