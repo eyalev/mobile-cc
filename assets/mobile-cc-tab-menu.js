@@ -416,24 +416,28 @@
       dots.type = 'button'; dots.tabIndex = -1; dots.className = 'mcc-tabmenu-btn';
       dots.textContent = '⋮';
       dots.setAttribute('data-session', session);
+      // Pass-through marker: ttyview-tabs' tab gesture sees this attr and
+      // (a) STILL arms its press-and-hold mark timer when the press starts on
+      // the ⋮ — so holding the ⋮ cycles the dot/mark exactly like the rest of
+      // the tab — and (b) suppresses tap-to-select so a quick tap here doesn't
+      // switch panes. We therefore must NOT swallow pointer events anymore:
+      // the old `stopPropagation` on pointerdown/move/up created a DEAD ZONE
+      // where the hold gesture never armed (the "changing dot only works in
+      // part of the tab" bug). We now only own the quick-tap click (open menu)
+      // and tell a tap apart from a hold by press duration.
+      dots.setAttribute('data-tab-passthrough', '1');
       (function (sessName, el) {
-        // Swallow the WHOLE pointer gesture, not just the start. ttyview-tabs'
-        // tab button selects the pane on `pointerup` (→ pane-changed →
-        // noteRecent → the tab jumps to "most recent"). Stopping only
-        // pointerdown/touchstart left pointerup to bubble to the tab, so a tap
-        // on ⋮ silently switched to + "recent-ed" the tab. Stop pointerup /
-        // pointermove / touchend / touchmove too so opening the menu never
-        // touches recency or the active pane.
-        function stop(e) { e.stopPropagation(); }
-        el.addEventListener('pointerdown', stop, true);
-        el.addEventListener('pointerup', stop, true);
-        el.addEventListener('pointermove', stop, true);
-        el.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
-        el.addEventListener('touchstart', stop, true);
-        el.addEventListener('touchend', stop, true);
-        el.addEventListener('touchmove', stop, true);
+        function now() { try { return performance.now(); } catch (_) { return Date.now(); } }
+        var downT = 0;
+        // Record press start (events bubble to the tab too — that's intended).
+        el.addEventListener('pointerdown', function () { downT = now(); });
+        el.addEventListener('mousedown', function (e) { e.preventDefault(); });
         el.addEventListener('click', function (e) {
+          // Always stop the slot's click (which exits pin/label mode).
           e.preventDefault(); e.stopPropagation();
+          // A hold (≥ ~300ms) means the tab's mark gesture owned this press —
+          // don't ALSO pop the menu on release. Quick tap → toggle the menu.
+          if (now() - downT > 300) return;
           if (menu) closeMenu(); else openTabMenu(el, sessName);
         });
       })(session, dots);

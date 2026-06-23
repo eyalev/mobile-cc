@@ -152,7 +152,9 @@
     if (!SELF.get('seededRecentRows')) {
       var ts2 = tv.storage('ttyview-tabs');
       var s2 = ts2.get('settings') || {};
-      if ((s2.recentRows | 0) < 2) { s2.recentRows = 2; ts2.set('settings', s2); }
+      if ((parseFloat(s2.recentRows) || 0) < 2) s2.recentRows = 2;
+      s2.recentWrap = true;   // mobile-cc default: recents wrap + scroll vertically
+      ts2.set('settings', s2);
       SELF.set('seededRecentRows', true);
     }
   } catch (_) {}
