@@ -6,12 +6,17 @@
 //      the feature/problem the session keeps returning to (NOT the latest turn's
 //      incidental actions — that gave weak subtitles like "reading relevant
 //      code files"). Generation reuses mobile-cc-tabs' ✨ window.ttvTagSuggest
-//      (recent USER REQUESTS), cached per session + regenerated when a new turn
-//      arrives; raw latest prompt is a placeholder until it lands. Falls back to
-//      the custom label when there's no transcript (plain shells).
+//      (recent USER REQUESTS), regenerated when a new turn arrives.
+//      ROBUSTNESS: the generated throughline is PERSISTED (server-synced via
+//      tv.storage → /api/state), so it shows instantly on reload and rides out
+//      a Groq outage; when it can't generate at all, the subtitle falls back to
+//      the latest PER-TURN topic (server-side) before the raw prompt — so it
+//      reads like a topic, never a raw sentence. Falls back to the custom label
+//      when there's no transcript (plain shells).
 //   2. ⋮ TAB MENU: the same session topic headlines the menu (in sync with the
 //      tab), and a scrollable "Recent topics" section lists the per-turn
-//      timeline below it. Injected into mobile-cc-tab-menu's ⋮ popover.
+//      timeline below it — oldest at top, MOST RECENT AT THE BOTTOM (chat
+//      order), scrolled to the newest on open. Injected into mobile-cc-tab-menu.
 //
 // Data comes from the SAME daemon endpoints as the full Topics panel
 // (/api/cc-session-turns for the per-turn list, /api/cc-tab-summary for the
@@ -65,17 +70,38 @@
   }
 
   // ---- topic cache + fetch + AI generation --------------------------
-  // cache[session] = { ts, uuid, raw, summary, open }. Display = summary||raw.
+  // cache[session] = { ts, uuid, raw, summary, thruUuid, fallback, open }.
+  // DISPLAY priority = summary (throughline) || fallback (latest per-turn topic,
+  // server-side) || raw (latest prompt). The fallback means the subtitle reads
+  // like a topic even when the throughline can't generate (Groq down / no key).
   var cache = {};
   var fetching = {};
   var genAt = {};   // session → { uuid, ts } : last gen attempt (throttle the open turn)
 
-  async function fetchLatest(session) {
-    var r = await fetch('/api/cc-session-turns?session=' + encodeURIComponent(session) + '&limit=1');
+  function displayTopic(c) { return c ? (c.summary || c.fallback || c.raw || '') : ''; }
+
+  // Persisted throughlines (server-synced via tv.storage → /api/state), keyed by
+  // session, so the subtitle shows INSTANTLY on reload and survives a Groq
+  // outage. One small map under a single key.
+  function allStored() { try { return SELF.get('throughlines') || {}; } catch (_) { return {}; } }
+  function storedThroughline(session) { var m = allStored(); return m[session] || null; }
+  function storeThroughline(session, uuid, text) {
+    try { var m = allStored(); m[session] = { uuid: uuid, text: text, ts: Date.now() }; SELF.set('throughlines', m); } catch (_) {}
+  }
+
+  // Fetch the head of the transcript: the latest turn (for uuid/raw/open) plus
+  // the most recent turn that already has a server-cached per-turn summary (the
+  // throughline's fallback).
+  async function fetchHead(session) {
+    var r = await fetch('/api/cc-session-turns?session=' + encodeURIComponent(session) + '&limit=6');
     if (!r.ok) return null;
     var d = await r.json();
     if (!d || !d.found || !(d.turns || []).length) return null;
-    return d.turns[d.turns.length - 1];      // server returns oldest→newest
+    var turns = d.turns;                      // oldest→newest
+    var latest = turns[turns.length - 1];
+    var latestSummary = '';
+    for (var i = turns.length - 1; i >= 0; i--) { if (turns[i].summary) { latestSummary = turns[i].summary; break; } }
+    return { latest: latest, latestSummary: latestSummary };
   }
   // Per-turn TIMELINE topic. Names what the turn ACCOMPLISHED (outcome, framed
   // by the user's intent) — NOT an incidental step. The old "naming what was
@@ -143,42 +169,49 @@
     var out = ((((j.choices || [])[0] || {}).message || {}).content || '').trim().replace(/^["'`]+|["'`.]+$/g, '').replace(/\s+/g, ' ').toLowerCase();
     return out.split(' ').slice(0, 5).join(' ').slice(0, 40);
   }
-  function canGen(session, t) {
-    var g = genAt[session];
-    if (!g) return true;
-    if (g.uuid !== t.uuid) return true;                  // new turn → regen
-    return (Date.now() - g.ts) > OPEN_THROTTLE_MS;       // same (open) turn → throttle
-  }
 
   // Refresh a session's cached topic (and kick AI gen if needed). Cheap +
   // idempotent: a fresh cache short-circuits, and one fetch/gen is in flight
   // at a time per session.
   function ensureTopic(session, force) {
+    // Seed from the persisted throughline so the very first paint isn't raw —
+    // it survives reloads and Groq outages (#2).
+    if (!cache[session]) {
+      var st0 = storedThroughline(session);
+      cache[session] = { ts: 0, uuid: null, raw: '', summary: st0 ? st0.text : '', thruUuid: st0 ? st0.uuid : null, fallback: '', open: false };
+      if (st0) paintTags();      // show the persisted throughline immediately
+    }
     var c = cache[session];
-    if (!force && c && (Date.now() - c.ts) < TTL_MS) return;
+    if (!force && c.ts && (Date.now() - c.ts) < TTL_MS) return;
     if (fetching[session]) return;
     fetching[session] = true;
-    fetchLatest(session).then(function (t) {
+    fetchHead(session).then(function (h) {
       fetching[session] = false;
-      if (!t) { cache[session] = { ts: Date.now(), uuid: null, raw: '', summary: '', open: false }; return; }
       var prev = cache[session] || {};
-      // The throughline is session-level: keep it STABLE while the latest turn
-      // is unchanged; regenerate when a NEW turn arrives (uuid change), when we
-      // have none yet, or when the open turn keeps growing (throttled). The raw
-      // latest prompt is only a placeholder until the throughline lands (or when
-      // there's no Groq key). NOTE we do NOT seed from the per-turn server cache
-      // (t.summary) — that's a single-turn action summary, not the throughline.
-      var keep = (prev.uuid === t.uuid) ? prev.summary : '';
-      cache[session] = { ts: Date.now(), uuid: t.uuid, raw: trimRaw(t.user_text, 8, 44), summary: keep, open: !!t.open };
+      if (!h) { prev.ts = Date.now(); paintTags(); return; }
+      var t = h.latest;
+      // The throughline is session-level: KEEP showing the last one (in-memory
+      // or persisted) while a new one regenerates — never flip back to raw. The
+      // per-turn `fallback` covers the case where no throughline exists yet.
+      cache[session] = {
+        ts: Date.now(), uuid: t.uuid,
+        raw: trimRaw(t.user_text, 8, 44),
+        summary: prev.summary || '',
+        thruUuid: prev.thruUuid || null,
+        fallback: h.latestSummary || '',
+        open: !!t.open,
+      };
       paintTags();
-      var newTurn = prev.uuid !== t.uuid;
+      var cc = cache[session];
+      var moved = cc.thruUuid !== t.uuid;     // throughline is for an older turn (or none)
       var stale = t.open && (!genAt[session] || (Date.now() - genAt[session].ts) > OPEN_THROTTLE_MS);
-      if (groqKey() && (newTurn || !keep || stale)) {
+      if (groqKey() && (moved || !cc.summary || stale)) {
         genAt[session] = { uuid: t.uuid, ts: Date.now() };
         genThroughline(session).then(function (s) {
           if (!s) return;
-          var cc = cache[session];
-          if (cc && cc.uuid === t.uuid) { cc.summary = s; paintTags(); }
+          var x = cache[session];
+          if (x && x.uuid === t.uuid) { x.summary = s; x.thruUuid = t.uuid; paintTags(); }
+          storeThroughline(session, t.uuid, s);     // persist (#2)
         }).catch(function () {});
       }
     }).catch(function () { fetching[session] = false; });
@@ -197,7 +230,7 @@
       var session = t.dataset.session;
       var c = cache[session];
       if (!c) { ensureTopic(session); return; }   // no cache yet → fetch; leave native label as placeholder
-      var topic = c.summary || c.raw;
+      var topic = displayTopic(c);                 // throughline → latest per-turn topic → raw
       if (!topic) return;                          // no transcript → keep custom label fallback
       var tag = t.querySelector('.ttvtab-tag');
       if (!tag) { tag = document.createElement('span'); tag.className = 'ttvtab-tag'; t.appendChild(tag); }
@@ -237,11 +270,10 @@
     txtEl.style.opacity = '1';
     if (open) txtEl.appendChild(el('span', 'color:#7aa2f7;font-size:10px;margin-left:6px;', '● open'));
   }
-  // The session topic (throughline) the tab subtitle shows — used to headline
-  // the menu so the menu top stays IN SYNC with the tab subtitle.
+  // The session topic the tab subtitle shows — used to headline the menu so the
+  // menu top stays IN SYNC with the tab subtitle (throughline → fallback → raw).
   function currentTopic(session) {
-    var c = cache[session];
-    return c ? (c.summary || c.raw) : '';
+    return displayTopic(cache[session]);
   }
 
   // Headline the ⋮ menu with the session TOPIC (throughline) — same text as the
@@ -278,14 +310,14 @@
     try { d = await (await fetch('/api/cc-session-turns?session=' + encodeURIComponent(session) + '&limit=12')).json(); }
     catch (e) { status.textContent = 'Failed to load topics.'; return; }
     if (!d || !d.found) { status.textContent = 'No transcript yet.'; return; }
-    var turns = (d.turns || []).slice().reverse();   // newest first
+    var turns = (d.turns || []);   // server order: oldest→newest (most recent LAST)
     if (!turns.length) { status.textContent = 'No turns yet.'; return; }
     list.removeChild(status);
 
     // Per-turn TIMELINE (distinct from the throughline headline above): each row
-    // is one turn's own summary. Use the server-cached per-turn summary when
-    // present; otherwise show the raw prompt as a dim placeholder and
-    // auto-summarize below so each row reads as a topic phrase.
+    // is one turn's own summary, oldest at top / MOST RECENT AT THE BOTTOM (chat
+    // order). Use the server-cached per-turn summary when present; otherwise show
+    // the raw prompt as a dim placeholder and auto-summarize below.
     var nodes = turns.map(function (t) {
       var row = el('div', 'display:flex;align-items:flex-start;gap:8px;padding:6px 12px;');
       var dot = el('span', 'flex:none;width:7px;height:7px;border-radius:50%;margin-top:5px;background:' + (KIND_COLOR[t.kind] || '#7a88a0') + ';');
@@ -297,12 +329,14 @@
       list.appendChild(row);
       return { t: t, txt: txt, summarized: !!t.summary };
     });
+    // Newest is at the bottom → reveal it on open.
+    requestAnimationFrame(function () { list.scrollTop = list.scrollHeight; });
 
-    // Auto-summarize the uncached recent turns (cost-bounded), updating rows
-    // live + caching non-open summaries on the daemon (shared with the Topics
-    // panel).
+    // Auto-summarize the uncached turns (cost-bounded), MOST RECENT FIRST (the
+    // bottom rows the user is looking at), updating rows live + caching non-open
+    // summaries on the daemon (shared with the Topics panel).
     if (!groqKey()) return;
-    var auto = nodes.filter(function (n) { return !n.summarized; }).slice(0, 8);
+    var auto = nodes.filter(function (n) { return !n.summarized; }).reverse().slice(0, 8);
     await pool(auto, 3, async function (n) {
       var s = await genTurn(n.t.digest || n.t.user_text || '');
       if (!s) return;
