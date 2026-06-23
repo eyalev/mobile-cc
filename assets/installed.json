@@ -182,6 +182,16 @@
       "description": "Linkifies file paths + URLs in the terminal; a short tap opens an action menu \u2014 Copy always, Download for paths (/api/download, $HOME-allowlisted), Open for URLs (always the external/default browser: native ACTION_VIEW, PWA new tab). Long-press still selects for native Copy. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-push",
+      "name": "Notifications",
+      "kind": "settingsTab",
+      "source": "mobile-cc-push.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Web Push opt-in (Settings \u2192 Notifications): phone buzzes on CC permission prompts (always) + pane idle-after-activity (opt-in). Asks permission only on tap; subscribes via /api/push/* (VAPID, src/push.rs). Also handles notification\u2192tap\u2192focus-pane deep links (?pane=). Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-kbd-diag",
       "name": "Keyboard Diagnostic",
       "kind": "internal",
