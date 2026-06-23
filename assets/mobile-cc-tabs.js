@@ -28,12 +28,15 @@
     document.addEventListener('DOMContentLoaded', enableTall, { once: true });
   }
 
-  // ---- Subtitle wraps to 2 lines (was 1-line ellipsis) -------------
-  // ttyview-tabs renders the tag (subtitle) on a single nowrap line, so in
-  // a 3-per-row grid most 3-5 word subtitles get clipped ("improving
-  // session…"). Override to a 2-line clamp here (mcc-only — keeps upstream
-  // panel/tmux-web on the compact single line). The tab grows by at most one
-  // line; only tabs whose subtitle actually wraps get taller.
+  // ---- Subtitle wraps to 2 lines + name/subtitle left-aligned ------
+  // ttyview-tabs renders the tag (subtitle) on a single nowrap CENTERED line,
+  // so in a 3-per-row grid most 3-5 word subtitles get clipped ("improving
+  // session…"). Override here (mcc-only — keeps upstream panel/tmux-web on the
+  // compact centered single line):
+  //   • tag wraps to a 2-line clamp (the tab grows by at most one line; only
+  //     tabs whose subtitle actually wraps get taller),
+  //   • name + subtitle are LEFT-aligned (the tab's own 8px padding supplies
+  //     the inset, so no width-math change to the fit-grid).
   function injectTagWrapStyle() {
     if (document.getElementById('mcc-tab-tag-wrap')) return;
     if (!document.head) return;
@@ -46,6 +49,10 @@
         '-webkit-line-clamp:2;line-clamp:2;' +
         'overflow:hidden;text-overflow:clip;' +
         'overflow-wrap:anywhere;' +
+        'text-align:left !important;' +
+      '}' +
+      '.ttvtab:not(.ttvtab-railbtn).has-tag .ttvtab-label{' +
+        'text-align:left !important;' +
       '}';
     document.head.appendChild(st);
   }
