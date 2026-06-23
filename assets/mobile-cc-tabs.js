@@ -18,26 +18,47 @@
   if (window.__mccTabs) return;          // idempotent across re-evals
   window.__mccTabs = true;
 
-  // ---- Phase 1: enable the tall two-line tab layout ----------------
-  function enableTall() {
-    try { document.body && document.body.classList.add('ttv-tall-tabs'); } catch (_) {}
+  var SELF = tv.storage('mobile-cc-tabs');
+
+  // ---- Tab layout: subtitles on/off + per-mode height --------------
+  // Two layout modes, each with its OWN height (Settings → Tab Layout):
+  //   • WITH subtitles  → body.ttv-tall-tabs; name + (2-line-wrapped) subtitle.
+  //   • WITHOUT         → body.mcc-no-subtitles; name only, compact.
+  // Height is driven by our own vars with !important because upstream tall
+  // mode HARD-CODES height:44px (ttyview-tabs.js), which silently overrode the
+  // stock "Tab height" setting (the var it writes never won) — that's the
+  // "changing tab height does nothing" bug. We override per-mode instead.
+  var H_WITH_DEF = 60, H_WITHOUT_DEF = 30;
+  function clampH(v, dflt) {
+    var n = parseInt(v, 10);
+    if (!isFinite(n)) n = dflt;
+    return Math.max(20, Math.min(120, n));
   }
-  enableTall();
-  // body may not exist yet on the very first eval in some load orders.
-  if (!document.body) {
-    document.addEventListener('DOMContentLoaded', enableTall, { once: true });
+  function heightWith()    { return clampH(SELF.get('tabHeightWith'), H_WITH_DEF); }
+  function heightWithout() { return clampH(SELF.get('tabHeightWithout'), H_WITHOUT_DEF); }
+  function showSubsPref() {
+    var v = SELF.get('showSubtitles');
+    return (v === undefined || v === null) ? true : !!v;   // default ON
+  }
+  function applyTabLayout() {
+    var de = document.documentElement;
+    de.style.setProperty('--mcc-tab-h-with', heightWith() + 'px');
+    de.style.setProperty('--mcc-tab-h-without', heightWithout() + 'px');
+    var b = document.body;
+    if (!b) return;
+    if (showSubsPref()) {
+      b.classList.add('ttv-tall-tabs'); b.classList.remove('mcc-no-subtitles');
+    } else {
+      b.classList.remove('ttv-tall-tabs'); b.classList.add('mcc-no-subtitles');
+    }
+    // Nudge ttyview-tabs to recompute its reserved-area height for the new
+    // per-tab height (it relayouts on viewport resize).
+    try { window.dispatchEvent(new Event('resize')); } catch (_) {}
   }
 
-  // ---- Subtitle wraps to 2 lines + name/subtitle left-aligned ------
-  // ttyview-tabs renders the tag (subtitle) on a single nowrap CENTERED line,
-  // so in a 3-per-row grid most 3-5 word subtitles get clipped ("improving
-  // session…"). Override here (mcc-only — keeps upstream panel/tmux-web on the
-  // compact centered single line):
-  //   • tag wraps to a 2-line clamp (the tab grows by at most one line; only
-  //     tabs whose subtitle actually wraps get taller),
-  //   • name + subtitle are LEFT-aligned (the tab's own 8px padding supplies
-  //     the inset, so no width-math change to the fit-grid).
-  function injectTagWrapStyle() {
+  // mcc-only style: subtitle wraps to 2 lines + left-aligned; per-mode tab
+  // height (overrides upstream's hard-coded 44px); and the hide-subtitle mode.
+  function injectLayoutStyle() {
     if (document.getElementById('mcc-tab-tag-wrap')) return;
     if (!document.head) return;
     var st = document.createElement('style');
@@ -47,18 +68,25 @@
         'white-space:normal !important;' +
         'display:-webkit-box;-webkit-box-orient:vertical;' +
         '-webkit-line-clamp:2;line-clamp:2;' +
-        'overflow:hidden;text-overflow:clip;' +
-        'overflow-wrap:anywhere;' +
+        'overflow:hidden;text-overflow:clip;overflow-wrap:anywhere;' +
         'text-align:left !important;' +
       '}' +
-      '.ttvtab:not(.ttvtab-railbtn).has-tag .ttvtab-label{' +
-        'text-align:left !important;' +
-      '}';
+      '.ttvtab:not(.ttvtab-railbtn).has-tag .ttvtab-label{text-align:left !important;}' +
+      // per-mode height — !important beats upstream's hard-coded height:44px
+      'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn){height:var(--mcc-tab-h-with,60px) !important;}' +
+      'body.mcc-no-subtitles .ttvtab:not(.ttvtab-railbtn){height:var(--mcc-tab-h-without,30px) !important;}' +
+      // without-subtitles mode: hide the tag, revert to single-line name row
+      'body.mcc-no-subtitles .ttvtab .ttvtab-tag{display:none !important;}' +
+      'body.mcc-no-subtitles .ttvtab.has-tag{flex-direction:row !important;align-items:center !important;}';
     document.head.appendChild(st);
   }
-  injectTagWrapStyle();
-  if (!document.head) {
-    document.addEventListener('DOMContentLoaded', injectTagWrapStyle, { once: true });
+  injectLayoutStyle();
+  applyTabLayout();
+  // body / head may not exist yet on the very first eval in some load orders.
+  if (!document.body || !document.head) {
+    document.addEventListener('DOMContentLoaded', function () {
+      injectLayoutStyle(); applyTabLayout();
+    }, { once: true });
   }
 
   // ---- 3-tabs-per-row default (client-side, one-time) --------------
@@ -69,7 +97,6 @@
   // settings (this plugin is ordered earlier in installed.json). After
   // the one-time seed the user can change per-row in Settings and it
   // sticks.
-  var SELF = tv.storage('mobile-cc-tabs');
   try {
     if (!SELF.get('seededPerRow')) {
       var ts = tv.storage('ttyview-tabs');
@@ -256,6 +283,97 @@
         hint.style.cssText = 'color:var(--ttv-muted);font-size:11px;margin-top:8px;';
         hint.textContent = 'Default 6. cc-com messages and one-word replies (continue, yes…) are skipped automatically.';
         container.appendChild(hint);
+      },
+    });
+
+    // ---- Settings → Tab Layout (subtitles on/off + per-mode height) ----
+    tv.contributes.settingsTab({
+      id: 'mobile-cc-tab-layout',
+      title: 'Tab Layout',
+      render: function (container) {
+        container.innerHTML = '';
+        var intro = document.createElement('p');
+        intro.style.cssText = 'color:var(--ttv-muted);font-size:12px;margin:0 0 16px;';
+        intro.textContent =
+          'Choose whether tabs show their subtitle, and set the tab height for each ' +
+          'mode independently. Changes apply immediately.';
+        container.appendChild(intro);
+
+        // Toggle: show subtitles
+        var tRow = document.createElement('label');
+        tRow.style.cssText = 'display:flex;align-items:center;gap:10px;color:var(--ttv-fg);font-size:14px;margin-bottom:18px;cursor:pointer;';
+        var chk = document.createElement('input');
+        chk.type = 'checkbox'; chk.checked = showSubsPref();
+        chk.addEventListener('change', function () {
+          SELF.set('showSubtitles', chk.checked);
+          applyTabLayout();
+          syncActive();
+        });
+        tRow.appendChild(chk);
+        tRow.appendChild(document.createTextNode('Show subtitles on tabs'));
+        container.appendChild(tRow);
+
+        // A height control with − / + stepper buttons + a number field.
+        function stepperRow(labelText, hintText, get, set) {
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'margin-bottom:16px;';
+          var lbl = document.createElement('div');
+          lbl.style.cssText = 'font-size:13px;color:var(--ttv-fg);margin-bottom:4px;';
+          lbl.textContent = labelText;
+          wrap.appendChild(lbl);
+          if (hintText) {
+            var h = document.createElement('div');
+            h.style.cssText = 'color:var(--ttv-muted);font-size:11px;margin-bottom:8px;';
+            h.textContent = hintText;
+            wrap.appendChild(h);
+          }
+          var ctl = document.createElement('div');
+          ctl.style.cssText = 'display:flex;align-items:center;gap:8px;';
+          function stepBtn(txt) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.tabIndex = -1; b.textContent = txt;
+            b.style.cssText = 'width:42px;height:42px;font-size:22px;line-height:1;background:var(--ttv-bg-elev2,#2d2d30);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;cursor:pointer;';
+            b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+            return b;
+          }
+          var minus = stepBtn('−');
+          var num = document.createElement('input');
+          num.type = 'number'; num.min = '20'; num.max = '120'; num.step = '2';
+          num.value = String(get());
+          num.style.cssText = 'width:74px;height:42px;text-align:center;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;font:inherit;font-size:15px;';
+          var plus = stepBtn('+');
+          function commit(v) {
+            var n = clampH(v, get());
+            num.value = String(n);
+            set(n);
+            applyTabLayout();
+          }
+          minus.addEventListener('click', function () { commit(get() - 2); });
+          plus.addEventListener('click', function () { commit(get() + 2); });
+          num.addEventListener('change', function () { commit(num.value); });
+          ctl.appendChild(minus); ctl.appendChild(num); ctl.appendChild(plus);
+          var unit = document.createElement('span');
+          unit.textContent = 'px';
+          unit.style.cssText = 'color:var(--ttv-muted);font-size:13px;';
+          ctl.appendChild(unit);
+          wrap.appendChild(ctl);
+          return wrap;
+        }
+
+        var withRow = stepperRow('Height with subtitles', 'Room for the name + up to 2 subtitle lines.',
+          heightWith, function (n) { SELF.set('tabHeightWith', n); });
+        var withoutRow = stepperRow('Height without subtitles', 'Compact — name only.',
+          heightWithout, function (n) { SELF.set('tabHeightWithout', n); });
+        container.appendChild(withRow);
+        container.appendChild(withoutRow);
+
+        // Dim the height row that isn't the active mode (still editable).
+        function syncActive() {
+          var on = showSubsPref();
+          withRow.style.opacity = on ? '1' : '0.45';
+          withoutRow.style.opacity = on ? '0.45' : '1';
+        }
+        syncActive();
       },
     });
   }
