@@ -296,17 +296,24 @@ mod bundle_tests {
     use super::*;
     use std::collections::HashSet;
 
-    /// Pull every `"source":"<file>"` value out of the manifest JSON without
-    /// taking a serde_json dependency (the manifest is a fixed, simple shape).
+    /// Pull every `"source"` value out of the manifest JSON without taking a
+    /// serde_json dependency. Whitespace-tolerant: handles both the compact
+    /// `"source":"x"` and the pretty-printed `"source": "x"` (the manifest may
+    /// be reformatted by an editor/linter — don't let that break the lock-step
+    /// check).
     fn manifest_sources() -> Vec<String> {
-        let needle = "\"source\":\"";
+        let needle = "\"source\"";
         let mut out = Vec::new();
         let mut rest = BUNDLED_INSTALLED_JSON;
         while let Some(i) = rest.find(needle) {
             rest = &rest[i + needle.len()..];
-            if let Some(end) = rest.find('"') {
-                out.push(rest[..end].to_string());
-                rest = &rest[end..];
+            // skip the ':' and any whitespace, then the opening quote
+            rest = rest.trim_start_matches(|c: char| c == ':' || c.is_whitespace());
+            if let Some(stripped) = rest.strip_prefix('"') {
+                if let Some(end) = stripped.find('"') {
+                    out.push(stripped[..end].to_string());
+                    rest = &stripped[end..];
+                }
             }
         }
         out
