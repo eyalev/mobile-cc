@@ -460,6 +460,62 @@
     }
   }
 
+  // ---- one-tap × on recent-row tabs --------------------------------
+  // The ⋮ menu already has "Remove from recents", but dropping the tab you're
+  // looking at (it's always the newest recent) is the common case, so give the
+  // recent row a dedicated × that does it in one tap. Scoped to .ttvtab-recentrow
+  // tabs only; the pinned/group tabs keep just the ⋮. Idempotent + injected on
+  // every render pass (its own scan, independent of the ⋮ injector's early-out).
+  function injectRecentRemovers() {
+    var rows = document.querySelectorAll('.ttvtab-recentrow');
+    for (var r = 0; r < rows.length; r++) {
+      var tabs = rows[r].querySelectorAll('.ttvtab');
+      for (var i = 0; i < tabs.length; i++) {
+        var t = tabs[i];
+        if (t.classList.contains('ttvtab-railbtn') || t.classList.contains('ttvtab-add') ||
+            t.classList.contains('missing')) continue;
+        if (t.querySelector('.mcc-recent-x')) continue;
+        var session = t.dataset.session || (t.title || '').replace(/\s+\(.*\)\s*$/, '');
+        if (!session) continue;
+        var x = document.createElement('button');
+        x.type = 'button'; x.tabIndex = -1; x.className = 'mcc-recent-x';
+        x.textContent = '×';
+        x.title = 'Remove from recent';
+        x.setAttribute('aria-label', 'Remove ' + session + ' from recent');
+        // Same pass-through contract as the ⋮: ttyview-tabs' tab gesture sees
+        // this attr and suppresses tap-to-select (so the × doesn't switch panes)
+        // while still arming its press-and-hold mark timer — no dead zone.
+        x.setAttribute('data-tab-passthrough', '1');
+        (function (sessName, el) {
+          function now() { try { return performance.now(); } catch (_) { return Date.now(); } }
+          var downT = 0;
+          el.addEventListener('pointerdown', function () { downT = now(); });
+          el.addEventListener('mousedown', function (e) { e.preventDefault(); });
+          el.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            // A hold (≥ ~300ms) means the tab's mark gesture owned this press —
+            // don't also remove on release. Quick tap → drop from recents.
+            if (now() - downT > 300) return;
+            removeFromRecents(sessName);
+          });
+        })(session, x);
+        var xbase = 'width:20px;height:20px;line-height:18px;text-align:center;background:transparent;' +
+          'border:0;color:var(--ttv-accent,#E8896B);font-size:17px;cursor:pointer;border-radius:6px;opacity:0.85;';
+        var head = t.querySelector('.ttvtab-head');
+        if (head) {
+          x.style.cssText = 'flex:none;' + xbase;
+          // Sit just left of the ⋮ (if present) → name … dot × ⋮.
+          head.insertBefore(x, head.querySelector('.mcc-tabmenu-btn'));
+        } else {
+          if (getComputedStyle(t).position === 'static') t.style.position = 'relative';
+          // Left of where the absolute ⋮ fallback sits (right:0).
+          x.style.cssText = 'position:absolute;top:0;right:22px;z-index:2;' + xbase;
+          t.appendChild(x);
+        }
+      }
+    }
+  }
+
   // ---- non-project (ungrouped) pinned tabs → bottom -----------------
   // ttyview-tabs renders ungrouped pins as a headerless row ABOVE the project
   // groups. Push them BELOW the groups using CSS `order` — NOT DOM surgery.
@@ -495,7 +551,7 @@
   function schedule() {
     if (pending) return; pending = true;
     var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-    raf(function () { pending = false; injectButtons(); });
+    raf(function () { pending = false; injectButtons(); injectRecentRemovers(); });
   }
   (function boot() {
     var tries = 0, attached = false;
@@ -503,12 +559,13 @@
       var rail = document.querySelector('.ttvtab-rail');
       if (!rail) return false;
       injectButtons();
+      injectRecentRemovers();
       var host = rail.closest('[data-slot]') || rail.parentNode || document.body;
       try { new MutationObserver(schedule).observe(host, { childList: true, subtree: true }); attached = true; } catch (e) {}
       return true;
     }
     var iv = setInterval(function () { if (attach() || ++tries > 60) clearInterval(iv); }, 250);
     attach();
-    setInterval(function () { if (!attached) attach(); else injectButtons(); }, 2000);
+    setInterval(function () { if (!attached) attach(); else { injectButtons(); injectRecentRemovers(); } }, 2000);
   })();
 })();
