@@ -149,6 +149,14 @@ to come — live in **[docs/tutorials](docs/tutorials/)**.
 
 ## What you get
 
+<!-- RELEASE-CAVEAT START (TEMPORARY — delete this whole block when a release after v0.4.0 ships) -->
+> ⚠️ **Newer than the installed release:** a few of these are on `main` now but
+> not yet in the **v0.4.0** binary that `curl … | bash` installs — the **3-way ＋
+> new-session menu**, **native screenshot-attach**, **tap-a-path-to-download**,
+> and **per-session topics**. A new release will close the gap (then this note
+> goes away).
+<!-- RELEASE-CAVEAT END -->
+
 - **No tmux knowledge required** — the **＋** on the tab rail spins up a
   session three ways (blank shell · shell with Claude Code · Claude Code in a
   project folder); switch and kill from buttons. Even if you live in tmux, you
@@ -209,7 +217,9 @@ For the security policy, see [SECURITY.md](./SECURITY.md).
 | `MOBILE_CC_VERSION=v0.4.0` | Install a specific release (default: latest). |
 | `MOBILE_CC_PREFIX=/path` | Where to put the binary (default `~/.local/bin`). |
 | `MOBILE_CC_REPO=owner/repo` | GitHub repo to fetch releases from (default `eyalev/mobile-cc`). |
+| `MOBILE_CC_RELEASES_URL=<url>` | Release base URL to fetch from (default GitHub Releases). |
 | `MOBILE_CC_SKIP_UNIT=1` | Don't write a systemd unit. |
+| `MOBILE_CC_TUNNEL=tailscale\|skip` | Pick the post-install reachability hint non-interactively. |
 | `MOBILE_CC_BIN_FILE=/path` | Install a local binary instead of downloading. |
 
 Survive logout (keep the service running after you close SSH):
