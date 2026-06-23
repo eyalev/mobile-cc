@@ -445,7 +445,12 @@
     st.textContent =
       '.ttvtab-content > .ttvtab-group{order:1;}' +
       '.ttvtab-content > .ttvtab-row{order:2;border-top:1px solid var(--ttv-border,#3a3a3a);padding-top:5px;margin-top:3px;}' +
-      '.ttvtab-content > .ttvtab-row + .ttvtab-row{border-top:0;padding-top:0;margin-top:0;}';
+      '.ttvtab-content > .ttvtab-row + .ttvtab-row{border-top:0;padding-top:0;margin-top:0;}' +
+      // Status dot lives at top:3/right:3 (ttyview-core); our 22px ⋮ menu sits
+      // at top:0/right:0 and was covering it. Shift the dot LEFT of the ⋮ so
+      // they're adjacent (not overlapping) in the top-right corner. Tab dots
+      // only — group-header dots are .ttvtab-ghead .ttvtab-dot (position:static).
+      '.ttvtab:not(.ttvtab-railbtn) .ttvtab-dot{right:25px !important;}';
     document.head.appendChild(st);
   }
   injectUngroupedStyle();
