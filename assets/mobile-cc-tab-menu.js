@@ -491,6 +491,34 @@
   injectUngroupedStyle();
   if (!document.head) document.addEventListener('DOMContentLoaded', injectUngroupedStyle, { once: true });
 
+  // ---- tab-card layout tweaks (dot footprint + ⋮ position) ----------
+  // (1) The status dot used to sit in the name flex-row (name … dot ⋮), eating
+  //     horizontal space and clipping the name. Pull BOTH the dot and the ⋮ out
+  //     of flow into card corners so the name line reclaims the full width.
+  //     Dot → bottom-right (by the subtitle); ⋮ → top-right corner.
+  // (2) The ⋮ then sits HIGHER (top corner) instead of vertically centred.
+  // tall-tabs-only (always on in mobile-cc) so other embedders are unaffected.
+  function injectTabCardTweaksStyle() {
+    if (document.getElementById('mcc-tabcard-tweaks')) return;
+    if (!document.head) return;
+    var st = document.createElement('style');
+    st.id = 'mcc-tabcard-tweaks';
+    st.textContent =
+      'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn){position:relative;}' +
+      // name line clears the top-right ⋮
+      'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .ttvtab-head{padding-right:24px;}' +
+      // ⋮ → top-right corner (higher + out of the name flow)
+      'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .mcc-tabmenu-btn{position:absolute;top:1px;right:2px;}' +
+      // status dot → bottom-right corner (out of the name flow)
+      'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .ttvtab-head .ttvtab-dot{position:absolute;top:auto;bottom:5px;right:6px;}' +
+      // subtitle clears the bottom-right dot
+      'body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{padding-right:14px;}';
+    document.head.appendChild(st);
+  }
+  injectTabCardTweaksStyle();
+  if (!document.head) document.addEventListener('DOMContentLoaded', injectTabCardTweaksStyle, { once: true });
+
+
   var pending = false;
   function schedule() {
     if (pending) return; pending = true;

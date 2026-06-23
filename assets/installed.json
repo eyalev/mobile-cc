@@ -1,34 +1,305 @@
 {
   "schema": 1,
   "plugins": [
-    {"id":"mobile-cc-defaults","name":"mobile-cc defaults","kind":"internal","source":"mobile-cc-defaults.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Seeds the first-visit active view + theme + default claude pane. Internal to mobile-cc."},
-    {"id":"mobile-cc-autofit","name":"Auto-fit","kind":"internal","source":"mobile-cc-autofit.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Triggers core auto-fit on load + pane switch so the terminal fits a narrow phone instead of clipping. Respects autofit-off. Internal to mobile-cc."},
-    {"id":"mobile-cc-brand","name":"mobile-cc logo","kind":"headerWidget","source":"mobile-cc-brand.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Header logo glyph + task-switcher title. Internal to mobile-cc."},
-    {"id":"mobile-cc-commands","name":"Commands","kind":"inputAccessory","source":"mobile-cc-commands.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"One-tap command chips (sends command + Enter). Seeded with ▶ cc → ccpc; editable in Settings → Commands. Internal to mobile-cc."},
-    {"id":"mobile-cc-quickkeys","name":"Quick Keys","kind":"inputAccessory","source":"mobile-cc-quickkeys.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Editable special-key buttons (Esc/Tab/arrows/Ctrl-*) above the Message box. Manage the list in Settings → Quick Keys; Ctrl-L dropped from the default seed. Replaces upstream ttyview-quickkeys. Internal to mobile-cc."},
-    {"id":"mobile-cc-new-tab","name":"New Tab","kind":"headerWidget","source":"mobile-cc-new-tab.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Header ＋ button → menu to create a session: blank shell, shell + Claude Code, or Claude Code in a chosen project folder (grouped). Launch command configurable in Settings → New Tab. Internal to mobile-cc."},
-    {"id":"mobile-cc-topics","name":"Session Summary","kind":"headerWidget","source":"mobile-cc-topics.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Header 📋 → per-session AI summary (about + what happened). On-demand + cached (~/.cache/mobile-cc/topics) via /api/cc-session-summary; Groq BYO key. Internal to mobile-cc."},
-    {"id":"mobile-cc-tab-menu","name":"Tab Menu","kind":"internal","source":"mobile-cc-tab-menu.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Per-tab manage menu (Rename/Kill). Internal to mobile-cc."},
-    {"id":"mobile-cc-kbd-overlay","name":"Keyboard Overlay","kind":"internal","source":"mobile-cc-kbd-overlay.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Makes the soft keyboard overlay the page (VirtualKeyboard API) instead of resizing the viewport, so opening it no longer bumps the view; lifts the input cluster above it. Internal to mobile-cc."},
-    {"id":"mobile-cc-term-size","name":"Terminal Size","kind":"headerWidget","source":"mobile-cc-term-size.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Header disclosure popover to set terminal height by resizing the tmux pane's row count (own-WS resize); groups relocated font controls + Rows −/+/reset. Internal to mobile-cc."},
-    {"id":"mobile-cc-pinch-zoom","name":"Pinch Zoom","kind":"settingsTab","source":"mobile-cc-pinch-zoom.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Pinch to zoom the terminal area. Settings → Pinch Zoom: Sharp (font-size, crisp + pan) / Smooth (CSS transform scale + pan) / Off. Purely visual, no tmux resize. Internal to mobile-cc."},
-    {"id":"mobile-cc-scrollback","name":"Scrollback","kind":"settingsTab","source":"mobile-cc-scrollback.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Settings → Scrollback: slider/presets for how many history lines load when a pane opens (writes ttv-scrollback-rows; daemon retains up to 10000). Internal to mobile-cc."},
-    {"id":"mobile-cc-cc-search","name":"Session Search","kind":"headerWidget","source":"mobile-cc-cc-search.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"🔍 header button: search all CC sessions (/api/cc-search, ripgrep) ranked by keyword+recency, with a parallel opt-in Groq AI pick. Jump to open tabs, preview/reopen closed sessions. Internal to mobile-cc."},
-    {"id":"mobile-cc-tabs","name":"Tab Enhancements","kind":"internal","source":"mobile-cc-tabs.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Tall two-line tabs (readable name + subtitle/tag) via body.ttv-tall-tabs; hosts AI subtitle generation (window.ttvTagSuggest, Groq). Internal to mobile-cc."},
-    {"id":"mobile-cc-tab-topics","name":"Tab Topics","kind":"internal","source":"mobile-cc-tab-topics.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Tab subtitle 'Recent topic' source + a scrollable 'Recent topics' section in the tab ⋮ menu. AI summaries via Groq (BYO key), data from /api/cc-session-turns. Internal to mobile-cc."},
-    {"id":"mobile-cc-native-screenshot","name":"Last Screenshot","kind":"inputAccessory","source":"mobile-cc-native-screenshot.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Native-shell only: one-tap chip that reads the device's newest Screenshots-bucket image via the Capacitor LastScreenshot plugin and attaches it through the image-paste pipeline. No-op in a plain browser. Internal to mobile-cc."},
-    {"id":"mobile-cc-download","name":"Path & URL Actions","kind":"internal","source":"mobile-cc-download.js","version":"0.3.0","enabled":true,"installed_at":0,"description":"Linkifies file paths + URLs in the terminal; a short tap opens an action menu — Copy always, Download for paths (/api/download, $HOME-allowlisted), Open for URLs (always the external/default browser: native ACTION_VIEW, PWA new tab). Long-press still selects for native Copy. Internal to mobile-cc."},
-    {"id":"mobile-cc-kbd-diag","name":"Keyboard Diagnostic","kind":"internal","source":"mobile-cc-kbd-diag.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"TEMP diagnostic: traces editable-element focus + soft-keyboard viewport changes vs tab switches; ships to diag.jsonl. Remove once the tab-switch keyboard bug is pinned."},
-    {"id":"ttyview-pane-picker","name":"Pane Picker","kind":"panePickerList","source":"ttyview-pane-picker.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-display-toggles","name":"Display Toggles","kind":"settingsTab","source":"ttyview-display-toggles.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-cc","name":"Claude Code","kind":"terminalView","source":"ttyview-cc.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-tabs","name":"Pinned Tabs","kind":"tabBar","source":"ttyview-tabs.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-image-paste","name":"Image Paste","kind":"inputAccessory","source":"ttyview-image-paste.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-stt-groq","name":"Voice Input","kind":"inputAccessory","source":"ttyview-stt-groq.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc. Web Speech by default; Groq Whisper + LLM cleanup with a BYO key. Add a Deepgram key for real-time streaming preview (works on Android) while Groq produces the final transcript (Settings → Voice Input)."},
-    {"id":"ttyview-reload","name":"Reload App","kind":"headerWidget","source":"ttyview-reload.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-logs","name":"Client Logs","kind":"settingsTab","source":"ttyview-logs.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-session-manager","name":"Session Manager","kind":"settingsTab","source":"ttyview-session-manager.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-terminal-green","name":"Terminal Green","kind":"theme","source":"ttyview-terminal-green.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."},
-    {"id":"ttyview-live-sync","name":"Live Sync","kind":"command","source":"ttyview-live-sync.js","version":"0.1.0","enabled":true,"installed_at":0,"description":"Bundled in mobile-cc."}
+    {
+      "id": "mobile-cc-defaults",
+      "name": "mobile-cc defaults",
+      "kind": "internal",
+      "source": "mobile-cc-defaults.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Seeds the first-visit active view + theme + default claude pane. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-autofit",
+      "name": "Auto-fit",
+      "kind": "internal",
+      "source": "mobile-cc-autofit.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Triggers core auto-fit on load + pane switch so the terminal fits a narrow phone instead of clipping. Respects autofit-off. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-brand",
+      "name": "mobile-cc logo",
+      "kind": "headerWidget",
+      "source": "mobile-cc-brand.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Header logo glyph + task-switcher title. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-commands",
+      "name": "Commands",
+      "kind": "inputAccessory",
+      "source": "mobile-cc-commands.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "One-tap command chips (sends command + Enter). Seeded with \u25b6 cc \u2192 ccpc; editable in Settings \u2192 Commands. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-quickkeys",
+      "name": "Quick Keys",
+      "kind": "inputAccessory",
+      "source": "mobile-cc-quickkeys.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Editable special-key buttons (Esc/Tab/arrows/Ctrl-*) above the Message box. Manage the list in Settings \u2192 Quick Keys; Ctrl-L dropped from the default seed. Replaces upstream ttyview-quickkeys. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-new-tab",
+      "name": "New Tab",
+      "kind": "headerWidget",
+      "source": "mobile-cc-new-tab.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Header \uff0b button \u2192 menu to create a session: blank shell, shell + Claude Code, or Claude Code in a chosen project folder (grouped). Launch command configurable in Settings \u2192 New Tab. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-topics",
+      "name": "Session Summary",
+      "kind": "headerWidget",
+      "source": "mobile-cc-topics.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Header \ud83d\udccb \u2192 per-session AI summary (about + what happened). On-demand + cached (~/.cache/mobile-cc/topics) via /api/cc-session-summary; Groq BYO key. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-tab-menu",
+      "name": "Tab Menu",
+      "kind": "internal",
+      "source": "mobile-cc-tab-menu.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Per-tab manage menu (Rename/Kill). Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-tab-color-sync",
+      "name": "Tab Color Sync",
+      "kind": "internal",
+      "source": "mobile-cc-tab-color-sync.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Polls /api/state for agent-set tab marks (the pink/green long-press line) and applies them live via window.ttvTabsSetMark \u2014 no reload. Set marks with the mcc-tab-color helper. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-kbd-overlay",
+      "name": "Keyboard Overlay",
+      "kind": "internal",
+      "source": "mobile-cc-kbd-overlay.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Makes the soft keyboard overlay the page (VirtualKeyboard API) instead of resizing the viewport, so opening it no longer bumps the view; lifts the input cluster above it. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-term-size",
+      "name": "Terminal Size",
+      "kind": "headerWidget",
+      "source": "mobile-cc-term-size.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Header disclosure popover to set terminal height by resizing the tmux pane's row count (own-WS resize); groups relocated font controls + Rows \u2212/+/reset. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-pinch-zoom",
+      "name": "Pinch Zoom",
+      "kind": "settingsTab",
+      "source": "mobile-cc-pinch-zoom.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Pinch to zoom the terminal area. Settings \u2192 Pinch Zoom: Sharp (font-size, crisp + pan) / Smooth (CSS transform scale + pan) / Off. Purely visual, no tmux resize. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-scrollback",
+      "name": "Scrollback",
+      "kind": "settingsTab",
+      "source": "mobile-cc-scrollback.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Settings \u2192 Scrollback: slider/presets for how many history lines load when a pane opens (writes ttv-scrollback-rows; daemon retains up to 10000). Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-cc-search",
+      "name": "Session Search",
+      "kind": "headerWidget",
+      "source": "mobile-cc-cc-search.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "\ud83d\udd0d header button: search all CC sessions (/api/cc-search, ripgrep) ranked by keyword+recency, with a parallel opt-in Groq AI pick. Jump to open tabs, preview/reopen closed sessions. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-tabs",
+      "name": "Tab Enhancements",
+      "kind": "internal",
+      "source": "mobile-cc-tabs.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Tall two-line tabs (readable name + subtitle/tag) via body.ttv-tall-tabs; hosts AI subtitle generation (window.ttvTagSuggest, Groq). Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-tab-topics",
+      "name": "Tab Topics",
+      "kind": "internal",
+      "source": "mobile-cc-tab-topics.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Tab subtitle 'Recent topic' source + a scrollable 'Recent topics' section in the tab \u22ee menu. AI summaries via Groq (BYO key), data from /api/cc-session-turns. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-native-screenshot",
+      "name": "Last Screenshot",
+      "kind": "inputAccessory",
+      "source": "mobile-cc-native-screenshot.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Native-shell only: one-tap chip that reads the device's newest Screenshots-bucket image via the Capacitor LastScreenshot plugin and attaches it through the image-paste pipeline. No-op in a plain browser. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-download",
+      "name": "Path & URL Actions",
+      "kind": "internal",
+      "source": "mobile-cc-download.js",
+      "version": "0.3.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Linkifies file paths + URLs in the terminal; a short tap opens an action menu \u2014 Copy always, Download for paths (/api/download, $HOME-allowlisted), Open for URLs (always the external/default browser: native ACTION_VIEW, PWA new tab). Long-press still selects for native Copy. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-kbd-diag",
+      "name": "Keyboard Diagnostic",
+      "kind": "internal",
+      "source": "mobile-cc-kbd-diag.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "TEMP diagnostic: traces editable-element focus + soft-keyboard viewport changes vs tab switches; ships to diag.jsonl. Remove once the tab-switch keyboard bug is pinned."
+    },
+    {
+      "id": "ttyview-pane-picker",
+      "name": "Pane Picker",
+      "kind": "panePickerList",
+      "source": "ttyview-pane-picker.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-display-toggles",
+      "name": "Display Toggles",
+      "kind": "settingsTab",
+      "source": "ttyview-display-toggles.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-cc",
+      "name": "Claude Code",
+      "kind": "terminalView",
+      "source": "ttyview-cc.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-tabs",
+      "name": "Pinned Tabs",
+      "kind": "tabBar",
+      "source": "ttyview-tabs.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-image-paste",
+      "name": "Image Paste",
+      "kind": "inputAccessory",
+      "source": "ttyview-image-paste.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-stt-groq",
+      "name": "Voice Input",
+      "kind": "inputAccessory",
+      "source": "ttyview-stt-groq.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc. Web Speech by default; Groq Whisper + LLM cleanup with a BYO key. Add a Deepgram key for real-time streaming preview (works on Android) while Groq produces the final transcript (Settings \u2192 Voice Input)."
+    },
+    {
+      "id": "ttyview-reload",
+      "name": "Reload App",
+      "kind": "headerWidget",
+      "source": "ttyview-reload.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-logs",
+      "name": "Client Logs",
+      "kind": "settingsTab",
+      "source": "ttyview-logs.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-session-manager",
+      "name": "Session Manager",
+      "kind": "settingsTab",
+      "source": "ttyview-session-manager.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-terminal-green",
+      "name": "Terminal Green",
+      "kind": "theme",
+      "source": "ttyview-terminal-green.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "ttyview-live-sync",
+      "name": "Live Sync",
+      "kind": "command",
+      "source": "ttyview-live-sync.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    }
   ]
 }
