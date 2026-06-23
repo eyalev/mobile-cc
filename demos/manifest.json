@@ -13,6 +13,14 @@
       "attachment_url": "https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d"
     },
     {
+      "id": "day-in-the-life",
+      "kind": "ui",
+      "title": "A day with mobile-cc",
+      "description": "The day-in-the-life flow: open this morning's session, compose a reply (one-tap command chips above the box), spin up a second workspace, get a 'needs you' status dot on a session waiting at a permission prompt, jump to it, and use the pane picker to find any session. Near-fresh → juggling multiple tabs. Linked from demos/README.md (not the README hero yet).",
+      "media": "day",
+      "profile": "day-start"
+    },
+    {
       "id": "tab-switch",
       "kind": "ui",
       "title": "Switch projects with one tap",

@@ -1,0 +1,11 @@
+{
+  "_comment": "Near-fresh starting state for the day-in-the-life demo: ONE Claude Code session ('this morning's work') as the single pinned tab. The demo builds UP from here — create a second tab, get a 'needs you' status dot, switch, find — so it reads as clean-install -> create -> juggle. See demos/CONVENTIONS.md 'Profiles'.",
+  "id": "day-start",
+  "description": "One Claude Code session as the single starting tab — the day-in-the-life demo grows the multi-tab world from this near-fresh state.",
+  "projects": [
+    { "name": "api", "sessions": ["api-claude1"] }
+  ],
+  "active": "api-claude1",
+  "mock": { "api-claude1": "cc-tui-mock.txt" },
+  "default_mock": "cc-tui-mock.txt"
+}

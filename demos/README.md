@@ -11,6 +11,24 @@ must pass, otherwise the release blocks. The same script that gates
 the release also produces the marketing media that lands at
 [mobile-cc.dev/demos/](https://mobile-cc.dev/).
 
+## Featured — “A day with mobile-cc”
+
+The day-in-the-life flow, near-fresh → juggling multiple tabs: open this
+morning’s session, compose a reply (one-tap command chips above the box), spin
+up a second workspace, get a **“needs you”** status dot when a session hits a
+permission prompt, jump to it, and find any session via the pane picker.
+
+![A day with mobile-cc](../docs/media/day.gif)
+
+- video: [`docs/media/day.mp4`](../docs/media/day.mp4) · gif above · poster [`day.png`](../docs/media/day.png)
+- recipe: [`workflows/day-in-the-life.mjs`](workflows/day-in-the-life.mjs) · profile [`profiles/day-start.json`](profiles/day-start.json)
+- capture it: `demos/local-capture.sh day-in-the-life` (isolated synthetic daemon — no real sessions leak)
+
+Honesty (per [`CONVENTIONS.md`](CONVENTIONS.md) “Determinism”): seeded mock
+content, the reply is composed-not-sent, and the “needs you” dot is a staged
+semantic event — every gesture is a real UI action, asserted in the workflow’s
+`validate()`.
+
 Run everything (or one demo) through the single entrypoint:
 
 ```sh
