@@ -1,31 +1,45 @@
 // mobile-cc-tab-color-sync — live-apply agent-set tab marks (the pink/green
-// long-press status line) WITHOUT a reload.
+// long-press status line) WITHOUT a reload, and WITHOUT its own poll.
 //
 // Background: the per-tab pink/green line is ttyview-tabs' "marks" feature
 // ({ session: 'todo'|'done' }, stored at server-state key
 // 'ttv-plugin:ttyview-tabs:marks'). An agent flags a tab by writing that key
-// over HTTP (PUT /api/state — see the `mcc-tab-color` helper). But ttyview-core
-// only HYDRATES server state at boot (no interval, no WS push) and ttyview-tabs
-// caches marks in memory at init — so a server-side write would otherwise only
-// show after a page reload.
+// over HTTP (the `mcc-tab-color` helper PATCHes /api/state). ttyview-core only
+// HYDRATES server state at boot, and ttyview-tabs caches marks in memory at
+// init — so a server-side write would otherwise only show after a reload.
 //
-// This plugin closes that gap: it polls the marks key and, when the SERVER
-// value changes, applies the delta through window.ttvTabsSetMark (added in
-// ttyview-tabs), which sets the mark + re-renders live. First poll only SEEDS
-// (boot hydrate already rendered those), so we act on subsequent agent changes.
+// HOW THIS CLOSES THE GAP (battery-trio item 1, 2026-06-23):
+// The bundled ttyview-live-sync plugin already polls /api/state every 1.5 s and,
+// for every changed `ttv-plugin:<id>:<key>`, writes the localStorage cache and
+// emits 'storage-changed' {pluginId, key, value, source}. ttyview-tabs does NOT
+// subscribe to that event for marks, so its in-memory `marks` stays stale. This
+// plugin bridges: it listens for live-sync's 'storage-changed' for the marks key
+// and applies the delta through window.ttvTabsSetMark (sets the mark + re-renders
+// live). Same apply path as before — we only changed the TRIGGER from our own 4 s
+// GET /api/state poll to live-sync's existing poll. Net: one fewer periodic HTTP
+// request per client (see the perf audit), zero behavior change.
 (function () {
   var tv = window.ttyview;
   if (!tv || tv.apiVersion !== 1) return;
 
-  var POLL_INTERVAL_MS = 4000;                       // marks-sync poll cadence
-  var STATE_KEY = 'ttv-plugin:ttyview-tabs:marks';
-  var prevServer = null;                             // last reconciled server marks (null = not seeded)
+  var PLUGIN_ID = 'ttyview-tabs';
+  var STATE_SUBKEY = 'marks';                        // ttv-plugin:ttyview-tabs:marks
+  var LS_KEY = 'ttv-plugin:' + PLUGIN_ID + ':' + STATE_SUBKEY;
 
   function normMark(v) { return (v === 'todo' || v === 'done') ? v : null; }
 
-  // Apply only the sessions whose server mark differs from the last server
-  // snapshot — so we react to SERVER changes (agent writes) and stay idempotent
-  // for everything else. ttvTabsSetMark persists + re-renders.
+  // Seed from the boot-hydrated localStorage cache (hydrateServerState runs
+  // before plugins load), so the first agent change reads as a real delta
+  // rather than a replay of what boot already rendered. live-sync likewise
+  // treats its first fetch as a baseline and only emits on later changes.
+  var prevServer = (function () {
+    try { var r = localStorage.getItem(LS_KEY); return r ? (JSON.parse(r) || {}) : {}; }
+    catch (e) { return {}; }
+  })();
+
+  // Apply only the sessions whose mark differs from the last reconciled
+  // snapshot — react to SERVER changes (agent writes), idempotent otherwise.
+  // ttvTabsSetMark persists + re-renders (incl. duplicate tabs of a session).
   function applyDeltas(server) {
     if (typeof window.ttvTabsSetMark !== 'function') return;  // older bundle: no live setter
     var seen = {}, k;
@@ -40,26 +54,16 @@
     }
   }
 
-  function poll() {
-    if (document.visibilityState === 'hidden') return;
-    fetch('/api/state', { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (state) {
-        if (!state) return;
-        var server = (state.keys && state.keys[STATE_KEY]) || {};
-        if (!server || typeof server !== 'object') server = {};
-        if (prevServer === null) { prevServer = server; return; }  // seed; boot already showed these
-        if (JSON.stringify(server) === JSON.stringify(prevServer)) return;
-        applyDeltas(server);
-        prevServer = server;
-      })
-      .catch(function () {});
+  function reconcile(value) {
+    var server = (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
+    if (JSON.stringify(server) === JSON.stringify(prevServer)) return;
+    applyDeltas(server);
+    prevServer = server;
   }
 
-  setInterval(poll, POLL_INTERVAL_MS);
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') poll();
+  // Driven entirely by live-sync's poll — no fetch / setInterval here.
+  tv.on('storage-changed', function (e) {
+    if (!e || e.pluginId !== PLUGIN_ID || e.key !== STATE_SUBKEY) return;
+    reconcile(e.value);
   });
-  // Seed shortly after load, once ttyview-tabs has registered ttvTabsSetMark.
-  setTimeout(poll, 1500);
 })();
