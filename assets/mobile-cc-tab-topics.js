@@ -179,6 +179,26 @@
     if (text != null) e.textContent = text;
     return e;
   }
+  // Small concurrency pool (mirrors mobile-cc-topics.js).
+  async function pool(items, n, worker) {
+    var i = 0;
+    async function run() { while (i < items.length) { var k = i++; try { await worker(items[k], k); } catch (_) {} } }
+    var runners = []; for (var c = 0; c < Math.min(n, items.length); c++) runners.push(run());
+    await Promise.all(runners);
+  }
+  // The AI summary the TAB is currently showing for this turn (so the menu's
+  // most-recent row matches the subtitle exactly — same string, no re-gen).
+  function tabSummaryFor(session, t) {
+    var c = cache[session];
+    return (c && c.uuid === t.uuid && c.summary) ? c.summary : '';
+  }
+  // Replace a row's text while preserving the trailing "● open" badge.
+  function setRowText(txtEl, text, open) {
+    txtEl.textContent = text;
+    txtEl.style.opacity = '1';
+    if (open) txtEl.appendChild(el('span', 'color:#7aa2f7;font-size:10px;margin-left:6px;', '● open'));
+  }
+
   async function injectMenuTopics(menu) {
     if (!menuTopicsOn()) return;
     var session = pendingMenuSession;
@@ -201,15 +221,41 @@
     if (!turns.length) { status.textContent = 'No turns yet.'; return; }
     list.removeChild(status);
 
-    turns.forEach(function (t) {
+    // Render each turn. Prefer the same AI summary the tab subtitle shows
+    // (server cache → the tab's live summary for the open turn); fall back to
+    // the raw prompt as a dim placeholder, then auto-summarize below so the
+    // whole list reads as topics (in sync with the subtitle), not raw prompts.
+    var nodes = turns.map(function (t) {
       var row = el('div', 'display:flex;align-items:flex-start;gap:8px;padding:6px 12px;');
       var dot = el('span', 'flex:none;width:7px;height:7px;border-radius:50%;margin-top:5px;background:' + (KIND_COLOR[t.kind] || '#7a88a0') + ';');
       row.appendChild(dot);
-      var text = t.summary || trimRaw(t.user_text, 16, 90);
-      var txt = el('div', 'color:var(--ttv-fg);font-size:12.5px;line-height:1.35;overflow-wrap:anywhere;', text || '(turn)');
-      if (t.open) txt.appendChild(el('span', 'color:#7aa2f7;font-size:10px;margin-left:6px;', '● open'));
+      var summary = t.summary || tabSummaryFor(session, t);
+      var txt = el('div', 'color:var(--ttv-fg);font-size:12.5px;line-height:1.35;overflow-wrap:anywhere;');
+      if (summary) { setRowText(txt, summary, t.open); }
+      else { txt.style.opacity = '0.7'; setRowText(txt, trimRaw(t.user_text, 16, 90) || '(turn)', t.open); }
       row.appendChild(txt);
       list.appendChild(row);
+      return { t: t, txt: txt, summarized: !!summary };
+    });
+
+    // Auto-summarize the uncached recent turns (cost-bounded), updating rows
+    // live + caching non-open summaries on the daemon (shared with the Topics
+    // panel). Keep the open/latest turn in sync with the tab's cache.
+    if (!groqKey()) return;
+    var latestUuid = turns[0] ? turns[0].uuid : null;
+    var auto = nodes.filter(function (n) { return !n.summarized; }).slice(0, 8);
+    await pool(auto, 3, async function (n) {
+      var s = await genTurn(n.t.digest || n.t.user_text || '');
+      if (!s) return;
+      setRowText(n.txt, s, n.t.open);
+      if (!n.t.open) putSummary(session, n.t.uuid, s);
+      if (n.t.uuid === latestUuid) {                       // newest turn ⇒ keep subtitle in sync
+        var c = cache[session];
+        if (!c || c.uuid === n.t.uuid) {
+          cache[session] = { ts: Date.now(), uuid: n.t.uuid, raw: trimRaw(n.t.user_text, 8, 44), summary: s, open: !!n.t.open };
+          paintTags();
+        }
+      }
     });
   }
 
