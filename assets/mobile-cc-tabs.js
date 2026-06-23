@@ -142,6 +142,21 @@
     }
   } catch (_) {}
 
+  // ---- 2-row recents default (client-side, one-time) ---------------
+  // Same client-authoritative-storage reasoning as the per-row seed
+  // above: seed recentRows=2 once so a fresh mobile-cc visit shows the
+  // recent strip as 2 wrapped rows scrolling vertically (the ttyview-tabs
+  // upstream default stays 1 = single horizontal strip). User can change
+  // it in Settings → Recent tabs afterward and it sticks.
+  try {
+    if (!SELF.get('seededRecentRows')) {
+      var ts2 = tv.storage('ttyview-tabs');
+      var s2 = ts2.get('settings') || {};
+      if ((s2.recentRows | 0) < 2) { s2.recentRows = 2; ts2.set('settings', s2); }
+      SELF.set('seededRecentRows', true);
+    }
+  } catch (_) {}
+
   // ---- migrate polluted subtitle keys (one-time, idempotent) -------
   // An earlier ⋮-menu bug saved subtitles under the tab's full title
   // ("mcc17 (press & hold to mark todo/done)") instead of the session
