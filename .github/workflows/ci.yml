@@ -10,6 +10,11 @@ on:
 env:
   TTYVIEW_REPO: ttyview/ttyview
   TTYVIEW_REF: v0.2.0   # tab menu/recents/topics/savePins/hydrate-fix (match across workflows)
+  # Pin the Rust toolchain so "green locally" == "green in CI". Clippy/rustfmt
+  # lints are tied to the rustc version; an unpinned `stable` floats with the
+  # runner image (it drifted to 1.96 and fired io_other_error while local was
+  # 1.89). Bump this deliberately, in lockstep with the local toolchain.
+  RUST_VERSION: '1.89.0'
   # Opt the JS-based actions (checkout, upload/download-artifact) into
   # Node 24 ahead of the GitHub-default flip (target: 2026-06-02).
   # Removable once the actions ship Node 24 natively.
@@ -32,8 +37,10 @@ jobs:
           ref: ${{ env.TTYVIEW_REF }}
           path: ttyview
 
-      - name: Rust toolchain (stable)
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+      - name: Rust toolchain (pinned)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # action @ 2026-05-11
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3  # v2.7.7
@@ -126,9 +133,10 @@ jobs:
           ref: ${{ env.TTYVIEW_REF }}
           path: ttyview
 
-      - name: Rust toolchain (stable + rustfmt + clippy)
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+      - name: Rust toolchain (pinned + rustfmt + clippy)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # action @ 2026-05-11
         with:
+          toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt, clippy
 
       - name: Cache cargo
@@ -160,8 +168,10 @@ jobs:
           ref: ${{ env.TTYVIEW_REF }}
           path: ttyview
 
-      - name: Rust toolchain (stable)
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable @ 2026-05-11
+      - name: Rust toolchain (pinned)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # action @ 2026-05-11
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
 
       - name: Install cargo-audit + cargo-deny
         uses: taiki-e/install-action@c070f87102a1c75b3183910f391c1cb887fe13c8  # v2.77.6
@@ -179,3 +189,53 @@ jobs:
       - name: cargo deny check
         working-directory: mobile-cc
         run: cargo deny check
+
+  ttyview-ref-freshness:
+    name: ttyview ref freshness (warn-only)
+    runs-on: ubuntu-22.04
+    # Informational only — NEVER fails the build. mobile-cc pins ttyview via
+    # TTYVIEW_REF; that pin silently lagged ttyview HEAD by 15 commits before
+    # the v0.5.0 release. This surfaces the drift as a warning + step summary
+    # so a stale pin is visible on every run instead of discovered at release.
+    steps:
+      - name: Checkout ttyview (full history + tags)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: ${{ env.TTYVIEW_REPO }}
+          path: ttyview
+          fetch-depth: 0
+
+      - name: Warn if TTYVIEW_REF lags ttyview HEAD
+        working-directory: ttyview
+        env:
+          REF: ${{ env.TTYVIEW_REF }}
+          MAX_LAG: '10'
+        run: |
+          set -uo pipefail
+          # Make sure the pinned ref (tag or branch) AND the default-branch tip
+          # are both present locally, regardless of what checkout fetched.
+          git fetch --tags --quiet origin || true
+          DEF="$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p')"
+          DEF="${DEF:-main}"
+          git fetch --quiet origin "${DEF}" || true
+          if ! git rev-parse -q --verify "${REF}^{commit}" >/dev/null; then
+            echo "::warning title=ttyview pin unresolved::TTYVIEW_REF '${REF}' not found in ${TTYVIEW_REPO:-ttyview} — cannot compute lag."
+            exit 0
+          fi
+          behind="$(git rev-list --count "${REF}..FETCH_HEAD" 2>/dev/null || echo 0)"
+          ref_sha="$(git rev-parse --short "${REF}^{commit}")"
+          head_sha="$(git rev-parse --short FETCH_HEAD 2>/dev/null || echo '?')"
+          echo "TTYVIEW_REF=${REF} (${ref_sha}); ttyview ${DEF} HEAD=${head_sha}; behind by ${behind} commit(s) (threshold ${MAX_LAG})."
+          {
+            echo "## ttyview ref freshness"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Pinned \`TTYVIEW_REF\` | \`${REF}\` (\`${ref_sha}\`) |"
+            echo "| ttyview \`${DEF}\` HEAD | \`${head_sha}\` |"
+            echo "| Behind by | **${behind}** commit(s) |"
+            echo "| Warn threshold | ${MAX_LAG} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${behind}" -gt "${MAX_LAG}" ]; then
+            echo "::warning title=ttyview pin stale::TTYVIEW_REF ${REF} lags ttyview ${DEF} by ${behind} commits (> ${MAX_LAG}). Consider bumping the pin."
+          fi
