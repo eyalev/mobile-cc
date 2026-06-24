@@ -44,13 +44,21 @@ the box at the bottom.
 
 https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d
 
-## Great on the desktop, too
+## One live session — phone and desktop, nothing to sync
 
 Open the same URL in a desktop browser and you get a **centered, comfortably
 sized terminal column** — readable line lengths instead of text stretched edge
 to edge — with your project tabs grouped along the bottom. Adjust the column
-width (or go full-bleed) from the ⇕ menu. Same tool, same tabs, phone and
-laptop in sync.
+width (or go full-bleed) from the ⇕ menu.
+
+But the part you stop being able to live without: this isn't two devices kept
+*in sync* — it's **one session, seen from both.** The session lives on your
+machine; your phone and your laptop are just windows onto it. Start a prompt on
+your phone, sit down at your desk, open the same URL — the cursor is mid-line,
+exactly where you left it. Nothing to push, no "continue on this device," no
+waiting for anything to catch up, because there's no second copy to reconcile.
+Leave both open at once and they show the same live terminal, keystroke for
+keystroke.
 
 <p align="center">
   <img src="docs/media/desktop.png" alt="mobile-cc filling a desktop browser window with a full-width Claude Code session and project tabs" width="760">
