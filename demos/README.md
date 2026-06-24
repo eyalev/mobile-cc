@@ -11,6 +11,12 @@ must pass, otherwise the release blocks. The same script that gates
 the release also produces the marketing media that lands at
 [mobile-cc.dev/demos/](https://mobile-cc.dev/).
 
+## 📺 [Demo gallery → `GALLERY.md`](GALLERY.md)
+
+Every demo on one page, GIFs embedded inline. Auto-generated from
+`manifest.json` by [`gen-gallery.mjs`](gen-gallery.mjs) (regenerated on every
+capture) — so it never goes stale. Don't hand-edit `GALLERY.md`.
+
 ## Featured — “A day with mobile-cc”
 
 The day-in-the-life flow, near-fresh → juggling multiple tabs: open this
