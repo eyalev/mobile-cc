@@ -16,6 +16,7 @@ import { dirname, resolve, join } from 'node:path';
 import { readdirSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync } from 'node:fs';
 import { setupCapture } from '../lib/capture.mjs';
 import { loadManifest, MEDIA_DIR } from '../lib/manifest.mjs';
+import { generateGallery } from '../gen-gallery.mjs';
 
 const here     = dirname(fileURLToPath(import.meta.url));
 const root     = resolve(here, '..');
@@ -96,6 +97,10 @@ for (const f of workflowFiles) {
 
 // Landing page.
 writeIndexHtml({ summaries, version: VERSION });
+
+// Regenerate the demo gallery from the manifest so it never drifts (embeds
+// every demo's GIF inline — see demos/GALLERY.md).
+try { generateGallery({ quiet: true }); } catch (e) { console.warn(`[runner] gallery regen skipped: ${e.message}`); }
 
 console.log(`\n[runner] ${summaries.length} workflow(s); ${summaries.filter(s => s.validation === 'passed').length} passed; ${anyFailed ? 'FAILURES present' : 'all pass'}`);
 console.log(`[runner] output: ${distDemo}`);
