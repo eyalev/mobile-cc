@@ -25,6 +25,16 @@ https://github.com/user-attachments/assets/5b209507-ade5-451b-8710-1021a6c92bb9
 
 ---
 
+## Tabs & projects — open, create, move
+
+The comprehensive tabs+projects workflow: projects as tab groups, open new tabs (blank / Claude / Claude in a project), create a new project, and MOVE a tab between projects (live regroup, no reload). Captured against the fixed move-to-project UX.
+
+_(inline player pending — mint a user-attachments URL for `tabs-projects.mp4`; see [`CONVENTIONS.md`](CONVENTIONS.md) §“Automated re-upload”.)_
+
+[recipe](workflows/tabs-projects.mjs)
+
+---
+
 ## Switch projects with one tap
 
 Start in the api project, tap the docs project's tab, land on it — the project-grouped tab rail in action. Captured, not README-linked (yet).
@@ -95,4 +105,4 @@ https://github.com/user-attachments/assets/af1e0d4e-0d51-4584-9abe-457793d43678
 
 ---
 
-<sub>9 demos · generated from `manifest.json` by `gen-gallery.mjs`.</sub>
+<sub>10 demos · generated from `manifest.json` by `gen-gallery.mjs`.</sub>

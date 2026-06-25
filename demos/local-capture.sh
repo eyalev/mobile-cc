@@ -75,6 +75,20 @@ mobile-cc --tmux-socket "$SOCK" --bind "127.0.0.1:$PORT" --config-dir "$CFG" \
 DPID=$!
 for i in $(seq 1 60); do curl -fsk -o /dev/null "http://127.0.0.1:$PORT/healthz" 2>/dev/null && break; sleep 0.25; done
 
+# Optional plugin overlay: drop fixed-but-not-yet-baked plugin JS into
+# demos/_overrides/*.js to capture a demo against in-flight UX before mcc-build
+# bakes it. No-op when the dir is absent (so other demos are unaffected). The
+# daemon installs its plugins to $CFG/plugins on startup and serves them
+# per-request from there, so overwriting after healthz takes effect immediately.
+if compgen -G "$HERE/_overrides/*.js" >/dev/null 2>&1; then
+  for i in $(seq 1 40); do [ -f "$CFG/plugins/installed.json" ] && break; sleep 0.25; done
+  for f in "$HERE/_overrides"/*.js; do cp "$f" "$CFG/plugins/" && echo "==> overlay $(basename "$f")"; done
+fi
+# Pre-create demo project folders the "create a project" beat points at — the
+# prod capture binary still requires the cwd to exist (the mkdir-on-create fix
+# is server-side and not in this binary). Cleaned up with $BASE by the trap.
+mkdir -p "$BASE/payments" 2>/dev/null || true
+
 if [ -n "$PROFILE" ]; then
   ACTIVE_PANE="$(node "$HERE/lib/profile.mjs" pins "$PROFILE" "http://127.0.0.1:$PORT")"
 else

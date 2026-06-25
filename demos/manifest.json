@@ -22,6 +22,14 @@
       "attachment_url": "https://github.com/user-attachments/assets/5b209507-ade5-451b-8710-1021a6c92bb9"
     },
     {
+      "id": "tabs-projects",
+      "kind": "ui",
+      "title": "Tabs & projects — open, create, move",
+      "description": "The comprehensive tabs+projects workflow: projects as tab groups, open new tabs (blank / Claude / Claude in a project), create a new project, and MOVE a tab between projects (live regroup, no reload). Captured against the fixed move-to-project UX.",
+      "media": "tabs-projects",
+      "profile": "multi-project"
+    },
+    {
       "id": "tab-switch",
       "kind": "ui",
       "title": "Switch projects with one tap",
