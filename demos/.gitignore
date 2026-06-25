@@ -1,2 +1,5 @@
 node_modules/
 dist/
+
+# pre-bake plugin overlay for captures (transient; not an artifact)
+_overrides/
