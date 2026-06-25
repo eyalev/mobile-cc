@@ -27,7 +27,7 @@ export default {
 
     // Create a bare shell (the menu option is a <button>).
     await ctx.tap(() => [...document.querySelectorAll('button')].find((b) => /Blank tab/.test(b.textContent || '')));
-    await ctx.idle(6000); // wait out the daemon reconcile so the new session surfaces (no create_session fast-path yet)
+    await ctx.idle(1600); // create_session fast-path → the new session surfaces ~instantly
     await ctx.recordStep('blank session created');
   },
 
