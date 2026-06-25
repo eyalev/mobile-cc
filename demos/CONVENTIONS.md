@@ -5,7 +5,7 @@ screenshot in this repo.** It applies to every agent and every contributor.
 
 ## The one rule
 
-> **Every `.mp4` / `.gif` / demo `.png` in the repo is a _derived artifact_
+> **Every `.mp4` / demo `.png` in the repo is a _derived artifact_
 > produced by a checked-in, re-runnable recipe. A hand-made or one-off screen
 > recording is a bug.**
 
@@ -35,11 +35,11 @@ demos/
 ├── workflows/<id>.mjs   # UI demos (Playwright): { id, title, description, run, validate }
 ├── terminal/<id>.sh     # terminal demos (asciinema): self-contained recorders
 ├── lib/
-│   ├── capture.mjs      # shared Playwright→mp4/gif pipeline + the RESOLUTION standard
+│   ├── capture.mjs      # shared Playwright→mp4 pipeline + the RESOLUTION standard (no gif)
 │   ├── manifest.mjs     # manifest loader + canonical paths
 │   └── gif-to-mp4.sh    # shared gif→web-mp4 encode
 └── dist/                # generated UI captures (gitignored)
-docs/media/<media>.{mp4,gif,png}   # the COMMITTED assets the README references
+docs/media/<media>.{mp4,png}   # the COMMITTED assets the README references
 ```
 
 Two **kinds** of demo, one convention:

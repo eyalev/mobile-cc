@@ -25,7 +25,12 @@ const warns = [];
 const raw = loadRaw();
 const MIN_W = raw.min_video_width ?? 700;
 const demos = raw.demos;
+// An attachment_url counts as "referenced" if it appears in the root README
+// OR in the demos gallery (gallery-only demos embed their player there).
 const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+const galleryPath = join(DEMOS_DIR, 'GALLERY.md');
+const gallery = existsSync(galleryPath) ? readFileSync(galleryPath, 'utf8') : '';
+const embedded = readme + '\n' + gallery;
 
 function probeWidth(file) {
   const r = spawnSync(
@@ -61,10 +66,13 @@ for (const d of demos) {
 
   // Committed media + resolution floor (only for demos that publish).
   if (d.media) {
-    for (const ext of ['mp4', 'gif']) {
-      if (!existsSync(join(MEDIA_DIR, `${d.media}.${ext}`))) {
-        errors.push(`${d.id}: missing docs/media/${d.media}.${ext}`);
-      }
+    // MP4 only — we no longer ship .gif (autoplay is bad UX). A stray .gif is
+    // a regression now, so flag it.
+    if (!existsSync(join(MEDIA_DIR, `${d.media}.mp4`))) {
+      errors.push(`${d.id}: missing docs/media/${d.media}.mp4`);
+    }
+    if (existsSync(join(MEDIA_DIR, `${d.media}.gif`))) {
+      errors.push(`${d.id}: docs/media/${d.media}.gif exists — GIFs are removed (MP4 only)`);
     }
     const mp4 = join(MEDIA_DIR, `${d.media}.mp4`);
     if (existsSync(mp4)) {
@@ -75,8 +83,8 @@ for (const d of demos) {
         else errors.push(msg);
       }
     }
-    if (d.attachment_url && !readme.includes(d.attachment_url)) {
-      errors.push(`${d.id}: attachment_url not referenced in README.md`);
+    if (d.attachment_url && !embedded.includes(d.attachment_url)) {
+      errors.push(`${d.id}: attachment_url not referenced in README.md or demos/GALLERY.md`);
     }
   }
 }

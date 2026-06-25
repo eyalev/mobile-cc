@@ -36,9 +36,9 @@ export function generateGallery({ quiet = false } = {}) {
   out.push('');
   out.push(
     'Every mobile-cc demo, each one a reproducible test (see ' +
-      '[`CONVENTIONS.md`](CONVENTIONS.md)). The GIFs below autoplay inline; ' +
-      'click any one (or the **MP4** link) for the sharper video, and **recipe** ' +
-      'for the capture script.'
+      '[`CONVENTIONS.md`](CONVENTIONS.md)). Each clip below is an inline MP4 ' +
+      'player **with controls** — no autoplaying GIFs. **recipe** links the ' +
+      'capture script.'
   );
   out.push('');
 
@@ -46,30 +46,28 @@ export function generateGallery({ quiet = false } = {}) {
   for (const d of manifest.demos) {
     if (!d.media) continue; // test-only demo, nothing to embed
     count++;
-    const gif = resolve(MEDIA, `${d.media}.gif`);
     const mp4 = resolve(MEDIA, `${d.media}.mp4`);
-    const gifRel = rel(gif);
     const recipe = d.kind === 'terminal' ? `terminal/${d.id}.sh` : `workflows/${d.id}.mjs`;
-    // Prefer the minted user-attachments player URL when the manifest has one
-    // (plays in-page on GitHub); otherwise a relative link to the committed mp4.
-    const mp4Link = d.attachment_url || rel(mp4);
     const kindTag = d.kind === 'terminal' ? ' · `terminal`' : '';
 
-    if (!existsSync(gif)) warnings.push(`${d.id}: gif not found at ${gifRel}`);
-    if (!existsSync(mp4) && !d.attachment_url) warnings.push(`${d.id}: mp4 not found at ${rel(mp4)}`);
+    if (!existsSync(mp4)) warnings.push(`${d.id}: mp4 not found at ${rel(mp4)}`);
 
     out.push(`## ${d.title}`);
     out.push('');
     out.push(d.description);
     out.push('');
-    if (existsSync(gif)) {
-      // Clickable inline GIF → opens the sharper MP4.
-      out.push(`[![${d.title}](${gifRel})](${mp4Link})`);
+    if (d.attachment_url) {
+      // A BARE user-attachments URL on its own line is what GitHub turns into
+      // an inline MP4 player with controls (no autoplay). Relative repo paths
+      // do NOT embed — they render as a plain link — so each demo needs a
+      // minted attachment_url in the manifest (see CONVENTIONS.md).
+      out.push(d.attachment_url);
     } else {
-      out.push(`_(GIF not captured yet — run \`demos/local-capture.sh ${d.id}\`.)_`);
+      out.push(`_(inline player pending — mint a user-attachments URL for \`${d.media}.mp4\`; see [\`CONVENTIONS.md\`](CONVENTIONS.md) §“Automated re-upload”.)_`);
+      warnings.push(`${d.id}: no attachment_url — GitHub can't render an inline player (relative paths don't embed)`);
     }
     out.push('');
-    out.push(`▶ [MP4](${mp4Link}) · [recipe](${recipe})${kindTag}`);
+    out.push(`[recipe](${recipe})${kindTag}`);
     out.push('');
     out.push('---');
     out.push('');

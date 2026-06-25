@@ -11,9 +11,7 @@ Run one command on the machine where Claude Code lives — it downloads and
 **verifies** the binary, installs a systemd user service that keeps it
 running, and prints the URL to open.
 
-<p align="center">
-  <img src="../media/install.gif" alt="Installing mobile-cc with one command" width="640">
-</p>
+https://github.com/user-attachments/assets/e38891e6-946f-41db-b7de-c65f66f2a6b2
 
 ```bash
 curl -fsSL https://mobile-cc.dev/install.sh | bash

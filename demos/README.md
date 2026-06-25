@@ -13,9 +13,10 @@ the release also produces the marketing media that lands at
 
 ## 📺 [Demo gallery → `GALLERY.md`](GALLERY.md)
 
-Every demo on one page, GIFs embedded inline. Auto-generated from
-`manifest.json` by [`gen-gallery.mjs`](gen-gallery.mjs) (regenerated on every
-capture) — so it never goes stale. Don't hand-edit `GALLERY.md`.
+Every demo on one page, each an inline **MP4 player with controls** (no
+autoplay GIFs). Auto-generated from `manifest.json` by
+[`gen-gallery.mjs`](gen-gallery.mjs) (regenerated on every capture) — so it
+never goes stale. Don't hand-edit `GALLERY.md`.
 
 ## Featured — “A day with mobile-cc”
 
@@ -24,10 +25,9 @@ morning’s session, compose a reply (one-tap command chips above the box), spin
 up a second workspace, get a **“needs you”** status dot when a session hits a
 permission prompt, jump to it, and find any session via the pane picker.
 
-![A day with mobile-cc](../docs/media/day.gif)
+https://github.com/user-attachments/assets/5b209507-ade5-451b-8710-1021a6c92bb9
 
-- video: [`docs/media/day.mp4`](../docs/media/day.mp4) · gif above · poster [`day.png`](../docs/media/day.png)
-- recipe: [`workflows/day-in-the-life.mjs`](workflows/day-in-the-life.mjs) · profile [`profiles/day-start.json`](profiles/day-start.json)
+- recipe: [`workflows/day-in-the-life.mjs`](workflows/day-in-the-life.mjs) · profile [`profiles/day-start.json`](profiles/day-start.json) · poster [`day.png`](../docs/media/day.png) · [full gallery →](GALLERY.md)
 - capture it: `demos/local-capture.sh day-in-the-life` (isolated synthetic daemon — no real sessions leak)
 
 Honesty (per [`CONVENTIONS.md`](CONVENTIONS.md) “Determinism”): seeded mock
@@ -62,7 +62,6 @@ demos/
     ├── demos/
     │   ├── paste-flow/
     │   │   ├── hero.mp4
-    │   │   ├── hero.gif
     │   │   ├── hero-still.png
     │   │   └── steps.json
     │   └── index.html
