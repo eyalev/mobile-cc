@@ -67,6 +67,40 @@ export async function setupCapture({ daemonUrl, paneId, outDir }) {
   await page.goto(daemonUrl);
   await page.waitForLoadState('networkidle');
 
+  // Shared TAP MARKER: every ctx.tap() renders an expanding+fading ripple ring
+  // + a contact dot at the resolved tap point, so viewers can see WHERE the UI
+  // was tapped. Driven explicitly by ctx.tap (NOT real pointer events a headless
+  // filmstrip may not surface) → deterministic, always on the tapped element's
+  // centre. Built with INLINE styles + the Web Animations API (NOT a <style>
+  // tag) because mobile-cc's CSP blocks injected stylesheets — inline style
+  // attributes + element.animate() are CSP-safe. Purely cosmetic; pointer-
+  // events:none; never touches the app or validate().
+  await page.evaluate(() => {
+    window.__ttvTapMark = function (x, y) {
+      try {
+        const base = 'position:fixed;z-index:2147483647;pointer-events:none;border-radius:50%;'
+          + 'transform:translate(-50%,-50%);box-shadow:0 0 0 1.5px rgba(0,0,0,.5);left:' + x + 'px;top:' + y + 'px;';
+        const ring = document.createElement('div');
+        ring.style.cssText = base + 'border:4px solid #E8896B;width:14px;height:14px;';
+        const dot = document.createElement('div');
+        dot.style.cssText = base + 'background:#E8896B;width:20px;height:20px;';
+        document.body.appendChild(ring); document.body.appendChild(dot);
+        ring.animate([
+          { width: '14px', height: '14px', opacity: 1 },
+          { width: '32px', height: '32px', opacity: 0.95, offset: 0.14 },
+          { width: '66px', height: '66px', opacity: 0.55, offset: 0.7 },
+          { width: '86px', height: '86px', opacity: 0 },
+        ], { duration: 1100, easing: 'ease-out', fill: 'forwards' });
+        dot.animate([
+          { width: '20px', height: '20px', opacity: 1 },
+          { width: '14px', height: '14px', opacity: 0.85, offset: 0.7 },
+          { width: '8px', height: '8px', opacity: 0 },
+        ], { duration: 1100, easing: 'ease-out', fill: 'forwards' });
+        setTimeout(() => { try { ring.remove(); dot.remove(); } catch (e) {} }, 1150);
+      } catch (e) {}
+    };
+  });
+
   // Device-resolution filmstrip: poll page.screenshot (~10 fps) during the run.
   // page.screenshot is the one capture path that honours deviceScaleFactor, so
   // a 412×915 viewport at DPR 3 → sharp 1236-wide frames. Each frame keeps a
@@ -119,6 +153,35 @@ export async function setupCapture({ daemonUrl, paneId, outDir }) {
       pressSend: () => page.locator('#send-btn').click(),
       stillSnapshot: (name) =>
         page.screenshot({ path: resolve(outDir, `${name}.png`) }),
+      // Marker-aware tap: resolve the element (a `() => Element` finder),
+      // render the ripple/dot at its centre, then fire the real tap sequence
+      // (pointerdown/up/click). One shared helper so every workflow's taps look
+      // consistent and the marker always matches the actual tap.
+      tap: async (finder) => {
+        const fn = finder.toString();
+        const hit = await page.evaluate((s) => {
+          const el = (new Function('return (' + s + ')'))()();
+          if (!el) return null;
+          try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+          const r = el.getBoundingClientRect();
+          const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+          // Only render the marker when the element is actually on-screen — some
+          // finders may resolve a functionally-equivalent but off-screen element
+          // (e.g. a recents/picker entry vs the visible rail tab); a marker there
+          // would be invisible/confusing. The tap still fires either way.
+          const onscreen = r.width > 0 && cy >= 0 && cy <= window.innerHeight && cx >= 0 && cx <= window.innerWidth;
+          if (onscreen && window.__ttvTapMark) window.__ttvTapMark(cx, cy);
+          return { onscreen };
+        }, fn);
+        if (!hit) throw new Error('tap target not found');
+        if (hit.onscreen) await page.waitForTimeout(520); // hold on the calm page so the filmstrip catches the ripple
+        await page.evaluate((s) => {
+          const el = (new Function('return (' + s + ')'))()();
+          if (!el) return;
+          for (const t of ['pointerdown', 'pointerup']) el.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true }));
+          el.click();
+        }, fn);
+      },
     };
   }
 

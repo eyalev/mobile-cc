@@ -57,26 +57,12 @@ export default {
 
     // 3) NEW WORKSPACE — tap ＋ on the tab rail → the new-session menu (three
     //    ways: blank shell / shell + Claude Code / Claude Code in a project).
-    await page.evaluate(() => {
-      const b = document.getElementById('mcc-newtab-railbtn');
-      if (!b) throw new Error('new-tab rail button not found');
-      for (const t of ['pointerdown', 'pointerup']) {
-        b.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true }));
-      }
-      b.click();
-    });
+    await ctx.tap(() => document.getElementById('mcc-newtab-railbtn'));
     await ctx.idle(1900);
     await ctx.recordStep('new-session menu');
 
     // 4) CREATE — make a blank workspace; a second tab appears on the rail.
-    await page.evaluate(() => {
-      const btn = [...document.querySelectorAll('button')].find((b) => /Blank tab/.test(b.textContent || ''));
-      if (!btn) throw new Error('"Blank tab" option not found');
-      for (const t of ['pointerdown', 'pointerup']) {
-        btn.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true }));
-      }
-      btn.click();
-    });
+    await ctx.tap(() => [...document.querySelectorAll('button')].find((b) => /Blank tab/.test(b.textContent || '')));
     await ctx.idle(2600);
     await ctx.recordStep('second tab created');
 
@@ -98,15 +84,7 @@ export default {
     await ctx.recordStep('needs-you dot (amber)');
 
     // 6) JUMP — tap the pulsing tab to land on the session that needs you.
-    await page.evaluate((sess) => {
-      const el = [...document.querySelectorAll('.pp-item')].find((e) => new RegExp(sess).test(e.textContent || ''));
-      if (!el) throw new Error(`${sess} tab not found in the rail`);
-      el.scrollIntoView({ block: 'center' });
-      for (const t of ['pointerdown', 'pointerup']) {
-        el.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true }));
-      }
-      el.click();
-    }, FIRST);
+    await ctx.tap(() => { const d = [...document.querySelectorAll('.mcc-tabmenu-btn[data-session="api-claude1"]')].find((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < window.innerHeight; }); return d ? d.closest('.ttvtab') : null; });
     await ctx.idle(2400);
     await ctx.recordStep('jumped to the session that needs you');
     // Poster: the CC session back in view + its amber "needs you" dot on the

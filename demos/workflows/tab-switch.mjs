@@ -20,20 +20,11 @@ export default {
     // Hero still — the multi-project rail before switching.
     await ctx.stillSnapshot('hero-still');
 
-    // Tap the docs project's tab. The rail lives in a fixed bottom bar that
-    // Playwright's click actionability refuses to "scroll into view", so we
-    // dispatch the pointer sequence directly on the tab element — this fires
-    // the tab plugin's real touch handler (pointerup) the same way a tap does.
-    await ctx.page.evaluate(() => {
-      const el = [...document.querySelectorAll('.pp-item')]
-        .find((e) => /docs-claude1/.test(e.textContent || ''));
-      if (!el) throw new Error('docs-claude1 tab not found in the rail');
-      el.scrollIntoView({ block: 'center' });
-      for (const type of ['pointerdown', 'pointerup']) {
-        el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true }));
-      }
-      el.click();
-    });
+    // Tap the docs project's VISIBLE rail tab. The rail tab is a .ttvtab; we
+    // find it via its on-screen ⋮ (button.mcc-tabmenu-btn[data-session=…]) so
+    // the marker lands on the visible tab (a bare `.pp-item` text match can
+    // resolve an off-screen recents entry). ctx.tap marks + fires the real tap.
+    await ctx.tap(() => { const d = [...document.querySelectorAll('.mcc-tabmenu-btn[data-session="docs-claude1"]')].find((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < window.innerHeight; }); return d ? d.closest('.ttvtab') : null; });
     await ctx.recordStep('tapped docs tab');
 
     // Hold on the switched-to session.

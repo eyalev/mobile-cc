@@ -24,19 +24,13 @@ export default {
     // Hero still — the chooser with Recent + project groups.
     await ctx.stillSnapshot('hero-still');
 
-    // Pick the docs session from within the picker (pointer sequence on the
-    // matching entry, robust against fixed-overlay actionability checks).
-    await ctx.page.evaluate(() => {
+    // Pick the docs session from within the picker (ctx.tap marks + fires the
+    // real tap on the matching entry).
+    await ctx.tap(() => {
       const root = document.querySelector('#pane-picker-overlay');
-      const el = [...root.querySelectorAll('*')]
-        .find((e) => e.children.length === 0 && /docs-claude1/.test(e.textContent || ''));
-      const target = el ? el.closest('[data-pane-id],li,button,[role=option],[class*=item]') || el : null;
-      if (!target) throw new Error('docs-claude1 entry not found in picker');
-      target.scrollIntoView({ block: 'center' });
-      for (const type of ['pointerdown', 'pointerup']) {
-        target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true }));
-      }
-      target.click();
+      if (!root) return null;
+      const el = [...root.querySelectorAll('*')].find((e) => e.children.length === 0 && /docs-claude1/.test(e.textContent || ''));
+      return el ? el.closest('[data-pane-id],li,button,[role=option],[class*=item]') || el : null;
     });
     await ctx.recordStep('picked docs-claude1');
     await ctx.idle(1600);
