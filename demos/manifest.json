@@ -1,5 +1,5 @@
 {
-  "_comment": "Registry of every mobile-cc demo. The single source of truth — agents add/update an entry here when they ship a feature. See demos/CONVENTIONS.md. `media` is the docs/media/<media>.{mp4,gif,png} basename a demo publishes; omit (null) for test-only workflows not embedded anywhere. `attachment_url` is the GitHub user-attachments player URL embedded in README.md (GitHub strips <video> tags, so mp4s are embedded via that URL). `recapture_pending` downgrades the resolution gate to a warning for a known-stale asset.",
+  "_comment": "Registry of every mobile-cc demo. The single source of truth — agents add/update an entry here when they ship a feature. See demos/CONVENTIONS.md. `media` is the docs/media/<media>.{mp4,png} basename a demo publishes (MP4 + poster PNG — NO GIFs: autoplay is bad UX, and we stopped generating/committing them); omit (null) for test-only workflows not embedded anywhere. `attachment_url` is the GitHub user-attachments player URL — a BARE such URL on its own line is the ONLY thing GitHub renders as an inline MP4 player with controls (relative repo paths don't embed), so the gallery + README embed THAT; mint one per the CONVENTIONS.md 'Automated re-upload' recipe. `recapture_pending` downgrades the resolution gate to a warning for a known-stale asset.",
   "min_video_width": 640,
   "demos": [
     {
@@ -18,7 +18,8 @@
       "title": "A day with mobile-cc",
       "description": "The day-in-the-life flow: open this morning's session, compose a reply (one-tap command chips above the box), spin up a second workspace, get a 'needs you' status dot on a session waiting at a permission prompt, jump to it, and use the pane picker to find any session. Near-fresh → juggling multiple tabs. Linked from demos/README.md (not the README hero yet).",
       "media": "day",
-      "profile": "day-start"
+      "profile": "day-start",
+      "attachment_url": "https://github.com/user-attachments/assets/5b209507-ade5-451b-8710-1021a6c92bb9"
     },
     {
       "id": "tab-switch",
@@ -26,7 +27,8 @@
       "title": "Switch projects with one tap",
       "description": "Start in the api project, tap the docs project's tab, land on it — the project-grouped tab rail in action. Captured, not README-linked (yet).",
       "media": "tab-switch",
-      "profile": "multi-project"
+      "profile": "multi-project",
+      "attachment_url": "https://github.com/user-attachments/assets/abf8a3ad-bdff-49ef-a5bc-32a6bf0abad5"
     },
     {
       "id": "pane-picker",
@@ -34,7 +36,8 @@
       "title": "Pick a session from the picker",
       "description": "Open the pane picker (Recent + project groups + ＋ New session) and jump to a session. Captured, not README-linked (yet).",
       "media": "pane-picker",
-      "profile": "multi-project"
+      "profile": "multi-project",
+      "attachment_url": "https://github.com/user-attachments/assets/78128a6d-b41f-4805-9e28-e4bad41f0222"
     },
     {
       "id": "chat-view",
@@ -42,7 +45,8 @@
       "title": "Read the session as a chat transcript",
       "description": "Flip from the live terminal to the chat-style transcript reader (ttyview-cc). Switched via the internal view API — the build ships no UI control for it (see UX issue). Captured, not README-linked.",
       "media": "chat-view",
-      "profile": "multi-project"
+      "profile": "multi-project",
+      "attachment_url": "https://github.com/user-attachments/assets/9be436c2-2e43-4ffd-86f7-a6ec36a337a3"
     },
     {
       "id": "new-session",
@@ -50,7 +54,8 @@
       "title": "Start a session from a button",
       "description": "Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.",
       "media": "new-session",
-      "profile": "multi-project"
+      "profile": "multi-project",
+      "attachment_url": "https://github.com/user-attachments/assets/dc984af0-6894-4fa7-a6b2-3e17b3274103"
     },
     {
       "id": "paste-flow",
@@ -58,7 +63,8 @@
       "title": "Image paste end-to-end",
       "description": "Paste a screenshot into the Message box -> uploads to the daemon -> Claude Code's vision pipeline reads the [image:/abs/path]. Captured, not README-linked (yet).",
       "media": "paste",
-      "profile": "multi-project"
+      "profile": "multi-project",
+      "attachment_url": "https://github.com/user-attachments/assets/d1371a30-5f77-4538-85c6-ba18eb388e02"
     },
     {
       "id": "install",

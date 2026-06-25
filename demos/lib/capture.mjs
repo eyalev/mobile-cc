@@ -162,24 +162,11 @@ export async function setupCapture({ daemonUrl, paneId, outDir }) {
         mp4Path,
       ]);
 
-      // GIF: palette from the full clip + Floyd-Steinberg dither (no banding).
-      const gifFramesDir = resolve(outDir, '_gif');
-      mkdirSync(gifFramesDir, { recursive: true });
-      runFfmpeg(['-y', '-i', mp4Path, '-vf', 'fps=15', join(gifFramesDir, 'g-%03d.png')]);
-      const palette = resolve(gifFramesDir, '_palette.png');
-      runFfmpeg([
-        '-y', '-i', join(gifFramesDir, 'g-%03d.png'),
-        '-vf', 'palettegen=max_colors=256:stats_mode=full',
-        palette,
-      ]);
-      runFfmpeg([
-        '-y', '-framerate', '15', '-i', join(gifFramesDir, 'g-%03d.png'),
-        '-i', palette,
-        '-lavfi', 'paletteuse=dither=floyd_steinberg',
-        resolve(outDir, 'hero.gif'),
-      ]);
+      // NO GIF. We deliberately no longer emit a .gif — autoplaying GIFs are
+      // bad UX (they start on their own and can't be paused). Committed media
+      // is MP4 (+ poster PNG); GitHub renders an MP4 as an inline player WITH
+      // controls when embedded via a user-attachments URL (see gen-gallery.mjs).
       rmSync(framesDir, { recursive: true, force: true });
-      rmSync(gifFramesDir, { recursive: true, force: true });
 
       // steps.json — the test-signal + the timeline annotation.
       const stepsJson = {
@@ -193,7 +180,6 @@ export async function setupCapture({ daemonUrl, paneId, outDir }) {
         error: error ? String(error.message || error) : null,
         assets: {
           video_mp4: 'hero.mp4',
-          gif: 'hero.gif',
           still: existsSync(resolve(outDir, 'hero-still.png')) ? 'hero-still.png' : null,
         },
       };

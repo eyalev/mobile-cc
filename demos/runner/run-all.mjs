@@ -117,7 +117,8 @@ function publishMedia(id, outDir) {
   mkdirSync(MEDIA_DIR, { recursive: true });
   const base = join(MEDIA_DIR, demo.media);
   copyFileSync(join(outDir, 'hero.mp4'), `${base}.mp4`);
-  copyFileSync(join(outDir, 'hero.gif'), `${base}.gif`);
+  // No .gif — MP4 (+ poster PNG) only. See gen-gallery.mjs for the inline
+  // MP4-player embedding via user-attachments URLs.
   const still = join(outDir, 'hero-still.png');
   if (existsSync(still)) copyFileSync(still, `${base}.png`);
   return demo.media;

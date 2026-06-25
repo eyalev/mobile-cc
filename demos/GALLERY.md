@@ -3,15 +3,15 @@
 
 # Demo gallery
 
-Every mobile-cc demo, each one a reproducible test (see [`CONVENTIONS.md`](CONVENTIONS.md)). The GIFs below autoplay inline; click any one (or the **MP4** link) for the sharper video, and **recipe** for the capture script.
+Every mobile-cc demo, each one a reproducible test (see [`CONVENTIONS.md`](CONVENTIONS.md)). Each clip below is an inline MP4 player **with controls** — no autoplaying GIFs. **recipe** links the capture script.
 
 ## Drive a live Claude Code session
 
 The real Claude Code TUI rendered live in the browser — project-grouped tabs (api ×3 + docs), quick-keys row, a reply composed in the Message box. The README 'See it' clip.
 
-[![Drive a live Claude Code session](../docs/media/use.gif)](https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d)
+https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d
 
-▶ [MP4](https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d) · [recipe](workflows/use-flow.mjs)
+[recipe](workflows/use-flow.mjs)
 
 ---
 
@@ -19,9 +19,9 @@ The real Claude Code TUI rendered live in the browser — project-grouped tabs (
 
 The day-in-the-life flow: open this morning's session, compose a reply (one-tap command chips above the box), spin up a second workspace, get a 'needs you' status dot on a session waiting at a permission prompt, jump to it, and use the pane picker to find any session. Near-fresh → juggling multiple tabs. Linked from demos/README.md (not the README hero yet).
 
-[![A day with mobile-cc](../docs/media/day.gif)](../docs/media/day.mp4)
+https://github.com/user-attachments/assets/5b209507-ade5-451b-8710-1021a6c92bb9
 
-▶ [MP4](../docs/media/day.mp4) · [recipe](workflows/day-in-the-life.mjs)
+[recipe](workflows/day-in-the-life.mjs)
 
 ---
 
@@ -29,9 +29,9 @@ The day-in-the-life flow: open this morning's session, compose a reply (one-tap 
 
 Start in the api project, tap the docs project's tab, land on it — the project-grouped tab rail in action. Captured, not README-linked (yet).
 
-[![Switch projects with one tap](../docs/media/tab-switch.gif)](../docs/media/tab-switch.mp4)
+https://github.com/user-attachments/assets/abf8a3ad-bdff-49ef-a5bc-32a6bf0abad5
 
-▶ [MP4](../docs/media/tab-switch.mp4) · [recipe](workflows/tab-switch.mjs)
+[recipe](workflows/tab-switch.mjs)
 
 ---
 
@@ -39,9 +39,9 @@ Start in the api project, tap the docs project's tab, land on it — the project
 
 Open the pane picker (Recent + project groups + ＋ New session) and jump to a session. Captured, not README-linked (yet).
 
-[![Pick a session from the picker](../docs/media/pane-picker.gif)](../docs/media/pane-picker.mp4)
+https://github.com/user-attachments/assets/78128a6d-b41f-4805-9e28-e4bad41f0222
 
-▶ [MP4](../docs/media/pane-picker.mp4) · [recipe](workflows/pane-picker.mjs)
+[recipe](workflows/pane-picker.mjs)
 
 ---
 
@@ -49,9 +49,9 @@ Open the pane picker (Recent + project groups + ＋ New session) and jump to a s
 
 Flip from the live terminal to the chat-style transcript reader (ttyview-cc). Switched via the internal view API — the build ships no UI control for it (see UX issue). Captured, not README-linked.
 
-[![Read the session as a chat transcript](../docs/media/chat-view.gif)](../docs/media/chat-view.mp4)
+https://github.com/user-attachments/assets/9be436c2-2e43-4ffd-86f7-a6ec36a337a3
 
-▶ [MP4](../docs/media/chat-view.mp4) · [recipe](workflows/chat-view.mjs)
+[recipe](workflows/chat-view.mjs)
 
 ---
 
@@ -59,9 +59,9 @@ Flip from the live terminal to the chat-style transcript reader (ttyview-cc). Sw
 
 Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.
 
-[![Start a session from a button](../docs/media/new-session.gif)](../docs/media/new-session.mp4)
+https://github.com/user-attachments/assets/dc984af0-6894-4fa7-a6b2-3e17b3274103
 
-▶ [MP4](../docs/media/new-session.mp4) · [recipe](workflows/new-session.mjs)
+[recipe](workflows/new-session.mjs)
 
 ---
 
@@ -69,9 +69,9 @@ Tap ＋ on the tab rail → the three-way new-session menu → create a bare she
 
 Paste a screenshot into the Message box -> uploads to the daemon -> Claude Code's vision pipeline reads the [image:/abs/path]. Captured, not README-linked (yet).
 
-[![Image paste end-to-end](../docs/media/paste.gif)](../docs/media/paste.mp4)
+https://github.com/user-attachments/assets/d1371a30-5f77-4538-85c6-ba18eb388e02
 
-▶ [MP4](../docs/media/paste.mp4) · [recipe](workflows/paste-flow.mjs)
+[recipe](workflows/paste-flow.mjs)
 
 ---
 
@@ -79,9 +79,9 @@ Paste a screenshot into the Message box -> uploads to the daemon -> Claude Code'
 
 The `curl ... | bash` install flow: download from GitHub Releases, verify (minisign/provenance/sha256), drop the systemd user unit, print the URL.
 
-[![Install via curl | bash](../docs/media/install.gif)](https://github.com/user-attachments/assets/e38891e6-946f-41db-b7de-c65f66f2a6b2)
+https://github.com/user-attachments/assets/e38891e6-946f-41db-b7de-c65f66f2a6b2
 
-▶ [MP4](https://github.com/user-attachments/assets/e38891e6-946f-41db-b7de-c65f66f2a6b2) · [recipe](terminal/install.sh) · `terminal`
+[recipe](terminal/install.sh) · `terminal`
 
 ---
 
@@ -89,9 +89,9 @@ The `curl ... | bash` install flow: download from GitHub Releases, verify (minis
 
 `brew install eyalev/tap/mobile-cc` — the tap install path (binary only, no systemd unit).
 
-[![Install via Homebrew](../docs/media/brew-install.gif)](https://github.com/user-attachments/assets/af1e0d4e-0d51-4584-9abe-457793d43678)
+https://github.com/user-attachments/assets/af1e0d4e-0d51-4584-9abe-457793d43678
 
-▶ [MP4](https://github.com/user-attachments/assets/af1e0d4e-0d51-4584-9abe-457793d43678) · [recipe](terminal/brew-install.sh) · `terminal`
+[recipe](terminal/brew-install.sh) · `terminal`
 
 ---
 

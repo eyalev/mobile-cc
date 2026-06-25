@@ -16,7 +16,9 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"   # demos/terminal/ → repo root
-OUT="$ROOT/docs/media/brew-install.gif"
+# GIF is an INTERMEDIATE only (agg emits gif; we transcode to mp4 and never
+# commit a gif — autoplay is bad UX). Temp file, cleaned up below.
+OUT="$(mktemp --suffix=.gif)"
 OUT_MP4="$ROOT/docs/media/brew-install.mp4"
 OUT_POSTER="$ROOT/docs/media/brew-install.png"
 
@@ -26,7 +28,7 @@ command -v ffmpeg >/dev/null || { echo "need ffmpeg" >&2; exit 1; }
 
 CAST="$(mktemp --suffix=.cast)"
 PAYLOAD="$(mktemp --suffix=.sh)"
-trap 'rm -f "$CAST" "$PAYLOAD"' EXIT
+trap 'rm -f "$CAST" "$PAYLOAD" "$OUT"' EXIT
 
 # What runs inside the recording.
 cat > "$PAYLOAD" <<'DEMO'
@@ -75,6 +77,5 @@ brew uninstall mobile-cc >/dev/null 2>&1 || true
 brew untap eyalev/tap >/dev/null 2>&1 || true
 
 echo "wrote:"
-echo "  $OUT"
 echo "  $OUT_MP4"
 echo "  $OUT_POSTER"

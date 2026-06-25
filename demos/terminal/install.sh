@@ -15,7 +15,9 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"   # demos/terminal/ → repo root
-OUT="$ROOT/docs/media/install.gif"
+# GIF is an INTERMEDIATE only (agg emits gif; we transcode to mp4 and never
+# commit a gif — autoplay is bad UX). Lives in a temp file, cleaned up below.
+OUT="$(mktemp --suffix=.gif)"
 OUT_MP4="$ROOT/docs/media/install.mp4"
 OUT_POSTER="$ROOT/docs/media/install.png"
 
@@ -27,7 +29,7 @@ PAYLOAD="$(mktemp --suffix=.sh)"
 # Safe — NOT the live ~/.local/bin.
 DEMO_PREFIX="/tmp/mobile-cc/bin"
 mkdir -p "$DEMO_PREFIX"
-trap 'rm -rf "$CAST" "$PAYLOAD" /tmp/mobile-cc' EXIT
+trap 'rm -rf "$CAST" "$PAYLOAD" "$OUT" /tmp/mobile-cc' EXIT
 
 cat > "$PAYLOAD" <<DEMO
 export MOBILE_CC_SKIP_UNIT=1
@@ -61,6 +63,5 @@ N=$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_r
 ffmpeg -y -loglevel error -i "$OUT" -vf "select=eq(n\,$((N-1)))" -frames:v 1 "$OUT_POSTER"
 
 echo "wrote:"
-echo "  $OUT"
 echo "  $OUT_MP4"
 echo "  $OUT_POSTER"
