@@ -16,15 +16,9 @@ export default {
     await ctx.idle(1400);
     await ctx.recordStep('tab rail');
 
-    // Tap the ＋ rail button (pointer sequence — it's in the fixed bottom bar).
-    await ctx.page.evaluate(() => {
-      const b = document.getElementById('mcc-newtab-railbtn');
-      if (!b) throw new Error('new-tab rail button not found');
-      for (const t of ['pointerdown', 'pointerup']) {
-        b.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true }));
-      }
-      b.click();
-    });
+    // Tap the ＋ rail button (ctx.tap marks + fires the real tap; it's in the
+    // fixed bottom bar Playwright won't auto-scroll).
+    await ctx.tap(() => document.getElementById('mcc-newtab-railbtn'));
     await ctx.idle(1200);
     await ctx.recordStep('new-session menu');
 
@@ -32,15 +26,8 @@ export default {
     await ctx.stillSnapshot('hero-still');
 
     // Create a bare shell (the menu option is a <button>).
-    await ctx.page.evaluate(() => {
-      const btn = [...document.querySelectorAll('button')].find((b) => /Blank tab/.test(b.textContent || ''));
-      if (!btn) throw new Error('"Blank tab" option not found');
-      for (const t of ['pointerdown', 'pointerup']) {
-        btn.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true }));
-      }
-      btn.click();
-    });
-    await ctx.idle(2000);
+    await ctx.tap(() => [...document.querySelectorAll('button')].find((b) => /Blank tab/.test(b.textContent || '')));
+    await ctx.idle(6000); // wait out the daemon reconcile so the new session surfaces (no create_session fast-path yet)
     await ctx.recordStep('blank session created');
   },
 
