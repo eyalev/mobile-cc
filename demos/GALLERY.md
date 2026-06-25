@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d
 
 The day-in-the-life flow: open this morning's session, compose a reply (one-tap command chips above the box), spin up a second workspace, get a 'needs you' status dot on a session waiting at a permission prompt, jump to it, and use the pane picker to find any session. Near-fresh → juggling multiple tabs. Linked from demos/README.md (not the README hero yet).
 
-https://github.com/user-attachments/assets/5b209507-ade5-451b-8710-1021a6c92bb9
+https://github.com/user-attachments/assets/d78ecbbd-73ab-4e93-a383-ce76704b703f
 
 [recipe](workflows/day-in-the-life.mjs)
 
@@ -39,7 +39,7 @@ https://github.com/user-attachments/assets/e8522ddd-b1f4-4c0d-b714-3a60b174ef2d
 
 Start in the api project, tap the docs project's tab, land on it — the project-grouped tab rail in action. Captured, not README-linked (yet).
 
-https://github.com/user-attachments/assets/abf8a3ad-bdff-49ef-a5bc-32a6bf0abad5
+https://github.com/user-attachments/assets/d76983e5-661b-4ce7-a767-9ecffa5ec1e9
 
 [recipe](workflows/tab-switch.mjs)
 
@@ -49,7 +49,7 @@ https://github.com/user-attachments/assets/abf8a3ad-bdff-49ef-a5bc-32a6bf0abad5
 
 Open the pane picker (Recent + project groups + ＋ New session) and jump to a session. Captured, not README-linked (yet).
 
-https://github.com/user-attachments/assets/78128a6d-b41f-4805-9e28-e4bad41f0222
+https://github.com/user-attachments/assets/7349d884-7763-46da-9c95-851b09594bce
 
 [recipe](workflows/pane-picker.mjs)
 
@@ -69,7 +69,7 @@ https://github.com/user-attachments/assets/9be436c2-2e43-4ffd-86f7-a6ec36a337a3
 
 Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.
 
-https://github.com/user-attachments/assets/dc984af0-6894-4fa7-a6b2-3e17b3274103
+https://github.com/user-attachments/assets/1f020bc7-2415-4556-b018-a4cf937a62d9
 
 [recipe](workflows/new-session.mjs)
 
