@@ -1,6 +1,6 @@
 // mobile-cc-tab-menu — a per-tab ⋮ that opens a manage menu (Rename / Kill)
 // right on the tab, so closing a session doesn't mean digging into the pane
-// picker. Move-to-group is a planned addition.
+// picker — plus Subtitle, Move-to-project, and Mark actions, all inline.
 //
 // Why ⋮ and not long-press: ttyview-tabs already binds long-press on tabs
 // (todo/done mark cycling), so a long-press menu would collide. A small ⋮
@@ -100,10 +100,17 @@
       .then(function () { return tv.refreshPanes(); })
       .then(function () {
         migratePinAndMeta(session, to);     // pin + subtitle/mark follow the rename
-        flash('Moved to ' + project + ' (' + to + ') — refreshing…');
-        // ttyview-tabs caches pins in memory; reload so the moved tab re-pins
-        // and groups under the project on the fresh render.
-        setTimeout(function () { try { location.reload(); } catch (e) {} }, 500);
+        // Smooth regroup, NO full-page reload: the rename + migratePinAndMeta
+        // already wrote the new pins to ttyview-tabs storage; this hook re-reads
+        // the in-memory pin cache + re-renders so the tab moves under the target
+        // project live. Fall back to a reload only on older cores without it.
+        if (typeof window.ttvTabsReloadPins === 'function') {
+          window.ttvTabsReloadPins();
+          flash('Moved to ' + project + ' (' + to + ')');
+        } else {
+          flash('Moved to ' + project + ' (' + to + ') — refreshing…');
+          setTimeout(function () { try { location.reload(); } catch (e) {} }, 500);
+        }
       })
       .catch(function (e) { flash('Move failed: ' + e.message, true); });
   }
@@ -145,10 +152,11 @@
   }
 
   // ---- manage menu ----
-  var menu = null, outside = null;
+  var menu = null, outside = null, menuAnchor = null;
   function closeMenu() {
     if (menu) { menu.remove(); menu = null; }
     if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; }
+    if (menuAnchor) { menuAnchor.setAttribute('aria-expanded', 'false'); menuAnchor = null; }
   }
   function menuItem(title, onTap, danger) {
     var b = document.createElement('button');
@@ -164,8 +172,11 @@
   }
   function openTabMenu(anchor, session) {
     closeMenu();
+    menuAnchor = anchor;
+    if (anchor) anchor.setAttribute('aria-expanded', 'true');
     menu = document.createElement('div');
     menu.id = 'mcc-tabmenu';
+    menu.setAttribute('role', 'menu');
     menu.style.cssText =
       'position:fixed;z-index:1000;min-width:190px;background:var(--ttv-bg-elev,#252526);' +
       'border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);';
@@ -416,6 +427,10 @@
       dots.type = 'button'; dots.tabIndex = -1; dots.className = 'mcc-tabmenu-btn';
       dots.textContent = '⋮';
       dots.setAttribute('data-session', session);
+      // a11y: the glyph alone announces poorly; name it + advertise the popup.
+      dots.setAttribute('aria-label', 'Tab menu for ' + session);
+      dots.setAttribute('aria-haspopup', 'menu');
+      dots.setAttribute('aria-expanded', 'false');
       // Pass-through marker: ttyview-tabs' tab gesture sees this attr and
       // (a) STILL arms its press-and-hold mark timer when the press starts on
       // the ⋮ — so holding the ⋮ cycles the dot/mark exactly like the rest of
@@ -446,7 +461,7 @@
       // the ⋮), vertically centred by the row's align-items:center. Under
       // body.ttv-tall-tabs (always on in mobile-cc) .ttvtab-head is a real flex
       // row. Fall back to the absolute corner for embedders without it.
-      var base = 'width:22px;height:22px;line-height:22px;text-align:center;background:transparent;' +
+      var base = 'width:38px;height:38px;line-height:38px;text-align:center;background:transparent;' +
         'border:0;color:var(--ttv-muted,#9aa);font-size:16px;cursor:pointer;border-radius:6px;opacity:0.75;';
       var head = t.querySelector('.ttvtab-head');
       if (head) {
