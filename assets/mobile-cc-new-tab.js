@@ -91,7 +91,7 @@
   }
 
   // Create the session, switch to it, and (optionally) launch Claude in it.
-  async function createTab(opts) { // { name, cwd?, runClaude }
+  async function createTab(opts) { // { name, cwd?, runClaude, pin }
     try {
       await apiCreate(opts.name, opts.cwd);
     } catch (e) {
@@ -101,6 +101,21 @@
     var pane = await waitForPane(opts.name, 6000);
     if (!pane) { try { await tv.refreshPanes(); } catch (e) {} return; }
     try { tv.selectPane(pane.id); } catch (e) {}
+    // Auto-pin "Claude in project" sessions so the new project shows up as a
+    // pinned project GROUP immediately, not just in recents (grouping is by
+    // session-name prefix). Blank/Claude tabs stay unpinned (recents) on
+    // purpose. Idempotent; re-render via ttvTabsReloadPins when available.
+    if (opts.pin) {
+      try {
+        var st = tv.storage('ttyview-tabs');
+        var pins = st.get('pins'); if (!Array.isArray(pins)) pins = [];
+        if (!pins.some(function (p) { return p && (p.session === opts.name || p.id === pane.id); })) {
+          pins.push({ id: pane.id, session: opts.name });
+          st.set('pins', pins);
+          if (typeof window.ttvTabsReloadPins === 'function') window.ttvTabsReloadPins();
+        }
+      } catch (e) {}
+    }
     if (opts.runClaude) {
       // Let the shell come up, then launch. The pane survives if Claude exits.
       setTimeout(function () {
@@ -273,7 +288,7 @@
         : numberedName(sanitize(basename(cwd)) + '-claude');
       noteRecent(cwd);
       close();
-      createTab({ name: name, cwd: cwd, runClaude: true });
+      createTab({ name: name, cwd: cwd, runClaude: true, pin: true });
     });
     create.style.background = 'var(--ttv-accent,#569cd6)';
     create.style.color = '#fff';
