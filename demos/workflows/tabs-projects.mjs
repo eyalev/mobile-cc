@@ -34,13 +34,19 @@ export default {
     // location.reload()), this is wiped. validate() checks it survived → proves
     // the move regrouped LIVE.
     await page.evaluate(() => { window.__tabsDemoSentinel = 'alive'; });
+    // Determinism: seed the New Tab launch command to a no-op so "Claude in
+    // project" never spawns a REAL `claude` in the new pane (no network, no
+    // "Welcome back" screen). The project still appears as an auto-pinned group
+    // — that's the beat we're showing. (Seeded-mock determinism rule.)
+    await page.evaluate(() => { try { window.ttyview.storage('mobile-cc-new-tab').set('command', 'true'); } catch (e) {} });
 
     // 1) OPEN — the multi-project tab rail (api ×3 + docs), one CC session live.
     await ctx.idle(2200);
     await ctx.recordStep('projects as tab groups');
 
-    // 2) SWITCH PROJECT — one tap to the docs project.
-    await ctx.tap(() =>[...document.querySelectorAll('.pp-item')].find(e => /docs-claude1/.test(e.textContent || '')));
+    // 2) SWITCH PROJECT — one tap to the docs project's VISIBLE rail tab (found
+    // via its on-screen ⋮ data-session anchor, so the marker lands on it).
+    await ctx.tap(() => { const d = [...document.querySelectorAll('.mcc-tabmenu-btn[data-session="docs-claude1"]')].find(b => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < window.innerHeight; }); return d ? d.closest('.ttvtab') : null; });
     await ctx.idle(1600);
     await ctx.recordStep('switched to the docs project');
 
@@ -71,10 +77,12 @@ export default {
     await ctx.idle(900);
     await ctx.tap(() => { const m = [...document.querySelectorAll('div')].find(d => { const h = d.querySelector(':scope > h3'); return h && /Claude in project/.test(h.textContent || ''); }); return m ? [...m.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Create') : null; });
     await ctx.idle(1600);
-    // Switch back to a seeded CC session so the active pane stays clean (the new
-    // project's pane is launching in the background); the rail shows the group.
+    // Switch back to the seeded CC session so the active pane stays the api CC
+    // TUI. With the create_session reconcile fast-path baked, createTab's own
+    // selectPane(payments) has already fired (~0.2s), so this switch HOLDS (no
+    // late override) and the new project's pane stays off-screen.
     await page.evaluate(() => { const p = window.ttyview.listPanes().find(x => x.session === 'api-claude1'); if (p) window.ttyview.selectPane(p.id); });
-    await ctx.idle(4500); // let the new session surface (daemon reconcile) so its auto-pin lands
+    await ctx.idle(1500); // fast-path: the new session + its auto-pin group are already live
     await ctx.recordStep('new "payments" project on the rail');
 
     // 6) SURVEY — several projects at once (poster frame). Bring the new,
@@ -92,7 +100,7 @@ export default {
 
     // 7) MOVE A TAB BETWEEN PROJECTS — ⋮ on an api tab → Move to project → docs.
     //    Regroups LIVE (no reload — the headline fix).
-    await ctx.tap(() =>document.querySelector('button.mcc-tabmenu-btn[data-session="' + 'api-claude2' + '"]'));
+    await ctx.tap(() => [...document.querySelectorAll('button.mcc-tabmenu-btn[data-session="api-claude2"]')].find(b => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < window.innerHeight; }));
     await ctx.idle(900);
     await ctx.tap(() =>[...document.querySelectorAll('#mcc-tabmenu button')].find(b => /Move to project/.test(b.textContent || '')));
     await ctx.idle(1100);
