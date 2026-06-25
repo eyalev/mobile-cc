@@ -28,7 +28,7 @@
       "description": "The comprehensive tabs+projects workflow: projects as tab groups, open new tabs (blank / Claude / Claude in a project), create a new project, and MOVE a tab between projects (live regroup, no reload). Captured against the fixed move-to-project UX.",
       "media": "tabs-projects",
       "profile": "multi-project",
-      "attachment_url": "https://github.com/user-attachments/assets/e8522ddd-b1f4-4c0d-b714-3a60b174ef2d"
+      "attachment_url": "https://github.com/user-attachments/assets/eb7314aa-34b4-4a56-9834-a664a74c65f8"
     },
     {
       "id": "tab-switch",
@@ -64,7 +64,7 @@
       "description": "Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.",
       "media": "new-session",
       "profile": "multi-project",
-      "attachment_url": "https://github.com/user-attachments/assets/1f020bc7-2415-4556-b018-a4cf937a62d9"
+      "attachment_url": "https://github.com/user-attachments/assets/fe3399a4-5a63-4fc6-be4f-47c477ed7492"
     },
     {
       "id": "paste-flow",

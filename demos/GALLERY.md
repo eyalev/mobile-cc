@@ -29,7 +29,7 @@ https://github.com/user-attachments/assets/d78ecbbd-73ab-4e93-a383-ce76704b703f
 
 The comprehensive tabs+projects workflow: projects as tab groups, open new tabs (blank / Claude / Claude in a project), create a new project, and MOVE a tab between projects (live regroup, no reload). Captured against the fixed move-to-project UX.
 
-https://github.com/user-attachments/assets/e8522ddd-b1f4-4c0d-b714-3a60b174ef2d
+https://github.com/user-attachments/assets/eb7314aa-34b4-4a56-9834-a664a74c65f8
 
 [recipe](workflows/tabs-projects.mjs)
 
@@ -69,7 +69,7 @@ https://github.com/user-attachments/assets/9be436c2-2e43-4ffd-86f7-a6ec36a337a3
 
 Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.
 
-https://github.com/user-attachments/assets/1f020bc7-2415-4556-b018-a4cf937a62d9
+https://github.com/user-attachments/assets/fe3399a4-5a63-4fc6-be4f-47c477ed7492
 
 [recipe](workflows/new-session.mjs)
 
