@@ -45,6 +45,33 @@
     STORAGE.set(KEY, list);
   }
 
+  // When the user fires `/clear`, Claude Code resets its conversation, so the
+  // tab's auto-generated subtitle (a topic mined from the now-discarded
+  // transcript) is stale. Mark the active tab's subtitle "clear" so it reflects
+  // the fresh-start state. This sets a MANUAL subtitle override (it suppresses
+  // the auto-topic until cleared via the tab ⋮ → Subtitle…). Mirrors the setter
+  // path in mobile-cc-tab-menu (window.ttvTabsSetLabel, storage fallback).
+  function isClearCmd(cmd) {
+    var c = String(cmd || '').trim().toLowerCase();
+    return c === '/clear' || c === 'clear';
+  }
+  function markActiveTabCleared() {
+    var p = null;
+    try { p = (tv.getActivePane && tv.getActivePane()) || null; } catch (_) {}
+    var session = p && p.session;
+    if (!session) return;
+    if (typeof window.ttvTabsSetLabel === 'function') {
+      try { window.ttvTabsSetLabel(session, 'clear'); } catch (_) {}
+      return;
+    }
+    try {
+      var s = tv.storage('ttyview-tabs');
+      var l = s.get('labels') || {};
+      l[session] = 'clear';
+      s.set('labels', l);
+    } catch (_) {}
+  }
+
   // Set of mounted chip-row re-render callbacks. The settings tab calls
   // these after any edit so open accessory rows update live.
   var rerenders = [];
@@ -118,6 +145,7 @@
           if (typeof window.ttvDiag === 'function') {
             window.ttvDiag('cmd-result', { cmd: c.cmd, ok: !!ok });
           }
+          if (ok && isClearCmd(c.cmd)) markActiveTabCleared();
         });
         // Cancel desktop focus-on-mousedown (touch path is covered by tabIndex=-1).
         btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
