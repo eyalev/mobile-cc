@@ -5,7 +5,11 @@ use std::path::PathBuf;
 
 mod cc_search;
 mod download;
+// origin.rs (same-origin guard + SSRF endpoint check) is used only by push,
+// so it's gated with it — otherwise it's dead code when `webpush` is off.
+#[cfg(feature = "webpush")]
 mod origin;
+#[cfg(feature = "webpush")]
 mod push;
 
 /// Drive Claude Code from your phone. A focused, mobile-first packaging of
@@ -213,16 +217,26 @@ async fn main() -> Result<()> {
     };
     // Web Push: VAPID keygen on first run + subscription store + delivery
     // worker. on_semantic (below) enqueues; the daemon idle sweep emits the
-    // idle event. See src/push.rs + .claude/web-push-design.md.
+    // idle event. See src/push.rs + .claude/web-push-design.md. Gated behind
+    // the `webpush` feature (default OFF): the web-push crate's only TLS
+    // backends are C-deps (isahc/libcurl, hyper-tls/openssl) that don't
+    // cross-compile to the release's aarch64/macos-x86 targets. Returns in
+    // v0.6.1 with a pure-Rust rustls client. Build with --features webpush.
+    #[cfg(feature = "webpush")]
     let push_state = push::init(config_dir.clone(), cli.tmux_socket.clone())?;
 
-    // `extra_api` is a single hook — compose cc-search + download + push
-    // into one closure that mounts all three route sets.
+    // `extra_api` is a single hook — compose cc-search + download (+ push when
+    // the `webpush` feature is on) into one closure that mounts the route sets.
     let cc_api = cc_search::extra_api(cc_search_cfg);
     let dl_api = download::extra_api(download_cfg);
-    let push_router = push::routes(push_state.clone());
+    #[cfg(feature = "webpush")]
+    let extra_api: Box<dyn FnOnce(axum::Router) -> axum::Router + Send> = {
+        let push_router = push::routes(push_state.clone());
+        Box::new(move |router| dl_api(cc_api(router)).merge(push_router))
+    };
+    #[cfg(not(feature = "webpush"))]
     let extra_api: Box<dyn FnOnce(axum::Router) -> axum::Router + Send> =
-        Box::new(move |router| dl_api(cc_api(router)).merge(push_router));
+        Box::new(move |router| dl_api(cc_api(router)));
 
     ttyview_core::cli::daemon::run_with_options_v2(ttyview_core::cli::daemon::RunOptions {
         addr: cli.bind,
@@ -247,7 +261,10 @@ async fn main() -> Result<()> {
         // Web Push triggers: on_semantic enqueues a push on CC permission
         // prompts (always) + pane.idle_after_activity (opt-in in Settings).
         // The idle sweep emits that event once a pane goes quiet for 60s.
+        // Both fields fall back to Default (None) when `webpush` is off.
+        #[cfg(feature = "webpush")]
         on_semantic: Some(push::on_semantic_hook(push_state)),
+        #[cfg(feature = "webpush")]
         idle_event_threshold: Some(std::time::Duration::from_secs(60)),
         ..Default::default()
     })
