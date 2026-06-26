@@ -382,6 +382,16 @@
       "description": "Persists a typed-but-unsent Message across reloads/restarts: saves the input per-session to localStorage (debounced), restores into an empty box, clears on confirmed send. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-kbd-passthrough",
+      "name": "Desktop keyboard passthrough",
+      "kind": "internal",
+      "source": "mobile-cc-kbd-passthrough.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Click the terminal on desktop to type straight into the active pane (physical keyboard). Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-toolbar",
       "name": "Toolbar",
       "kind": "headerWidget",
