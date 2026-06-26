@@ -91,6 +91,14 @@
     });
     var send = document.getElementById('send-btn');
     if (send) send.addEventListener('click', afterSend);
+    // Core's clear-× empties the box via `value = ''` WITHOUT firing an
+    // 'input' event, so scheduleSave never sees the clear and the saved draft
+    // survives — then restore() refills it on the next tab switch. Drop the
+    // draft explicitly when the user taps clear-×.
+    var clear = document.getElementById('input-clear');
+    if (clear) clear.addEventListener('click', function () {
+      var s = session(); setDraft(s, ''); diag('mcc-draft-clear-x', { session: s });
+    });
     return true;
   }
 
