@@ -17,22 +17,34 @@
     return;
   }
 
-  var GROQ = 'https://api.groq.com/openai/v1/chat/completions';
-  var DEFAULT_MODEL = 'llama-3.3-70b-versatile';   // matches the STT cleanup model
+  // Any OpenAI-compatible chat-completions provider works (same wire format).
+  var PROVIDERS = {
+    groq:   { label: 'Groq',   base: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
+    openai: { label: 'OpenAI', base: 'https://api.openai.com/v1',      model: 'gpt-4o-mini' },
+    custom: { label: 'Custom (base URL)', base: '',                    model: '' },
+  };
   var STORE = tv.storage('mobile-cc-act');
 
   function loadSettings() {
     var s = {};
     try { s = STORE.get('settings') || {}; } catch (e) {}
-    return { groqKey: s.groqKey || '', model: s.model || DEFAULT_MODEL };
+    var provider = PROVIDERS[s.provider] ? s.provider : 'groq';
+    var prov = PROVIDERS[provider];
+    return {
+      provider: provider,
+      key: s.key || s.groqKey || '',                                  // back-compat: old field was groqKey
+      model: s.model || prov.model,
+      baseUrl: provider === 'custom' ? (s.baseUrl || '') : prov.base,
+    };
   }
-  // Prefer Ask AI's OWN Groq key (its own rate-limit quota); fall back to the
-  // STT key so it still works if you've only set one.
-  function groqKey() {
-    var own = loadSettings().groqKey;
-    if (own) return own;
-    try { return (tv.storage('ttyview-stt-groq').get('settings') || {}).groqKey || ''; }
-    catch (e) { return ''; }
+  // Use Ask AI's own key; only Groq may borrow the STT key (same provider).
+  function apiKey() {
+    var s = loadSettings();
+    if (s.key) return s.key;
+    if (s.provider === 'groq') {
+      try { return (tv.storage('ttyview-stt-groq').get('settings') || {}).groqKey || ''; } catch (e) {}
+    }
+    return '';
   }
   function esc(s) { var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
   function liveSessions() {
@@ -102,21 +114,26 @@
 
   // ---- the call --------------------------------------------------------
   async function runAct(text) {
-    var key = groqKey();
-    if (!key) { showCard('<b>No Groq key set.</b><br>Add one in Settings → Voice Input to use Ask AI.'); return; }
+    var cfg = loadSettings();
+    var key = apiKey();
+    if (!key) { showCard('<b>No API key set.</b><br>Add one in Settings → Ask AI.'); return; }
+    if (!cfg.baseUrl) { showCard('<b>No API base URL.</b><br>Pick a provider in Settings → Ask AI.'); return; }
     showCard('<span style="opacity:.7">…thinking</span>');
     var sess = liveSessions();
     var ctx = sess.length ? sess.map(function (s) { return '- ' + s.session + ' (pane ' + s.id + ')'; }).join('\n') : '(none)';
     var body = {
-      model: loadSettings().model, temperature: 0, tool_choice: 'required', tools: buildTools(),
+      model: cfg.model, temperature: 0, tool_choice: 'required', tools: buildTools(),
       messages: [
         { role: 'system', content: SYS + '\n\nLive sessions:\n' + ctx },
         { role: 'user', content: text },
       ],
     };
     try {
-      var r = await fetch(GROQ, { method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!r.ok) { showCard('Groq error ' + r.status + '. Check the key / rate limit in Settings → Voice Input.'); return; }
+      var r = await fetch(cfg.baseUrl + '/chat/completions', { method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) {
+        var hint = r.status === 429 ? ' (rate limit — try a different provider/key in Settings → Ask AI)' : '';
+        showCard('API error ' + r.status + hint + '.'); return;
+      }
       var j = await r.json();
       var m = j.choices && j.choices[0] && j.choices[0].message;
       var call = m && m.tool_calls && m.tool_calls[0];
@@ -248,8 +265,8 @@
       var intro = document.createElement('p');
       intro.style.cssText = 'color:var(--ttv-muted);font-size:12px;margin:0 0 14px;line-height:1.5;';
       intro.innerHTML = 'Natural-language command router — open the palette and pick <b>Ask AI…</b>. ' +
-        'Runs Groq (<code>' + esc(DEFAULT_MODEL) + '</code>) directly from your browser. Set a <b>dedicated</b> ' +
-        'key here so Ask AI doesn’t share the Voice Input key’s rate limit. Blank = fall back to the Voice Input key.';
+        'Runs an OpenAI-compatible chat model in your browser. Choose a provider and paste its key. ' +
+        '(Groq with no key falls back to the Voice Input key.)';
       container.appendChild(intro);
 
       function field(labelText) {
@@ -259,17 +276,36 @@
         return w;
       }
       var inputCss = 'padding:10px 11px;border:1px solid var(--ttv-border);border-radius:6px;background:var(--ttv-bg);color:var(--ttv-fg);font:inherit;font-size:16px;';
+      function save(patch) { var cur = loadSettings(); for (var k in patch) cur[k] = patch[k]; STORE.set('settings', cur); }
       var s = loadSettings();
 
-      var kw = field('Groq API key (Ask AI)');
+      var pw = field('Provider');
+      var prov = document.createElement('select'); prov.style.cssText = inputCss;
+      Object.keys(PROVIDERS).forEach(function (id) {
+        var o = document.createElement('option'); o.value = id; o.textContent = PROVIDERS[id].label;
+        if (id === s.provider) o.selected = true; prov.appendChild(o);
+      });
+      pw.appendChild(prov); container.appendChild(pw);
+
+      var bw = field('API base URL');
+      var base = document.createElement('input');
+      base.type = 'text'; base.placeholder = 'https://…/v1'; base.spellcheck = false;
+      base.setAttribute('autocorrect', 'off'); base.setAttribute('autocapitalize', 'off');
+      base.value = s.provider === 'custom' ? s.baseUrl : '';
+      base.style.cssText = inputCss;
+      base.addEventListener('change', function () { save({ baseUrl: base.value.trim() }); });
+      bw.appendChild(base); container.appendChild(bw);
+      function syncBaseVisible() { bw.style.display = (prov.value === 'custom') ? '' : 'none'; }
+
+      var kw = field('API key');
       var key = document.createElement('input');
-      key.type = 'text'; key.placeholder = 'gsk_…  (blank = use Voice Input key)';
+      key.type = 'text'; key.placeholder = 'sk-… / gsk-…';
       key.spellcheck = false;
       key.setAttribute('autocorrect', 'off'); key.setAttribute('autocapitalize', 'off');
       key.setAttribute('data-lpignore', 'true'); key.setAttribute('data-1p-ignore', 'true'); key.setAttribute('data-bwignore', 'true');
-      key.value = s.groqKey;
+      key.value = s.key;
       key.style.cssText = inputCss + '-webkit-text-security:disc;';
-      key.addEventListener('change', function () { var cur = loadSettings(); cur.groqKey = key.value.trim(); STORE.set('settings', cur); });
+      key.addEventListener('change', function () { save({ key: key.value.trim() }); });
       kw.appendChild(key); container.appendChild(kw);
 
       var mw = field('Model');
@@ -277,12 +313,20 @@
       model.type = 'text'; model.value = s.model; model.spellcheck = false;
       model.setAttribute('autocorrect', 'off'); model.setAttribute('autocapitalize', 'off');
       model.style.cssText = inputCss;
-      model.addEventListener('change', function () { var cur = loadSettings(); cur.model = model.value.trim() || DEFAULT_MODEL; STORE.set('settings', cur); });
+      model.addEventListener('change', function () { save({ model: model.value.trim() || PROVIDERS[prov.value].model }); });
       mw.appendChild(model); container.appendChild(mw);
+
+      prov.addEventListener('change', function () {
+        save({ provider: prov.value });
+        var d = PROVIDERS[prov.value];
+        if (d.model) { model.value = d.model; save({ model: d.model }); }
+        syncBaseVisible();
+      });
+      syncBaseVisible();
 
       var hint = document.createElement('p');
       hint.style.cssText = 'color:var(--ttv-muted);font-size:11px;margin:4px 0 0;';
-      hint.innerHTML = 'Free keys at console.groq.com/keys. Stored in this browser profile (server-synced across your devices).';
+      hint.innerHTML = 'Keys: platform.openai.com/api-keys or console.groq.com/keys. Stored in this browser profile (server-synced across your devices).';
       container.appendChild(hint);
     },
   });
