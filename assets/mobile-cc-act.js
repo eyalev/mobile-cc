@@ -129,6 +129,40 @@
     return q.split(/\s+/).length >= 4 || /['"]/.test(q) || VERBS.test(q);
   }
 
+  // ---- history: recent AI queries + command runs, for fast re-choosing -
+  // Recorded on every real AI query (runAct) and command execution
+  // (command-run). Surfaced as palette rows: recents on top when the input is
+  // empty (Ctrl-K → arrow through, or Enter to repeat the last), matches while
+  // you type. Server-synced, capped, deduped most-recent-first.
+  var HIST = tv.storage('mobile-cc-history');
+  var HIST_MAX = 50;
+  function histLoad() { try { return HIST.get('items') || []; } catch (e) { return []; } }
+  function histKey(e) { return e.kind === 'ai' ? 'ai|' + e.text : 'cmd|' + e.id + '|' + JSON.stringify(e.args || {}); }
+  function histPush(entry) {
+    var k = histKey(entry);
+    var items = histLoad().filter(function (x) { return histKey(x) !== k; });
+    items.unshift(entry);
+    if (items.length > HIST_MAX) items = items.slice(0, HIST_MAX);
+    try { HIST.set('items', items); } catch (e) {}
+  }
+  function histLabel(e) {
+    if (e.kind === 'ai') return '↻ ' + e.text;
+    var def = tv._internal.registries.command.get(e.id);
+    var nm = (def && def.name) || e.id;
+    var a = e.args && Object.keys(e.args).length ? ' (' + Object.keys(e.args).map(function (k) { return e.args[k]; }).join(', ') + ')' : '';
+    return '↻ ' + nm + a;
+  }
+  function histText(e) { return e.kind === 'ai' ? e.text : histLabel(e); }
+  function histReplay(e) {
+    logPal('history-replay', { kind: e.kind, id: e.id });
+    if (e.kind === 'ai') { runAct(e.text, 'history'); return; }
+    var def = tv._internal.registries.command.get(e.id);
+    if (!def) { showCard('That command no longer exists.'); return; }
+    if (def.danger) { confirmRun(def, e.args || {}, { seq: 0, id: def.id }); return; }
+    try { execDef(def, e.args || {}); tv.toast && tv.toast('↻ ' + (def.name || def.id)); }
+    catch (err) { showCard('Failed: ' + esc(err && err.message || err)); }
+  }
+
   // ---- the call --------------------------------------------------------
   async function runAct(text, source) {
     var seq = ++ACT_SEQ;
@@ -136,6 +170,7 @@
     var key = apiKey();
     if (!key) { showCard('<b>No API key set.</b><br>Add one in Settings → Ask AI.'); return; }
     if (!cfg.baseUrl) { showCard('<b>No API base URL.</b><br>Pick a provider in Settings → Ask AI.'); return; }
+    if (source !== 'history' && source !== 'clarify') histPush({ kind: 'ai', text: text });
     showCard('<span style="opacity:.7">…thinking</span>');
     var sess = liveSessions();
     var ctx = sess.length ? sess.map(function (s) { return '- ' + s.session + ' (pane ' + s.id + ')'; }).join('\n') : '(none)';
@@ -339,11 +374,33 @@
     });
   }
 
-  // ---- interaction logging: every palette open / pick / run ------------
+  // ---- history suggester: recents on empty, matches while typing -------
+  if (typeof tv.contributes.paletteSuggest === 'function') {
+    tv.contributes.paletteSuggest({
+      id: 'mcc.history',
+      suggest: function (query) {
+        var q = (query || '').trim().toLowerCase();
+        var items = histLoad();
+        if (!items.length) return [];
+        var rows, pri;
+        if (!q) { rows = items.slice(0, 8); pri = 'top'; }       // empty → recents up top, newest pre-selected
+        else { rows = items.filter(function (e) { return histText(e).toLowerCase().indexOf(q) >= 0; }).slice(0, 6); pri = 'bottom'; }
+        return rows.map(function (e) {
+          return { id: 'mcc.history', title: histLabel(e), hint: 'recent', priority: pri,
+                   run: (function (entry) { return function () { histReplay(entry); }; })(e) };
+        });
+      },
+    });
+  }
+
+  // ---- interaction logging + history recording -------------------------
   if (typeof tv.on === 'function') {
     tv.on('palette-open', function () { logPal('open', {}); });
     tv.on('command-invoked', function (e) { logPal('invoke', { id: e && e.id, q: e && e.query, suggest: !!(e && e.suggest) }); });
-    tv.on('command-run', function (e) { logPal('run', { id: e && e.id, args: e && e.args }); });
+    tv.on('command-run', function (e) {
+      logPal('run', { id: e && e.id, args: e && e.args });
+      if (e && e.id && e.id !== 'mcc.ai') histPush({ kind: 'cmd', id: e.id, args: e.args || {} });  // AI text recorded separately
+    });
   }
 
   // ---- Settings → Ask AI: dedicated Groq key + model ------------------
