@@ -392,6 +392,16 @@
       "description": "Click the terminal on desktop to type straight into the active pane (physical keyboard). Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-palette",
+      "name": "Command palette",
+      "kind": "internal",
+      "source": "mobile-cc-palette.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Mobile entry button + mobile overlay restyle + populated zero-arg commands (Go to <session>, Run <chip>, scrollback/font). Slice 1 of the act-bar. Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-toolbar",
       "name": "Toolbar",
       "kind": "headerWidget",

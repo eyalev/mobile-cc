@@ -117,6 +117,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-tap-focus.js",     include_bytes!("../assets/mobile-cc-tap-focus.js")),
     ("mobile-cc-draft.js",         include_bytes!("../assets/mobile-cc-draft.js")),
     ("mobile-cc-kbd-passthrough.js", include_bytes!("../assets/mobile-cc-kbd-passthrough.js")),
+    ("mobile-cc-palette.js",       include_bytes!("../assets/mobile-cc-palette.js")),
     // toolbar LAST so its runtime discovery sees every other header-widget plugin.
     ("mobile-cc-toolbar.js",       include_bytes!("../assets/mobile-cc-toolbar.js")),
 ];
