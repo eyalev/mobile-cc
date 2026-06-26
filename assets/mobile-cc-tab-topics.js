@@ -1,29 +1,34 @@
-// mobile-cc-tab-topics — surface a session's "recent topics" on the tab itself.
+// mobile-cc-tab-topics — surface a session's recent topics on the tab itself.
 //
-// Two surfaces, both opt-in via Settings → Tab Topics:
-//   1. SUBTITLE SOURCE = "Session topic": instead of the manual/✨ custom tag,
-//      the tab subtitle shows the session's THROUGHLINE — a short AI label of
-//      the feature/problem the session keeps returning to (NOT the latest turn's
-//      incidental actions — that gave weak subtitles like "reading relevant
-//      code files"). Generation reuses mobile-cc-tabs' ✨ window.ttvTagSuggest
-//      (recent USER REQUESTS), regenerated when a new turn arrives.
-//      ROBUSTNESS: the generated throughline is PERSISTED (server-synced via
-//      tv.storage → /api/state), so it shows instantly on reload and rides out
-//      a Groq outage; when it can't generate at all, the subtitle falls back to
-//      the latest PER-TURN topic (server-side) before the raw prompt — so it
-//      reads like a topic, never a raw sentence. Falls back to the custom label
-//      when there's no transcript (plain shells).
-//   2. ⋮ TAB MENU: the same session topic headlines the menu (in sync with the
-//      tab), and a scrollable "Recent topics" section lists the per-turn
-//      timeline below it — oldest at top, MOST RECENT AT THE BOTTOM (chat
-//      order), scrolled to the newest on open. Injected into mobile-cc-tab-menu.
+// ONE concept: a per-session TIMELINE of per-turn topics. Two surfaces:
+//   1. TAB SUBTITLE = the newest COMPLETED-turn topic (the still-open / mid-
+//      stream turn is deliberately skipped so the subtitle never shows a noisy
+//      half-finished summary). It updates as each turn finishes, so the subtitle
+//      reflects "what the session just worked on". A short AI label naming the
+//      turn's OUTCOME (genTurn — names the feature added / problem fixed, NOT the
+//      incidental steps). PERSISTED (server-synced via tv.storage → /api/state)
+//      so it shows instantly on reload + rides out a Groq outage; while a fresh
+//      topic regenerates the PREVIOUS topic stays put (no flicker), and with no
+//      AI summary at all the trimmed prompt of the latest completed turn shows.
+//      A MANUAL custom label (set via the ⋮ menu "Subtitle…") is an OVERRIDE —
+//      when present it wins and the auto-topic is suppressed; plain shells with
+//      no transcript keep their label.
+//   2. ⋮ TAB MENU: the session THROUGHLINE (what it keeps returning to overall —
+//      genThroughline, lazily generated on menu open) headlines the menu, and a
+//      scrollable "Recent topics" section lists the per-turn timeline below it —
+//      oldest at top, MOST RECENT AT THE BOTTOM (chat order), scrolled to the
+//      newest on open. Injected into mobile-cc-tab-menu.
+//
+// NO mode toggle: the topic auto-wins for CC sessions; the throughline is no
+// longer a subtitle source, only the menu headline.
 //
 // Data comes from the SAME daemon endpoints as the full Topics panel
 // (/api/cc-session-turns for the per-turn list, /api/cc-tab-summary for the
 // throughline — see mobile-cc-topics.js + mobile-cc-tabs.js + src/cc_search.rs);
 // generation reuses the ttyview-stt-groq BYO key (Settings → Voice Input) and
-// is browser-direct (Groq's API is CORS-open). Cached summaries are PUT back to
-// the daemon so they persist (immutable, non-open turns only).
+// is browser-direct (Groq's API is CORS-open). Per-turn summaries of COMPLETED
+// (immutable) turns are PUT back to the daemon so they persist + are shared with
+// the Topics panel.
 //
 // Coordination-safe: NO upstream edits and NO edits to the sibling tab plugins
 // (mobile-cc-tabs / mobile-cc-tab-menu, both under concurrent edit). The
@@ -41,7 +46,6 @@
   var GROQ_BASE = 'https://api.groq.com/openai/v1';
   var GROQ_MODEL = 'llama-3.3-70b-versatile';
   var TTL_MS = 25 * 1000;          // how long a cached topic is "fresh" (refetch cadence)
-  var OPEN_THROTTLE_MS = 60 * 1000; // min gap between re-summarizing a still-open turn
 
   // tmux-web-style kind → accent (mirrors mobile-cc-topics.js).
   var KIND_COLOR = {
@@ -50,7 +54,6 @@
   };
 
   // ---- settings accessors -------------------------------------------
-  function subtitleSource() { return SELF.get('subtitleSource') === 'topic' ? 'topic' : 'label'; }
   function menuTopicsOn() {
     var v = SELF.get('menuTopics');
     return (v === undefined || v === null) ? true : !!v;   // default ON
@@ -70,38 +73,40 @@
   }
 
   // ---- topic cache + fetch + AI generation --------------------------
-  // cache[session] = { ts, uuid, raw, summary, thruUuid, fallback, open }.
-  // DISPLAY priority = summary (throughline) || fallback (latest per-turn topic,
-  // server-side) || raw (latest prompt). The fallback means the subtitle reads
-  // like a topic even when the throughline can't generate (Groq down / no key).
+  // cache[session] = { ts, uuid, open, topic, topicUuid, raw }.
+  //   topic     = AI summary of the newest COMPLETED turn (the subtitle).
+  //   topicUuid = which completed turn `topic` is for (so we regen on a new one).
+  //   raw       = trimmed prompt of the newest completed turn (fallback when
+  //               there's no AI summary yet — e.g. no Groq key).
+  // DISPLAY priority = topic || raw. While a fresh topic regenerates we KEEP the
+  // previous topic (no flicker); raw shows only when no topic ever existed.
   var cache = {};
   var fetching = {};
-  var genAt = {};   // session → { uuid, ts } : last gen attempt (throttle the open turn)
+  var genAt = {};   // session → uuid : completed turn we've already kicked gen for
 
-  function displayTopic(c) { return c ? (c.summary || c.fallback || c.raw || '') : ''; }
+  function displayTopic(c) { return c ? (c.topic || c.raw || '') : ''; }
 
-  // Persisted throughlines (server-synced via tv.storage → /api/state), keyed by
-  // session, so the subtitle shows INSTANTLY on reload and survives a Groq
+  // Persisted subtitle topics (server-synced via tv.storage → /api/state), keyed
+  // by session, so the subtitle shows INSTANTLY on reload and survives a Groq
   // outage. One small map under a single key.
-  function allStored() { try { return SELF.get('throughlines') || {}; } catch (_) { return {}; } }
-  function storedThroughline(session) { var m = allStored(); return m[session] || null; }
-  function storeThroughline(session, uuid, text) {
-    try { var m = allStored(); m[session] = { uuid: uuid, text: text, ts: Date.now() }; SELF.set('throughlines', m); } catch (_) {}
+  function allStored() { try { return SELF.get('topics') || {}; } catch (_) { return {}; } }
+  function storedTopic(session) { var m = allStored(); return m[session] || null; }
+  function storeTopic(session, uuid, text) {
+    try { var m = allStored(); m[session] = { uuid: uuid, text: text, ts: Date.now() }; SELF.set('topics', m); } catch (_) {}
   }
 
-  // Fetch the head of the transcript: the latest turn (for uuid/raw/open) plus
-  // the most recent turn that already has a server-cached per-turn summary (the
-  // throughline's fallback).
+  // Fetch the head of the transcript: the latest turn (for uuid/open) and the
+  // newest COMPLETED turn (open === false) — the one that feeds the subtitle.
   async function fetchHead(session) {
-    var r = await fetch('/api/cc-session-turns?session=' + encodeURIComponent(session) + '&limit=6');
+    var r = await fetch('/api/cc-session-turns?session=' + encodeURIComponent(session) + '&limit=8');
     if (!r.ok) return null;
     var d = await r.json();
     if (!d || !d.found || !(d.turns || []).length) return null;
     var turns = d.turns;                      // oldest→newest
     var latest = turns[turns.length - 1];
-    var latestSummary = '';
-    for (var i = turns.length - 1; i >= 0; i--) { if (turns[i].summary) { latestSummary = turns[i].summary; break; } }
-    return { latest: latest, latestSummary: latestSummary };
+    var done = null;
+    for (var i = turns.length - 1; i >= 0; i--) { if (!turns[i].open) { done = turns[i]; break; } }
+    return { latest: latest, done: done };
   }
   // Per-turn TIMELINE topic. Names what the turn ACCOMPLISHED (outcome, framed
   // by the user's intent) — NOT an incidental step. The old "naming what was
@@ -137,12 +142,11 @@
       body: JSON.stringify({ session: session, summaries: [{ uuid: uuid, summary: summary }] }),
     }).catch(function () {});
   }
-  // The IDEAL tab topic is the session's THROUGHLINE — the feature/problem area
-  // it keeps returning to — NOT the latest turn's incidental actions (which gave
-  // weak subtitles like "reading relevant code files"). Reuse mobile-cc-tabs'
-  // ✨ generator (window.ttvTagSuggest) — it already names the throughline from
-  // the session's recent USER REQUESTS — and fall back to our own call on the
-  // same /api/cc-tab-summary endpoint if that plugin isn't loaded.
+  // The THROUGHLINE — the feature/problem area the session keeps returning to —
+  // headlines the ⋮ menu (it's no longer a subtitle source). Reuse mobile-cc-
+  // tabs' ✨ generator (window.ttvTagSuggest) — it already names the throughline
+  // from the session's recent USER REQUESTS — and fall back to our own call on
+  // the same /api/cc-tab-summary endpoint if that plugin isn't loaded.
   var THROUGHLINE_SYS =
     'You write a SHORT label for a developer\'s Claude Code session tab, so they can tell tabs apart.\n' +
     'Reply with a 3-5 word lowercase gerund phrase naming the session\'s OVERALL throughline — the feature or\n' +
@@ -170,16 +174,32 @@
     return out.split(' ').slice(0, 5).join(' ').slice(0, 40);
   }
 
+  // Throughline cache for the ⋮-menu headline (in-memory, regenerated on open).
+  var thruCache = {};   // session → { text, ts }
+  var thruFetching = {};
+  var THRU_TTL_MS = 5 * 60 * 1000;
+  function ensureThroughline(session, cb) {
+    var t = thruCache[session];
+    if (t && (Date.now() - t.ts) < THRU_TTL_MS) { cb(t.text); return; }
+    if (!groqKey() || thruFetching[session]) { cb(t ? t.text : ''); return; }
+    thruFetching[session] = true;
+    genThroughline(session).then(function (s) {
+      thruFetching[session] = false;
+      if (s) thruCache[session] = { text: s, ts: Date.now() };
+      cb(s || (t ? t.text : ''));
+    }).catch(function () { thruFetching[session] = false; cb(t ? t.text : ''); });
+  }
+
   // Refresh a session's cached topic (and kick AI gen if needed). Cheap +
   // idempotent: a fresh cache short-circuits, and one fetch/gen is in flight
   // at a time per session.
   function ensureTopic(session, force) {
-    // Seed from the persisted throughline so the very first paint isn't raw —
-    // it survives reloads and Groq outages (#2).
+    // Seed from the persisted topic so the very first paint isn't blank — it
+    // survives reloads and Groq outages.
     if (!cache[session]) {
-      var st0 = storedThroughline(session);
-      cache[session] = { ts: 0, uuid: null, raw: '', summary: st0 ? st0.text : '', thruUuid: st0 ? st0.uuid : null, fallback: '', open: false };
-      if (st0) paintTags();      // show the persisted throughline immediately
+      var st0 = storedTopic(session);
+      cache[session] = { ts: 0, uuid: null, open: false, topic: st0 ? st0.text : '', topicUuid: st0 ? st0.uuid : null, raw: '' };
+      if (st0) paintTags();      // show the persisted topic immediately
     }
     var c = cache[session];
     if (!force && c.ts && (Date.now() - c.ts) < TTL_MS) return;
@@ -189,30 +209,34 @@
       fetching[session] = false;
       var prev = cache[session] || {};
       if (!h) { prev.ts = Date.now(); paintTags(); return; }
-      var t = h.latest;
-      // The throughline is session-level: KEEP showing the last one (in-memory
-      // or persisted) while a new one regenerates — never flip back to raw. The
-      // per-turn `fallback` covers the case where no throughline exists yet.
+      var done = h.done;          // newest COMPLETED turn (open turn deliberately skipped)
+      if (!done) {                // brand-new session with only an open turn — keep prev topic
+        prev.ts = Date.now(); prev.uuid = h.latest.uuid; prev.open = !!h.latest.open; paintTags(); return;
+      }
+      // Subtitle = newest completed turn. Use its server-cached summary if any;
+      // otherwise KEEP the previous topic (no flicker) and fall back to the raw
+      // prompt only when no topic ever existed.
       cache[session] = {
-        ts: Date.now(), uuid: t.uuid,
-        raw: trimRaw(t.user_text, 8, 44),
-        summary: prev.summary || '',
-        thruUuid: prev.thruUuid || null,
-        fallback: h.latestSummary || '',
-        open: !!t.open,
+        ts: Date.now(), uuid: h.latest.uuid, open: !!h.latest.open,
+        topic: done.summary || prev.topic || '',
+        topicUuid: done.summary ? done.uuid : (prev.topicUuid || null),
+        raw: trimRaw(done.user_text, 8, 44),
       };
       paintTags();
       var cc = cache[session];
-      var moved = cc.thruUuid !== t.uuid;     // throughline is for an older turn (or none)
-      var stale = t.open && (!genAt[session] || (Date.now() - genAt[session].ts) > OPEN_THROTTLE_MS);
-      if (groqKey() && (moved || !cc.summary || stale)) {
-        genAt[session] = { uuid: t.uuid, ts: Date.now() };
-        genThroughline(session).then(function (s) {
-          if (!s) return;
+      // Generate the newest completed turn's topic when it isn't summarized yet.
+      // Completed turns are immutable → summarize once per uuid (genAt guard).
+      if (groqKey() && cc.topicUuid !== done.uuid && genAt[session] !== done.uuid) {
+        genAt[session] = done.uuid;
+        genTurn(done.digest || done.user_text || '').then(function (s) {
+          if (!s) { genAt[session] = null; return; }
           var x = cache[session];
-          if (x && x.uuid === t.uuid) { x.summary = s; x.thruUuid = t.uuid; paintTags(); }
-          storeThroughline(session, t.uuid, s);     // persist (#2)
-        }).catch(function () {});
+          if (x) { x.topic = s; x.topicUuid = done.uuid; paintTags(); }
+          storeTopic(session, done.uuid, s);       // persist locally (server-synced)
+          putSummary(session, done.uuid, s);        // share with the Topics panel (completed → safe to cache)
+        }).catch(function () { genAt[session] = null; });
+      } else if (done.summary && cc.topicUuid === done.uuid) {
+        storeTopic(session, done.uuid, done.summary);   // persist the server-cached one too
       }
     }).catch(function () { fetching[session] = false; });
   }
@@ -224,14 +248,26 @@
       document.querySelectorAll('.ttvtab:not(.ttvtab-railbtn)'),
       function (t) { return !t.classList.contains('missing') && !t.classList.contains('ttvtab-add') && t.dataset.session; });
   }
+  // A manual custom label (set via the ⋮ menu "Subtitle…") is an OVERRIDE — when
+  // present it wins and we suppress the auto-topic. The native tab already
+  // renders the label into `.ttvtab-tag`, so we just leave it alone.
+  function manualLabel(session) {
+    try { if (typeof window.ttvTabsGetLabel === 'function') return (window.ttvTabsGetLabel(session) || '').trim(); } catch (_) {}
+    try { return ((tv.storage('ttyview-tabs').get('labels') || {})[session] || '').trim(); } catch (_) { return ''; }
+  }
   function paintTags() {
-    if (subtitleSource() !== 'topic' || !tallTabs()) return;
+    if (!tallTabs()) return;
     visibleTabs().forEach(function (t) {
       var session = t.dataset.session;
+      if (manualLabel(session)) {                  // override → native label wins; drop any stale injected topic marker
+        var mt = t.querySelector('.ttvtab-tag[data-mcc-topic="1"]');
+        if (mt) mt.removeAttribute('data-mcc-topic');
+        return;
+      }
       var c = cache[session];
-      if (!c) { ensureTopic(session); return; }   // no cache yet → fetch; leave native label as placeholder
-      var topic = displayTopic(c);                 // throughline → latest per-turn topic → raw
-      if (!topic) return;                          // no transcript → keep custom label fallback
+      if (!c) { ensureTopic(session); return; }    // no cache yet → fetch; leave native label as placeholder
+      var topic = displayTopic(c);                  // newest completed topic → raw prompt
+      if (!topic) return;                           // no transcript → keep native (empty / plain shell)
       var tag = t.querySelector('.ttvtab-tag');
       if (!tag) { tag = document.createElement('span'); tag.className = 'ttvtab-tag'; t.appendChild(tag); }
       t.classList.add('has-tag');
@@ -270,26 +306,22 @@
     txtEl.style.opacity = '1';
     if (open) txtEl.appendChild(el('span', 'color:#7aa2f7;font-size:10px;margin-left:6px;', '● open'));
   }
-  // The session topic the tab subtitle shows — used to headline the menu so the
-  // menu top stays IN SYNC with the tab subtitle (throughline → fallback → raw).
-  function currentTopic(session) {
-    return displayTopic(cache[session]);
-  }
-
-  // Headline the ⋮ menu with the session TOPIC (throughline) — same text as the
-  // tab subtitle — in the slot the (now-hidden) custom-label preview used to
-  // occupy, right under the session-name header. The per-turn timeline lives
-  // below in the "Recent topics" list.
+  // Headline the ⋮ menu with the session THROUGHLINE — what the session is
+  // broadly about — right under the session-name header, above the per-turn
+  // "Recent topics" timeline. Generated lazily on menu open; hidden when there's
+  // no throughline (no Groq key / no transcript) so the menu stays clean.
   function injectSessionTopic(menu, session) {
-    if (subtitleSource() !== 'topic' || !session) return;
+    if (!session) return;
     if (menu.querySelector('.mcc-menu-topic-head')) return;
-    var topic = currentTopic(session);
-    if (!topic) { ensureTopic(session); topic = 'summarizing…'; }
-    var line = el('div', 'padding:0 12px 8px;font-size:12px;line-height:1.4;color:var(--ttv-accent,#569cd6);white-space:normal;overflow-wrap:anywhere;', topic);
+    var line = el('div', 'padding:0 12px 8px;font-size:12px;line-height:1.4;color:var(--ttv-accent,#569cd6);white-space:normal;overflow-wrap:anywhere;', 'summarizing…');
     line.className = 'mcc-menu-topic-head';
     var header = menu.firstChild;   // tab-menu's session-name row
     if (header && header.nextSibling) menu.insertBefore(line, header.nextSibling);
     else menu.appendChild(line);
+    ensureThroughline(session, function (s) {
+      if (!s) { line.style.display = 'none'; return; }
+      line.textContent = s; line.title = s;
+    });
   }
 
   async function injectMenuTopics(menu) {
@@ -353,19 +385,6 @@
     if (b) pendingMenuSession = b.getAttribute('data-session') || '';
   }, true);
 
-  // In topic mode the per-tab custom label is dormant (the tab + Recent topics
-  // show the AI topic instead), so mobile-cc-tab-menu's "tap to edit subtitle"
-  // preview at the TOP of the ⋮ menu — which still shows that dormant label —
-  // reads as inconsistent ("why is the top different?"). Hide it while topic
-  // mode is on; it reappears in label mode and "Subtitle…" still edits it.
-  function hideDormantLabelPreview(menu) {
-    if (subtitleSource() !== 'topic') return;
-    try {
-      var prev = menu.querySelector('button[title="Tap to edit subtitle"]');
-      if (prev) prev.style.display = 'none';
-    } catch (_) {}
-  }
-
   // Watch document.body for the ⋮ popover to appear, then graft topics in.
   function startMenuObserver() {
     if (!document.body) { document.addEventListener('DOMContentLoaded', startMenuObserver, { once: true }); return; }
@@ -376,7 +395,6 @@
           for (var j = 0; j < added.length; j++) {
             var n = added[j];
             if (n.nodeType === 1 && n.id === 'mcc-tabmenu') {
-              hideDormantLabelPreview(n);
               injectSessionTopic(n, pendingMenuSession);
               injectMenuTopics(n);
             }
@@ -409,9 +427,8 @@
   tv.on('pane-changed', schedulePaint);
   tv.on('grid-loaded', schedulePaint);
 
-  // Periodically refresh topics for the visible sessions (only in topic mode).
+  // Periodically refresh topics for the visible sessions.
   setInterval(function () {
-    if (subtitleSource() !== 'topic') return;
     var seen = {};
     visibleTabs().forEach(function (t) { var s = t.dataset.session; if (s && !seen[s]) { seen[s] = 1; ensureTopic(s); } });
   }, TTL_MS);
@@ -424,54 +441,13 @@
       render: function (container) {
         container.innerHTML = '';
         var intro = el('p', 'color:var(--ttv-muted);font-size:12px;margin:0 0 16px;line-height:1.45;',
-          'Show each session\'s topic — a short AI label of what the session is about (the ' +
-          'feature or problem it keeps returning to, not the latest message) — on the tab ' +
-          'subtitle and at the top of the tab ⋮ menu. The menu also lists recent per-turn ' +
-          'topics. Summaries use your Groq key (Settings → Voice Input); without a key, the raw ' +
-          'latest prompt is shown.');
+          'Each session\'s tab subtitle shows its newest topic — a short AI label of what the ' +
+          'session just worked on (the most recent finished turn; an in-progress turn is skipped ' +
+          'so the subtitle never flickers). The tab ⋮ menu adds the session\'s overall throughline ' +
+          'plus a list of recent per-turn topics. Summaries use your Groq key (Settings → Voice ' +
+          'Input); without a key the latest prompt is shown. A subtitle you set yourself ' +
+          '(⋮ → Subtitle…) overrides the auto-topic.');
         container.appendChild(intro);
-
-        // Subtitle source — segmented control.
-        var srcWrap = el('div', 'margin-bottom:20px;');
-        srcWrap.appendChild(el('div', 'font-size:13px;color:var(--ttv-fg);margin-bottom:6px;', 'Subtitle source'));
-        var seg = el('div', 'display:flex;gap:6px;');
-        var srcHint = el('div', 'color:var(--ttv-muted);font-size:11px;margin-top:8px;');
-        var SRC = [
-          { id: 'label', label: 'Custom label', hint: 'The manual / ✨ subtitle you set per tab.' },
-          { id: 'topic', label: 'Session topic', hint: 'Auto: the session\'s throughline (what it keeps returning to), falling back to your custom label when a session has no transcript.' },
-        ];
-        function paintSeg() {
-          var cur = subtitleSource();
-          Array.prototype.forEach.call(seg.children, function (b) {
-            var on = b.dataset.src === cur;
-            b.style.background = on ? 'var(--ttv-accent,#569cd6)' : 'var(--ttv-bg-elev2,#2d2d30)';
-            b.style.color = on ? '#1e1e1e' : 'var(--ttv-fg)';
-            b.style.borderColor = on ? 'var(--ttv-accent,#569cd6)' : 'var(--ttv-border,#3a3a3a)';
-          });
-          var m = SRC.filter(function (x) { return x.id === cur; })[0];
-          srcHint.textContent = m ? m.hint : '';
-        }
-        SRC.forEach(function (m) {
-          var b = el('button', 'flex:1;min-width:0;height:38px;font-size:13px;border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;cursor:pointer;', m.label);
-          b.type = 'button'; b.tabIndex = -1; b.dataset.src = m.id;
-          b.addEventListener('mousedown', function (e) { e.preventDefault(); });
-          b.addEventListener('click', function () {
-            SELF.set('subtitleSource', m.id);
-            paintSeg();
-            if (m.id === 'topic') {
-              visibleTabs().forEach(function (t) { ensureTopic(t.dataset.session, true); });
-              schedulePaint();
-            } else {
-              // Restore native (label) rendering by forcing a full tab re-render.
-              try { tv.refreshPanes(); } catch (_) {}
-            }
-          });
-          seg.appendChild(b);
-        });
-        srcWrap.appendChild(seg);
-        srcWrap.appendChild(srcHint);
-        container.appendChild(srcWrap);
-        paintSeg();
 
         // Toggle: topics in the ⋮ menu.
         var tRow = el('label', 'display:flex;align-items:center;gap:10px;color:var(--ttv-fg);font-size:14px;cursor:pointer;');
@@ -483,7 +459,7 @@
         container.appendChild(tRow);
 
         var note = el('div', 'color:var(--ttv-muted);font-size:11px;margin-top:8px;',
-          'Topics come from your Claude Code transcripts (active session only). Plain shells with no transcript keep their custom subtitle.');
+          'Topics come from your Claude Code transcripts. Plain shells with no transcript keep their custom subtitle.');
         container.appendChild(note);
       },
     });
