@@ -372,6 +372,16 @@
       "description": "Click the terminal to focus the Message box, with a brief focus-pulse. Desktop-mouse only. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-draft",
+      "name": "Draft Keeper",
+      "kind": "internal",
+      "source": "mobile-cc-draft.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Persists a typed-but-unsent Message across reloads/restarts: saves the input per-session to localStorage (debounced), restores into an empty box, clears on confirmed send. Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-toolbar",
       "name": "Toolbar",
       "kind": "headerWidget",
