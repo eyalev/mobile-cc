@@ -29,7 +29,7 @@ https://github.com/user-attachments/assets/86d46f43-d205-4206-997f-3b83387026b9
 
 The comprehensive tabs+projects workflow: projects as tab groups, open new tabs (blank / Claude / Claude in a project), create a new project, and MOVE a tab between projects (live regroup, no reload). Captured against the fixed move-to-project UX.
 
-https://github.com/user-attachments/assets/e615757d-d60f-4d40-95a7-50c7626668b7
+https://github.com/user-attachments/assets/9cad0dcc-be7b-4960-8540-41d5c0f6e13c
 
 [recipe](workflows/tabs-projects.mjs)
 
