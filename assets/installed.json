@@ -402,6 +402,16 @@
       "description": "Mobile entry button + mobile overlay restyle + populated zero-arg commands (Go to <session>, Run <chip>, scrollback/font). Slice 1 of the act-bar. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-scroll-memory",
+      "name": "Scroll memory",
+      "kind": "internal",
+      "source": "mobile-cc-scroll-memory.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Keeps the terminal pinned to the tail across reload — re-asserts bottom after auto-fit + deep-scrollback reflow (gesture-guarded, follow-mode panes only). Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-toolbar",
       "name": "Toolbar",
       "kind": "headerWidget",
