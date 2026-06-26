@@ -53,10 +53,62 @@
   }
   function setCols(n) {
     try { localStorage.setItem(COLS_KEY, String(n)); } catch (_) {}
-    refit();
+    applyAppFrame();   // resize the centered app column to the new cap…
+    refit();           // …then re-fit the terminal into it
     // centerGrid runs inside autoFit; give it a beat, then realign chrome.
     setTimeout(syncChrome, 60);
     setTimeout(syncChrome, 320);
+  }
+
+  // ── Center the WHOLE app as one column ────────────────────────────
+  // Per-band padding (syncChrome) lines the composer/tabs up WITH the
+  // terminal, but the header, top-bar and the band backgrounds still run
+  // edge-to-edge. To make the entire desktop view read as one centered
+  // app, cap the <body> width to the terminal column and center it — the
+  // header, terminal, composer and tab rows then move together, with the
+  // page background showing on either side (phone-app-in-a-frame look).
+  // Width tracks the SAME ttv-max-cols cap; cap 0 ("Full width") = no cap.
+  var GRID_BASE_HPAD = 6;       // mirror of ttyview-core's #grid-host base
+  var SCROLLBAR_ALLOW = 16;     // room for the terminal's vertical scrollbar
+  var _cw14 = 0;                // cached monospace char width at 14px
+  function charWidth14() {
+    if (_cw14 > 0) return _cw14;
+    try {
+      var probe = document.createElement('span');
+      probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;' +
+        "font-family:'JetBrains Mono','Cascadia Code','Fira Code',Menlo,Consolas,monospace;font-size:14px";
+      probe.textContent = 'M'.repeat(40);
+      document.body.appendChild(probe);
+      _cw14 = probe.getBoundingClientRect().width / 40;
+      probe.remove();
+    } catch (_) { _cw14 = 8.4; }
+    return _cw14 || 8.4;
+  }
+  function columnWidthPx(cols) {
+    return Math.round(cols * charWidth14()) + 2 * GRID_BASE_HPAD + SCROLLBAR_ALLOW;
+  }
+  function applyAppFrame() {
+    var b = document.body;
+    if (!b) return;
+    var cap = getCols();
+    var w = cap > 0 ? columnWidthPx(cap) : 0;
+    // Only frame when the viewport is genuinely wider than the column
+    // (desktop). On a phone the cap never binds, so leave it full-bleed.
+    if (cap > 0 && window.innerWidth > w + 24) {
+      b.style.maxWidth = w + 'px';
+      b.style.marginLeft = 'auto';
+      b.style.marginRight = 'auto';
+      // A thin rule on each side delineates the centered column without a
+      // jarring colour change (html + body share --ttv-bg).
+      b.style.borderLeft = '1px solid var(--ttv-border)';
+      b.style.borderRight = '1px solid var(--ttv-border)';
+    } else {
+      b.style.maxWidth = '';
+      b.style.marginLeft = '';
+      b.style.marginRight = '';
+      b.style.borderLeft = '';
+      b.style.borderRight = '';
+    }
   }
 
   // Re-run core's fit/center by clicking the existing #font-fit control
@@ -101,15 +153,18 @@
       var mo = new MutationObserver(function () { syncChrome(); });
       mo.observe(h, { attributes: true, attributeFilter: ['style'] });
     } catch (_) {}
-    window.addEventListener('resize', function () { setTimeout(syncChrome, 80); });
+    window.addEventListener('resize', function () {
+      setTimeout(function () { applyAppFrame(); syncChrome(); }, 80);
+    });
     try { tv.on('grid-loaded', function () { setTimeout(syncChrome, 80); }); } catch (_) {}
     try { tv.on('pane-changed', function () { setTimeout(syncChrome, 80); }); } catch (_) {}
+    applyAppFrame();
     syncChrome();
   }
   startSync();
   // Belt-and-suspenders: re-fit shortly after boot so the seeded cap
   // lands even if the first autoFit ran before this plugin evaluated.
-  setTimeout(function () { refit(); syncChrome(); }, 1600);
+  setTimeout(function () { applyAppFrame(); refit(); syncChrome(); }, 1600);
 
   // ── 4) submit diagnostics ─────────────────────────────────────────
   var BOOT = Date.now();
