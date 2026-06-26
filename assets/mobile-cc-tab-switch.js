@@ -91,11 +91,21 @@
     return { panes: panes, by: by };
   }
 
-  // Positional: pinned tab-bar order first (from the ttyview-tabs plugin),
-  // then any unpinned live panes in listPanes order. Matches what the user
-  // sees in the tab bar.
-  function positionalList() {
-    var lv = liveBySession();
+  // Which tab set the bar is currently SHOWING. ttyview-tabs has three view
+  // modes (rail icons): 'pinned' (default), 'all', 'recent'. The positional
+  // cycle follows whichever is on screen — so when you're in the 🕘 recent
+  // view, switching walks the recent tabs, not the pinned ones.
+  function tabsMode() {
+    try {
+      var s = tv.storage('ttyview-tabs').get('settings');
+      var m = s && s.mode;
+      return (m === 'all' || m === 'recent') ? m : 'pinned';
+    } catch (_) { return 'pinned'; }
+  }
+
+  // Pinned order first (from the ttyview-tabs plugin), then any unpinned live
+  // panes — what 'pinned' view shows.
+  function pinnedList(lv) {
     var out = [], seen = {};
     try {
       var pins = tv.storage('ttyview-tabs').get('pins');
@@ -112,8 +122,46 @@
     return out;
   }
 
+  // Replicates ttyview-tabs.liveRecents(panes, false) — the order the 🕘
+  // recent view renders: stored `recents` (MRU, live only) first, then every
+  // never-visited live session alphabetically. Reads the SAME `recents`
+  // storage the tab bar does, so the cycle matches the view exactly.
+  function recentList(lv) {
+    var out = [], seen = {};
+    try {
+      var rec = tv.storage('ttyview-tabs').get('recents');
+      if (Array.isArray(rec)) rec.forEach(function (s) {
+        if (s && lv.by[s] && !seen[s]) { out.push(lv.by[s]); seen[s] = true; }
+      });
+    } catch (_) {}
+    var rest = [];
+    lv.panes.forEach(function (p) {
+      if (p && p.session && !seen[p.session]) { seen[p.session] = true; rest.push(p); }
+    });
+    rest.sort(function (a, b) { return String(a.session).localeCompare(String(b.session)); });
+    return out.concat(rest);
+  }
+
+  // Every live pane, listPanes order — what 'all' view shows.
+  function allList(lv) {
+    var out = [], seen = {};
+    lv.panes.forEach(function (p) {
+      if (p && p.session && !seen[p.session]) { out.push(p); seen[p.session] = true; }
+    });
+    return out;
+  }
+
+  // The cycle list for positional mode = the currently-shown tab set/order.
+  function viewList() {
+    var lv = liveBySession();
+    var m = tabsMode();
+    if (m === 'recent') return recentList(lv);
+    if (m === 'all') return allList(lv);
+    return pinnedList(lv);
+  }
+
   function switchPositional(dir) {
-    var list = positionalList();
+    var list = viewList();
     if (list.length < 2) return;
     var cur = tv.getActivePane && tv.getActivePane();
     var i = -1;
@@ -266,7 +314,7 @@
         container.appendChild(segmented(
           'Cycle order',
           [
-            { val: 'positional', label: 'Positional', hint: 'Walk the pinned tab order, left to right.' },
+            { val: 'positional', label: 'Positional', hint: 'Walk the tabs currently shown in the bar, in order — pinned, all, or recent view.' },
             { val: 'mru', label: 'Recent (MRU)', hint: 'Hold the modifier and tap to walk the recently-used stack; release to land — like Alt-Tab.' },
           ],
           function () { return cfg().order; },
