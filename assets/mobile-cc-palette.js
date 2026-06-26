@@ -135,6 +135,21 @@
     },
   });
 
+  // Discoverable theme switch. Dark is the DEFAULT (deactivated) theme, so
+  // core only exposes it as "Theme: deactivate (use defaults)" — searching
+  // "dark" finds nothing. Register a plain "Theme: Dark" with keywords so the
+  // obvious search works. (Light is a registered theme → core already lists it.)
+  tv.contributes.command({
+    id: 'mcc.theme.dark',
+    name: 'Theme: Dark',
+    group: 'Appearance',
+    keywords: ['dark', 'default', 'night', 'theme'],
+    handler: function () {
+      try { tv._internal.setActiveThemeId(null); }
+      catch (e) { tv.toast && tv.toast('Could not switch theme'); }
+    },
+  });
+
   tv.contributes.command({ id: 'mcc.font.fit',  name: 'Fit terminal to width', handler: function () { clickById('font-fit'); } });
   tv.contributes.command({ id: 'mcc.font.up',   name: 'Font: bigger',          handler: function () { clickById('font-up'); } });
   tv.contributes.command({ id: 'mcc.font.down', name: 'Font: smaller',         handler: function () { clickById('font-down'); } });
