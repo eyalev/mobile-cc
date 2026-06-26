@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d
 
 The day-in-the-life flow: open this morning's session, compose a reply (one-tap command chips above the box), spin up a second workspace, get a 'needs you' status dot on a session waiting at a permission prompt, jump to it, and use the pane picker to find any session. Near-fresh → juggling multiple tabs. Linked from demos/README.md (not the README hero yet).
 
-https://github.com/user-attachments/assets/e6dac409-aaa4-4aa8-9d3e-420e92ab2ad4
+https://github.com/user-attachments/assets/9624b49f-8e7d-4fc6-b074-0007183ba074
 
 [recipe](workflows/day-in-the-life.mjs)
 
@@ -29,7 +29,7 @@ https://github.com/user-attachments/assets/e6dac409-aaa4-4aa8-9d3e-420e92ab2ad4
 
 The comprehensive tabs+projects workflow: projects as tab groups, open new tabs (blank / Claude / Claude in a project), create a new project, and MOVE a tab between projects (live regroup, no reload). Captured against the fixed move-to-project UX.
 
-https://github.com/user-attachments/assets/aae96d9d-ba1b-47e2-905c-3a5883c4a9de
+https://github.com/user-attachments/assets/9f8c6d17-641b-45c0-9ec4-1fd7cb963c99
 
 [recipe](workflows/tabs-projects.mjs)
 
@@ -39,7 +39,7 @@ https://github.com/user-attachments/assets/aae96d9d-ba1b-47e2-905c-3a5883c4a9de
 
 Start in the api project, tap the docs project's tab, land on it — the project-grouped tab rail in action. Captured, not README-linked (yet).
 
-https://github.com/user-attachments/assets/4bcd7795-0792-4bff-8233-05951f6a9a13
+https://github.com/user-attachments/assets/5a053db6-67fb-4496-9669-52252a719715
 
 [recipe](workflows/tab-switch.mjs)
 
@@ -49,7 +49,7 @@ https://github.com/user-attachments/assets/4bcd7795-0792-4bff-8233-05951f6a9a13
 
 Open the pane picker (Recent + project groups + ＋ New session) and jump to a session. Captured, not README-linked (yet).
 
-https://github.com/user-attachments/assets/09141834-db2d-43e9-92fc-619721baa454
+https://github.com/user-attachments/assets/dc368f44-9a2e-48c1-922a-f8f3c35c4240
 
 [recipe](workflows/pane-picker.mjs)
 
@@ -69,7 +69,7 @@ https://github.com/user-attachments/assets/9be436c2-2e43-4ffd-86f7-a6ec36a337a3
 
 Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.
 
-https://github.com/user-attachments/assets/fc61c347-5ccf-438d-933c-b3b69e075913
+https://github.com/user-attachments/assets/87d28a56-c2da-47a0-871e-c29e6c098414
 
 [recipe](workflows/new-session.mjs)
 
