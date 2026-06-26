@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/20722bea-3965-4ef9-8d72-68dbd8a2ed1d
 
 The day-in-the-life flow: open this morning's session, compose a reply (one-tap command chips above the box), spin up a second workspace, get a 'needs you' status dot on a session waiting at a permission prompt, jump to it, and use the pane picker to find any session. Near-fresh → juggling multiple tabs. Linked from demos/README.md (not the README hero yet).
 
-https://github.com/user-attachments/assets/9624b49f-8e7d-4fc6-b074-0007183ba074
+https://github.com/user-attachments/assets/86d46f43-d205-4206-997f-3b83387026b9
 
 [recipe](workflows/day-in-the-life.mjs)
 
@@ -69,7 +69,7 @@ https://github.com/user-attachments/assets/9be436c2-2e43-4ffd-86f7-a6ec36a337a3
 
 Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.
 
-https://github.com/user-attachments/assets/87d28a56-c2da-47a0-871e-c29e6c098414
+https://github.com/user-attachments/assets/a1a18d5e-d1bf-4c9e-8f44-b868fedd7a01
 
 [recipe](workflows/new-session.mjs)
 

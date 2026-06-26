@@ -19,7 +19,7 @@
       "description": "The day-in-the-life flow: open this morning's session, compose a reply (one-tap command chips above the box), spin up a second workspace, get a 'needs you' status dot on a session waiting at a permission prompt, jump to it, and use the pane picker to find any session. Near-fresh → juggling multiple tabs. Linked from demos/README.md (not the README hero yet).",
       "media": "day",
       "profile": "day-start",
-      "attachment_url": "https://github.com/user-attachments/assets/9624b49f-8e7d-4fc6-b074-0007183ba074"
+      "attachment_url": "https://github.com/user-attachments/assets/86d46f43-d205-4206-997f-3b83387026b9"
     },
     {
       "id": "tabs-projects",
@@ -64,7 +64,7 @@
       "description": "Tap ＋ on the tab rail → the three-way new-session menu → create a bare shell, a new tab appears. Captured, not README-linked.",
       "media": "new-session",
       "profile": "multi-project",
-      "attachment_url": "https://github.com/user-attachments/assets/87d28a56-c2da-47a0-871e-c29e6c098414"
+      "attachment_url": "https://github.com/user-attachments/assets/a1a18d5e-d1bf-4c9e-8f44-b868fedd7a01"
     },
     {
       "id": "paste-flow",
