@@ -112,6 +112,16 @@
       "description": "Header disclosure popover to set terminal height by resizing the tmux pane's row count (own-WS resize); groups relocated font controls + Rows −/+/reset. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-width",
+      "name": "Desktop Width",
+      "kind": "settingsTab",
+      "source": "mobile-cc-width.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Comfortable adjustable centered terminal width on desktop (default 90 cols) + composer/tab alignment + submit-path diagnostics. Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-pinch-zoom",
       "name": "Pinch Zoom",
       "kind": "settingsTab",
