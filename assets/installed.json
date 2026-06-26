@@ -402,6 +402,16 @@
       "description": "Mobile entry button + mobile overlay restyle + populated zero-arg commands (Go to <session>, Run <chip>, scrollback/font). Slice 1 of the act-bar. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-act",
+      "name": "Ask AI",
+      "kind": "internal",
+      "source": "mobile-cc-act.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "NL command router (Ask AI…) — Groq llama-3.3-70b browser-direct, reuses STT key. Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-scroll-memory",
       "name": "Scroll memory",
       "kind": "internal",
