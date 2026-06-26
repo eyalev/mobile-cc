@@ -350,6 +350,26 @@
       "enabled": true,
       "installed_at": 0,
       "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "mobile-cc-light",
+      "name": "Light",
+      "kind": "theme",
+      "source": "mobile-cc-light-theme.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Bundled in mobile-cc."
+    },
+    {
+      "id": "mobile-cc-toolbar",
+      "name": "Toolbar",
+      "kind": "headerWidget",
+      "source": "mobile-cc-toolbar.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Declutters the top bar: an ⋯ expand button collapses secondary controls into a dropdown; Settings → Toolbar chooses which stay pinned (default: pane picker + settings). Internal to mobile-cc."
     }
   ]
 }

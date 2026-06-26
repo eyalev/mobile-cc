@@ -127,7 +127,15 @@
         btn.type = 'button';
         btn.tabIndex = -1;                 // not focusable → tap keeps textarea focus
         btn.textContent = k.label || k.keys;
-        btn.title = k.keys;
+        // a11y: announce the human label, NOT the raw escape sequence (a screen
+        // reader would read "\x1b[A" as "escape bracket A"). Tooltip = same label.
+        var human = k.label || k.keys;
+        btn.setAttribute('aria-label', human);
+        btn.title = human;
+        // Touch target: guarantee ≥36px tall / ≥40px wide regardless of the
+        // inherited accessory-button style (WCAG 2.5.5).
+        btn.style.minHeight = '36px';
+        btn.style.minWidth = '40px';
         btn.addEventListener('pointerup', function (e) {
           if (e.button !== undefined && e.button !== 0) return;  // ignore right/middle
           if (typeof window.ttvDiag === 'function') {
@@ -231,8 +239,9 @@
           del.type = 'button';
           del.textContent = '✕';
           del.title = 'Remove';
+          del.setAttribute('aria-label', 'Remove quick key');
           del.style.cssText =
-            'flex:none;width:32px;height:32px;border:1px solid var(--ttv-border,#3a3a3a);' +
+            'flex:none;width:40px;height:40px;border:1px solid var(--ttv-border,#3a3a3a);' +
             'border-radius:6px;background:transparent;color:var(--ttv-muted);' +
             'font-size:14px;cursor:pointer;';
           del.addEventListener('click', function () {
@@ -263,7 +272,7 @@
       add.textContent = '+ Add key';
       add.style.cssText =
         'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#E8896B);border-radius:6px;' +
-        'background:transparent;color:var(--ttv-rail-accent,#E8896B);font-size:13px;' +
+        'background:transparent;color:var(--ttv-rail-accent-text,#E8896B);font-size:13px;' +
         'font-weight:600;cursor:pointer;font-family:inherit;';
       add.addEventListener('click', function () {
         var list = load();

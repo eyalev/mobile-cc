@@ -131,7 +131,7 @@
     t.style.cssText =
       'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:1200;' +
       'background:#7a2230;color:#fff;border:1px solid #a83b4a;border-radius:8px;' +
-      'padding:8px 12px;font-size:13px;max-width:80vw;box-shadow:0 6px 24px rgba(0,0,0,.5);';
+      'padding:8px 12px;font-size:13px;max-width:80vw;box-shadow:0 6px 24px var(--ttv-shadow);';
     document.body.appendChild(t);
     setTimeout(function () { t.remove(); }, 4000);
   }
@@ -144,7 +144,7 @@
     b.textContent = label;
     if (title) b.title = title;
     b.style.cssText =
-      'min-width:34px;height:32px;padding:0 10px;border:1px solid var(--ttv-border,#3a3a3a);' +
+      'min-width:34px;height:32px;padding:0 10px;border:1px solid var(--ttv-border,var(--ttv-border));' +
       'border-radius:6px;background:transparent;color:var(--ttv-fg);font-size:14px;' +
       'cursor:pointer;font-family:inherit;line-height:1;';
     b.addEventListener('click', onTap);
@@ -172,7 +172,7 @@
     s.textContent = sub;
     s.style.cssText = 'font-size:11px;color:var(--ttv-muted);margin-top:2px;';
     b.appendChild(t); b.appendChild(s);
-    b.addEventListener('mouseenter', function () { b.style.background = 'var(--ttv-bg-elev2,#2d2d30)'; });
+    b.addEventListener('mouseenter', function () { b.style.background = 'var(--ttv-bg-elev2,var(--ttv-control-bg))'; });
     b.addEventListener('mouseleave', function () { b.style.background = 'transparent'; });
     b.addEventListener('mousedown', function (e) { e.preventDefault(); });
     b.addEventListener('click', onTap);
@@ -183,8 +183,8 @@
     menu.id = 'mcc-newtab-menu';
     menu.style.cssText =
       'position:fixed;z-index:1000;min-width:230px;' +
-      'background:var(--ttv-bg-elev,#252526);border:1px solid var(--ttv-border,#3a3a3a);' +
-      'border-radius:8px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);';
+      'background:var(--ttv-bg-elev,var(--ttv-panel-bg));border:1px solid var(--ttv-border,var(--ttv-border));' +
+      'border-radius:8px;padding:6px;box-shadow:0 6px 24px var(--ttv-shadow);';
     menu.appendChild(menuItem('Blank tab', 'A bare shell', function () {
       closeMenu(); createTab({ name: ungroupedName('tab'), runClaude: false });
     }));
@@ -221,12 +221,12 @@
   function openProjectDialog() {
     var overlay = document.createElement('div');
     overlay.style.cssText =
-      'position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.5);' +
+      'position:fixed;inset:0;z-index:1100;background:var(--ttv-scrim);' +
       'display:flex;align-items:flex-start;justify-content:center;padding:48px 12px;';
     var modal = document.createElement('div');
     modal.style.cssText =
-      'background:var(--ttv-bg-elev,#252526);border:1px solid var(--ttv-border,#3a3a3a);' +
-      'border-radius:10px;padding:16px;width:min(420px,92vw);box-shadow:0 8px 32px rgba(0,0,0,.5);';
+      'background:var(--ttv-bg-elev,var(--ttv-panel-bg));border:1px solid var(--ttv-border,var(--ttv-border));' +
+      'border-radius:10px;padding:16px;width:min(420px,92vw);box-shadow:0 8px 32px var(--ttv-shadow);';
     var h = document.createElement('h3');
     h.textContent = 'Claude in project';
     h.style.cssText = 'margin:0 0 12px;font-size:16px;color:var(--ttv-fg);';
@@ -243,8 +243,8 @@
       inp.placeholder = placeholder || '';
       inp.autocapitalize = 'off'; inp.autocomplete = 'off'; inp.spellcheck = false;
       inp.style.cssText =
-        'width:100%;box-sizing:border-box;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);' +
-        'border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+        'width:100%;box-sizing:border-box;background:var(--ttv-bg,var(--ttv-bg));color:var(--ttv-fg);' +
+        'border:1px solid var(--ttv-border,var(--ttv-border));border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
       wrap.appendChild(lbl); wrap.appendChild(inp);
       modal.appendChild(wrap);
       return inp;
@@ -262,7 +262,7 @@
         chip.textContent = basename(d);
         chip.title = d;
         chip.style.cssText =
-          'border:1px solid var(--ttv-border,#3a3a3a);border-radius:999px;background:transparent;' +
+          'border:1px solid var(--ttv-border,var(--ttv-border));border-radius:999px;background:transparent;' +
           'color:var(--ttv-muted);font-size:12px;padding:3px 10px;cursor:pointer;';
         chip.addEventListener('mousedown', function (e) { e.preventDefault(); });
         chip.addEventListener('click', function () { folderInp.value = d; });
@@ -290,7 +290,7 @@
       close();
       createTab({ name: name, cwd: cwd, runClaude: true, pin: true });
     });
-    create.style.background = 'var(--ttv-accent,#569cd6)';
+    create.style.background = 'var(--ttv-accent,var(--ttv-accent))';
     create.style.color = '#fff';
     create.style.borderColor = 'transparent';
     row.appendChild(cancel); row.appendChild(create);
@@ -324,7 +324,7 @@
     btn.title = 'New tab';
     btn.setAttribute('aria-label', 'New tab');
     btn.innerHTML = PLUS_SVG;
-    btn.style.color = 'var(--ttv-rail-accent, var(--ttv-accent, #569cd6))';
+    btn.style.color = 'var(--ttv-rail-accent, var(--ttv-accent, var(--ttv-accent)))';
     btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -379,8 +379,8 @@
       inp.placeholder = DEFAULT_CMD;
       inp.autocapitalize = 'off'; inp.autocomplete = 'off'; inp.spellcheck = false;
       inp.style.cssText =
-        'width:100%;box-sizing:border-box;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);' +
-        'border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+        'width:100%;box-sizing:border-box;background:var(--ttv-bg,var(--ttv-bg));color:var(--ttv-fg);' +
+        'border:1px solid var(--ttv-border,var(--ttv-border));border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
       inp.addEventListener('change', function () {
         var v = inp.value.trim();
         STORE.set('command', v || DEFAULT_CMD);

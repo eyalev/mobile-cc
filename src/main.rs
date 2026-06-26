@@ -113,6 +113,9 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("ttyview-session-manager.js", include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-session-manager.js")),
     ("ttyview-terminal-green.js",  include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-terminal-green.js")),
     ("ttyview-live-sync.js",       include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-live-sync.js")),
+    ("mobile-cc-light-theme.js",   include_bytes!("../assets/mobile-cc-light-theme.js")),
+    // toolbar LAST so its runtime discovery sees every other header-widget plugin.
+    ("mobile-cc-toolbar.js",       include_bytes!("../assets/mobile-cc-toolbar.js")),
 ];
 
 /// PWA assets baked into the binary and served by ttyview-core at
