@@ -204,7 +204,7 @@
     {
       "id": "mobile-cc-prompt-nav",
       "name": "Prompt Nav",
-      "kind": "internal",
+      "kind": "headerWidget",
       "source": "mobile-cc-prompt-nav.js",
       "version": "0.1.0",
       "enabled": true,
