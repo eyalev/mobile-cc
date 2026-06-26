@@ -126,6 +126,40 @@
     }
   } catch (_) {}
 
+  // ── 1b) desktop-readable tab cards + subtitles ────────────────────
+  // ttyview-tabs.js sizes the tab grid for a phone: under mobile-cc's
+  // tall-tabs, cards are 44px with a 13px name and an 11px subtitle (the
+  // `.ttvtab-tag` second line, e.g. "coordinating mcc swarm"). On the wide
+  // CENTERED desktop column those read tiny. Rather than edit the shared
+  // core file (ttyview-tabs.js is also used by ttyview/panel/tmux-web and
+  // is hot with sibling edits), mobile-cc layers a DESKTOP-ONLY override:
+  //   • viewport breakpoint @min-width:768px → enlarge card / name / tag.
+  //     Viewport-based, so a narrow phone (≤767px) keeps the compact
+  //     sizing untouched — no mobile regression.
+  //   • a modest GLOBAL subtitle bump (11→12px) + better contrast (muted →
+  //     fg, non-active only so the active-tab accent is preserved) — the
+  //     subtitle was the least legible element; this helps phone too.
+  // `html body…` adds specificity so the override wins regardless of plugin
+  // load order vs ttyview-tabs.js.
+  (function injectTabCss() {
+    if (document.getElementById('mcc-tab-size-css')) return;
+    var s = document.createElement('style');
+    s.id = 'mcc-tab-size-css';
+    s.textContent = [
+      // global subtitle: a touch bigger + readable contrast (non-active)
+      'html body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{font-size:12px;line-height:15px;}',
+      'html body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn):not(.active) .ttvtab-tag{color:var(--ttv-fg);opacity:0.72;}',
+      // desktop: enlarge cards + name + subtitle for the wide centered column
+      '@media (min-width:768px){',
+      '  html body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn){min-height:52px;padding:0 12px;}',
+      '  html body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .ttvtab-label,',
+      '  html body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn).has-tag .ttvtab-label{font-size:16px;line-height:19px;}',
+      '  html body.ttv-tall-tabs .ttvtab:not(.ttvtab-railbtn) .ttvtab-tag{font-size:14px;line-height:17px;}',
+      '}',
+    ].join('');
+    (document.head || document.documentElement).appendChild(s);
+  })();
+
   // ── 3) mirror the terminal column onto composer + accessory ───────
   function host() { return document.getElementById('grid-host'); }
   function syncChrome() {
