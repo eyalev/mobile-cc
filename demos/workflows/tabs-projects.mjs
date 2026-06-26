@@ -58,15 +58,15 @@ export default {
 
     // 4) NEW TAB — make a blank one (deterministic); a new tab appears.
     await ctx.tap(() =>[...document.querySelectorAll('#mcc-newtab-menu button')].find(b => /Blank tab/.test(b.textContent || '')));
-    await ctx.idle(1800);
+    await ctx.idle(2400);
     await ctx.recordStep('blank tab created');
 
     // 5) CREATE A PROJECT — ＋ → "Claude in project…" → point at a folder →
     //    Create. A new project group appears on the rail.
     await ctx.tap(() =>document.getElementById('mcc-newtab-railbtn'));
-    await ctx.idle(700);
+    await ctx.idle(1300);
     await ctx.tap(() =>[...document.querySelectorAll('#mcc-newtab-menu button')].find(b => /Claude in project/.test(b.textContent || '')));
-    await ctx.idle(900);
+    await ctx.idle(1400);
     await page.evaluate((dir) => {
       const inp = [...document.querySelectorAll('input[type=text]')].find(i => /project folder|absolute path|\/home\/you/i.test(i.placeholder || ''));
       if (!inp) throw new Error('project folder input not found');
@@ -74,7 +74,7 @@ export default {
       inp.dispatchEvent(new Event('input', { bubbles: true }));
     }, NEW_PROJECT_DIR);
     await ctx.recordStep('Claude in a new project folder');
-    await ctx.idle(900);
+    await ctx.idle(1400);
     await ctx.tap(() => { const m = [...document.querySelectorAll('div')].find(d => { const h = d.querySelector(':scope > h3'); return h && /Claude in project/.test(h.textContent || ''); }); return m ? [...m.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Create') : null; });
     await ctx.idle(1600);
     // Switch back to the seeded CC session so the active pane stays the api CC
@@ -82,7 +82,7 @@ export default {
     // selectPane(payments) has already fired (~0.2s), so this switch HOLDS (no
     // late override) and the new project's pane stays off-screen.
     await page.evaluate(() => { const p = window.ttyview.listPanes().find(x => x.session === 'api-claude1'); if (p) window.ttyview.selectPane(p.id); });
-    await ctx.idle(1500); // fast-path: the new session + its auto-pin group are already live
+    await ctx.idle(2600); // hold so the auto-pinned project group clearly registers
     await ctx.recordStep('new "payments" project on the rail');
 
     // 6) SURVEY — several projects at once (poster frame). Bring the new,
@@ -95,15 +95,15 @@ export default {
     });
     await ctx.idle(800);
     await ctx.stillSnapshot('hero-still');
-    await ctx.idle(1200);
+    await ctx.idle(2200);
     await ctx.recordStep('juggling several projects');
 
     // 7) MOVE A TAB BETWEEN PROJECTS — ⋮ on an api tab → Move to project → docs.
     //    Regroups LIVE (no reload — the headline fix).
     await ctx.tap(() => [...document.querySelectorAll('button.mcc-tabmenu-btn[data-session="api-claude2"]')].find(b => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < window.innerHeight; }));
-    await ctx.idle(900);
+    await ctx.idle(1300);
     await ctx.tap(() =>[...document.querySelectorAll('#mcc-tabmenu button')].find(b => /Move to project/.test(b.textContent || '')));
-    await ctx.idle(1100);
+    await ctx.idle(1500);
     await ctx.recordStep('Move to project → pick a project');
     await ctx.tap(() => { const m = [...document.querySelectorAll('div')].find(d => { const h = d.querySelector(':scope > h3'); return h && /^Move "/.test(h.textContent || ''); }); return m ? [...m.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'docs') : null; });
     // The rename fast-path (reconcile_now) reflects the new session name in

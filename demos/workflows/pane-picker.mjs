@@ -18,7 +18,7 @@ export default {
 
     // Open the picker (same effect as tapping the picker-open control).
     await ctx.page.evaluate(() => window.ttyview.openPanePicker());
-    await ctx.idle(1400);
+    await ctx.idle(1700);
     await ctx.recordStep('picker open');
 
     // Hero still — the chooser with Recent + project groups.
@@ -33,7 +33,7 @@ export default {
       return el ? el.closest('[data-pane-id],li,button,[role=option],[class*=item]') || el : null;
     });
     await ctx.recordStep('picked docs-claude1');
-    await ctx.idle(1600);
+    await ctx.idle(2600);
     await ctx.recordStep('on docs-claude1');
   },
 

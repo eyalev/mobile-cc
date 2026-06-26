@@ -19,7 +19,7 @@ export default {
     // Tap the ＋ rail button (ctx.tap marks + fires the real tap; it's in the
     // fixed bottom bar Playwright won't auto-scroll).
     await ctx.tap(() => document.getElementById('mcc-newtab-railbtn'));
-    await ctx.idle(1200);
+    await ctx.idle(1500);
     await ctx.recordStep('new-session menu');
 
     // Hero still — the three creation options.
@@ -27,7 +27,7 @@ export default {
 
     // Create a bare shell (the menu option is a <button>).
     await ctx.tap(() => [...document.querySelectorAll('button')].find((b) => /Blank tab/.test(b.textContent || '')));
-    await ctx.idle(1600); // create_session fast-path → the new session surfaces ~instantly
+    await ctx.idle(2600); // create_session fast-path surfaces it fast; hold so the new tab registers
     await ctx.recordStep('blank session created');
   },
 
