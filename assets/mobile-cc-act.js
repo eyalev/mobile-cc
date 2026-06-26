@@ -18,9 +18,19 @@
   }
 
   var GROQ = 'https://api.groq.com/openai/v1/chat/completions';
-  var MODEL = 'llama-3.3-70b-versatile';     // matches the STT cleanup model
+  var DEFAULT_MODEL = 'llama-3.3-70b-versatile';   // matches the STT cleanup model
+  var STORE = tv.storage('mobile-cc-act');
 
+  function loadSettings() {
+    var s = {};
+    try { s = STORE.get('settings') || {}; } catch (e) {}
+    return { groqKey: s.groqKey || '', model: s.model || DEFAULT_MODEL };
+  }
+  // Prefer Ask AI's OWN Groq key (its own rate-limit quota); fall back to the
+  // STT key so it still works if you've only set one.
   function groqKey() {
+    var own = loadSettings().groqKey;
+    if (own) return own;
     try { return (tv.storage('ttyview-stt-groq').get('settings') || {}).groqKey || ''; }
     catch (e) { return ''; }
   }
@@ -98,7 +108,7 @@
     var sess = liveSessions();
     var ctx = sess.length ? sess.map(function (s) { return '- ' + s.session + ' (pane ' + s.id + ')'; }).join('\n') : '(none)';
     var body = {
-      model: MODEL, temperature: 0, tool_choice: 'required', tools: buildTools(),
+      model: loadSettings().model, temperature: 0, tool_choice: 'required', tools: buildTools(),
       messages: [
         { role: 'system', content: SYS + '\n\nLive sessions:\n' + ctx },
         { role: 'user', content: text },
@@ -227,6 +237,54 @@
     keywords: ['ai', 'act', 'do', 'natural language', 'assistant', 'agent', 'command'],
     args: [{ name: 'q', type: 'text', required: true, describe: 'What do you want to do?' }],
     run: function (a) { if (a.q) runAct(a.q); },
+  });
+
+  // ---- Settings → Ask AI: dedicated Groq key + model ------------------
+  tv.contributes.settingsTab({
+    id: 'mobile-cc-act',
+    title: 'Ask AI',
+    render: function (container) {
+      container.innerHTML = '';
+      var intro = document.createElement('p');
+      intro.style.cssText = 'color:var(--ttv-muted);font-size:12px;margin:0 0 14px;line-height:1.5;';
+      intro.innerHTML = 'Natural-language command router — open the palette and pick <b>Ask AI…</b>. ' +
+        'Runs Groq (<code>' + esc(DEFAULT_MODEL) + '</code>) directly from your browser. Set a <b>dedicated</b> ' +
+        'key here so Ask AI doesn’t share the Voice Input key’s rate limit. Blank = fall back to the Voice Input key.';
+      container.appendChild(intro);
+
+      function field(labelText) {
+        var w = document.createElement('label');
+        w.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px;color:var(--ttv-muted);';
+        var l = document.createElement('span'); l.textContent = labelText; w.appendChild(l);
+        return w;
+      }
+      var inputCss = 'padding:10px 11px;border:1px solid var(--ttv-border);border-radius:6px;background:var(--ttv-bg);color:var(--ttv-fg);font:inherit;font-size:16px;';
+      var s = loadSettings();
+
+      var kw = field('Groq API key (Ask AI)');
+      var key = document.createElement('input');
+      key.type = 'text'; key.placeholder = 'gsk_…  (blank = use Voice Input key)';
+      key.spellcheck = false;
+      key.setAttribute('autocorrect', 'off'); key.setAttribute('autocapitalize', 'off');
+      key.setAttribute('data-lpignore', 'true'); key.setAttribute('data-1p-ignore', 'true'); key.setAttribute('data-bwignore', 'true');
+      key.value = s.groqKey;
+      key.style.cssText = inputCss + '-webkit-text-security:disc;';
+      key.addEventListener('change', function () { var cur = loadSettings(); cur.groqKey = key.value.trim(); STORE.set('settings', cur); });
+      kw.appendChild(key); container.appendChild(kw);
+
+      var mw = field('Model');
+      var model = document.createElement('input');
+      model.type = 'text'; model.value = s.model; model.spellcheck = false;
+      model.setAttribute('autocorrect', 'off'); model.setAttribute('autocapitalize', 'off');
+      model.style.cssText = inputCss;
+      model.addEventListener('change', function () { var cur = loadSettings(); cur.model = model.value.trim() || DEFAULT_MODEL; STORE.set('settings', cur); });
+      mw.appendChild(model); container.appendChild(mw);
+
+      var hint = document.createElement('p');
+      hint.style.cssText = 'color:var(--ttv-muted);font-size:11px;margin:4px 0 0;';
+      hint.innerHTML = 'Free keys at console.groq.com/keys. Stored in this browser profile (server-synced across your devices).';
+      container.appendChild(hint);
+    },
   });
 
   // expose for a future voice hook / other plugins
