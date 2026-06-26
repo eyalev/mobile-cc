@@ -250,7 +250,7 @@
       return inp;
     }
 
-    var folderInp = field('Project folder (absolute path)', '/home/you/projects/my-app');
+    var folderInp = field('Project folder', '~/projects/my-app or /abs/path');
     // recents
     var rec = recents();
     if (rec.length) {
@@ -282,7 +282,7 @@
     var cancel = mkBtn('Cancel', '', close);
     var create = mkBtn('Create', '', function () {
       var cwd = folderInp.value.trim();
-      if (!cwd || cwd[0] !== '/') { err.textContent = 'Enter an absolute path (starts with /).'; return; }
+      if (!cwd || (cwd[0] !== '/' && cwd[0] !== '~')) { err.textContent = 'Enter a path: ~/… or an absolute /…'; return; }
       var name = nameInp.value.trim()
         ? sanitize(nameInp.value)
         : numberedName(sanitize(basename(cwd)) + '-claude');
