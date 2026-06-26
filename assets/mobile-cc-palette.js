@@ -103,12 +103,36 @@
     tv.toast && tv.toast('Scrollback: ' + rows + ' lines');
   }
 
-  [200, 1000, 2000, 5000, 10000].forEach(function (n) {
-    tv.contributes.command({
-      id: 'mcc.scrollback.' + n,
-      name: 'Scrollback: ' + n.toLocaleString() + ' lines',
-      handler: function () { applyScrollback(n); },
-    });
+  // Parameterized (args) command — one entry with a preset picker, replacing
+  // the five fixed presets. Requires ttyview-core's arg-form support.
+  tv.contributes.command({
+    id: 'mcc.scrollback',
+    name: 'Set scrollback depth…',
+    group: 'Display',
+    keywords: ['history', 'lines', 'backlog', 'scroll'],
+    args: [{ name: 'rows', type: 'enum', options: [200, 1000, 2000, 5000, 10000],
+             required: true, default: 1000, describe: 'History lines to keep' }],
+    run: function (a) { applyScrollback(a.rows); },
+  });
+
+  // Delegate-to-existing: send text (a prompt or command) to any live session.
+  // The session picker + text field come from the arg-form; the first taste of
+  // mcc.delegate (existing-session path). \r so Enter actually fires.
+  tv.contributes.command({
+    id: 'mcc.send',
+    name: 'Send to session…',
+    group: 'Agents',
+    keywords: ['delegate', 'run', 'prompt', 'task', 'tell', 'ask'],
+    args: [
+      { name: 'target', type: 'session', required: true, describe: 'Which session' },
+      { name: 'text', type: 'text', required: true, describe: 'Text to send (Enter appended)' },
+    ],
+    run: function (a) {
+      if (!a.target || !a.text) return;
+      tv.sendInput(a.target, a.text + '\r');
+      tv.selectPane && tv.selectPane(a.target);
+      tv.toast && tv.toast('Sent to ' + a.target);
+    },
   });
 
   tv.contributes.command({ id: 'mcc.font.fit',  name: 'Fit terminal to width', handler: function () { clickById('font-fit'); } });
