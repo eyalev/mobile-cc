@@ -14,7 +14,13 @@
 // capture binary still needs the cwd to exist — the mkdir-on-create fix is
 // server-side, shipped separately). Every gesture is a real UI action, asserted.
 
-const NEW_PROJECT_DIR = '/tmp/mcc-democap-ws/payments'; // pre-created by local-capture.sh
+// The new project's folder — typed as a natural ~/projects path. The daemon
+// expands the leading ~ to its $HOME (which local-capture.sh points at a
+// sandboxed throwaway home, where it pre-creates projects/payments), so the
+// create-project dialog DISPLAYS the realistic ~/projects/payments while the
+// real dir stays isolated. Never /tmp. basename ("payments") = the tab group.
+// (Requires the ~-aware new-tab plugin + daemon expand_tilde — baked together.)
+const NEW_PROJECT_DIR = '~/projects/payments';
 const MOVE_SRC = 'api-claude2';   // the tab we move…
 const MOVE_DST = 'docs';          // …into this project group
 
@@ -68,7 +74,7 @@ export default {
     await ctx.tap(() =>[...document.querySelectorAll('#mcc-newtab-menu button')].find(b => /Claude in project/.test(b.textContent || '')));
     await ctx.idle(1400);
     await page.evaluate((dir) => {
-      const inp = [...document.querySelectorAll('input[type=text]')].find(i => /project folder|absolute path|\/home\/you/i.test(i.placeholder || ''));
+      const inp = [...document.querySelectorAll('input[type=text]')].find(i => /project folder|projects\/my-app|abs\/path|absolute path|\/home\/you/i.test(i.placeholder || ''));
       if (!inp) throw new Error('project folder input not found');
       inp.focus(); inp.value = dir;
       inp.dispatchEvent(new Event('input', { bubbles: true }));
@@ -76,13 +82,20 @@ export default {
     await ctx.recordStep('Claude in a new project folder');
     await ctx.idle(1400);
     await ctx.tap(() => { const m = [...document.querySelectorAll('div')].find(d => { const h = d.querySelector(':scope > h3'); return h && /Claude in project/.test(h.textContent || ''); }); return m ? [...m.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Create') : null; });
-    await ctx.idle(1600);
-    // Switch back to the seeded CC session so the active pane stays the api CC
-    // TUI. With the create_session reconcile fast-path baked, createTab's own
-    // selectPane(payments) has already fired (~0.2s), so this switch HOLDS (no
-    // late override) and the new project's pane stays off-screen.
-    await page.evaluate(() => { const p = window.ttyview.listPanes().find(x => x.session === 'api-claude1'); if (p) window.ttyview.selectPane(p.id); });
-    await ctx.idle(2600); // hold so the auto-pinned project group clearly registers
+    // Install the api-hold IMMEDIATELY after the Create tap — no settle gap —
+    // so createTab's late selectPane(payments) is reverted within one 200ms
+    // tick whenever it lands, and the new payments pane (a bare shell, not the
+    // story) never reaches a sampled frame. Targets api-claude1, already
+    // present; re-asserts until cleared before the move step.
+    await page.evaluate(() => {
+      const want = window.ttyview.listPanes().find(x => x.session === 'api-claude1');
+      if (!want) return;
+      if (window.__holdApi) clearInterval(window.__holdApi);
+      window.__holdApi = setInterval(() => {
+        if (window.ttyview.getActivePane()?.session !== 'api-claude1') window.ttyview.selectPane(want.id);
+      }, 200);
+    });
+    await ctx.idle(4000); // hold so the auto-pinned project group clearly registers
     await ctx.recordStep('new "payments" project on the rail');
 
     // 6) SURVEY — several projects at once (poster frame). Bring the new,
@@ -97,6 +110,9 @@ export default {
     await ctx.stillSnapshot('hero-still');
     await ctx.idle(2200);
     await ctx.recordStep('juggling several projects');
+    // Release the api hold — the payments pane has long since settled, and the
+    // move step below should run free of the re-assert interval.
+    await page.evaluate(() => { if (window.__holdApi) { clearInterval(window.__holdApi); window.__holdApi = 0; } });
 
     // 7) MOVE A TAB BETWEEN PROJECTS — ⋮ on an api tab → Move to project → docs.
     //    Regroups LIVE (no reload — the headline fix).

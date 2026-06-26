@@ -19,14 +19,32 @@ ID="${1:?usage: demos/local-capture.sh <demo-id>}"
 
 SOCK="mcc-democap"
 PORT="${MCC_DEMO_PORT:-7899}"
-BASE="/tmp/mcc-democap-ws"
+# Sandboxed throwaway $HOME so captured shells render REALISTIC paths: a session
+# whose cwd is $SANDBOX/projects/api tilde-compresses to ~/projects/api against
+# this HOME, while the real dir stays isolated here and is cleaned up on exit.
+# Nothing in frame is ever a /tmp path (per mcc-manager de-/tmp directive). The
+# create-project dialog (which requires an absolute path) shows the absolute
+# sandbox path, never /tmp.
+REAL_HOME="$HOME"
+SANDBOX="${MCC_DEMO_HOME:-$REAL_HOME/.cache/mobile-cc/demo-home}"
+export HOME="$SANDBOX"
+export MCC_DEMO_HOME="$SANDBOX"   # tabs-projects.mjs reads this for the new-project path
+# The Playwright capture process inherits this sandbox HOME too, so point it
+# back at the REAL browser cache (else it can't find its chromium under $HOME).
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$REAL_HOME/.cache/ms-playwright}"
+BASE="$SANDBOX/projects"
 CFG="/tmp/mcc-democap-config"
 DPID=""
 
 cleanup() {
   [ -n "$DPID" ] && kill "$DPID" 2>/dev/null || true
   tmux -L "$SOCK" kill-server 2>/dev/null || true
-  rm -rf "$BASE" "$CFG" "$HOME"/.claude/projects/-tmp-mcc-democap-ws-* 2>/dev/null || true
+  # Guard: only remove the sandbox when it's the expected deep throwaway path
+  # under the real home's cache — never a bare/short path.
+  case "$SANDBOX" in
+    "$REAL_HOME"/.cache/mobile-cc/*) rm -rf "$SANDBOX" 2>/dev/null || true ;;
+  esac
+  rm -rf "$CFG" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -40,7 +58,13 @@ PROFILE="$(node -e '
 ' "$HERE/manifest.json" "$ID")"
 
 tmux -L "$SOCK" kill-server 2>/dev/null || true
-rm -rf "$BASE" "$CFG"; mkdir -p "$BASE" "$CFG"
+rm -rf "$SANDBOX" "$CFG"; mkdir -p "$BASE" "$CFG"
+# Minimal rc so plugin-created shells (the blank New-Tab session, the new
+# project) show a clean `\w` prompt — i.e. ~ or ~/projects/<name> — instead of
+# inheriting a noisy real prompt (git branch / timestamp) or leaking real $HOME.
+cat > "$SANDBOX/.bashrc" <<'RC'
+PS1='\w \$ '
+RC
 
 seed_session() { # <session> <cwd-subdir> <mock-file>
   local sess="$1" cwd="$BASE/$2" mock="$3"
@@ -70,8 +94,10 @@ fi
 sleep 1
 
 echo "==> starting isolated daemon on :$PORT (socket $SOCK)"
-mobile-cc --tmux-socket "$SOCK" --bind "127.0.0.1:$PORT" --config-dir "$CFG" \
-  --app-name "Mobile Claude Code" >/tmp/mcc-democap-daemon.log 2>&1 &
+# Launch the daemon FROM the sandbox so any session it spawns without an
+# explicit cwd (the blank New-Tab) inherits ~ instead of the repo dir.
+( cd "$SANDBOX" && exec mobile-cc --tmux-socket "$SOCK" --bind "127.0.0.1:$PORT" --config-dir "$CFG" \
+  --app-name "Mobile Claude Code" >/tmp/mcc-democap-daemon.log 2>&1 ) &
 DPID=$!
 for i in $(seq 1 60); do curl -fsk -o /dev/null "http://127.0.0.1:$PORT/healthz" 2>/dev/null && break; sleep 0.25; done
 
