@@ -81,9 +81,9 @@ export async function setupCapture({ daemonUrl, paneId, outDir }) {
         const base = 'position:fixed;z-index:2147483647;pointer-events:none;border-radius:50%;'
           + 'transform:translate(-50%,-50%);box-shadow:0 0 0 1.5px rgba(0,0,0,.5);left:' + x + 'px;top:' + y + 'px;';
         const ring = document.createElement('div');
-        ring.style.cssText = base + 'border:4px solid #E8896B;width:14px;height:14px;';
+        ring.style.cssText = base + 'border:4px solid #569cd6;width:14px;height:14px;';
         const dot = document.createElement('div');
-        dot.style.cssText = base + 'background:#E8896B;width:20px;height:20px;';
+        dot.style.cssText = base + 'background:#569cd6;width:20px;height:20px;';
         document.body.appendChild(ring); document.body.appendChild(dot);
         ring.animate([
           { width: '14px', height: '14px', opacity: 1 },
