@@ -35,6 +35,7 @@
       key: s.key || s.groqKey || '',                                  // back-compat: old field was groqKey
       model: s.model || prov.model,
       baseUrl: provider === 'custom' ? (s.baseUrl || '') : prov.base,
+      autoRun: !!s.autoRun,                                           // execute safe actions without a confirm card
     };
   }
   // Use Ask AI's own key; only Groq may borrow the STT key (same provider).
@@ -112,8 +113,25 @@
     'map to one app tool, call propose_plan with concrete steps. If it is ambiguous, call clarify with one short question. ' +
     'Always call exactly one tool.';
 
+  // ---- logging → <config_dir>/diag.jsonl via ttvDiag (cat 'act'/'palette') -
+  // Builds the interaction dataset: every Ctrl-K open / command pick / AI
+  // request→response→dispatch→result. Filter with: jq 'select(.cat=="act" or .cat=="palette")'
+  var ACT_SEQ = 0;
+  function logAct(ev, rec) { try { window.ttvDiag && window.ttvDiag('act', Object.assign({ ev: ev }, rec)); } catch (e) {} }
+  function logPal(ev, rec) { try { window.ttvDiag && window.ttvDiag('palette', Object.assign({ ev: ev }, rec)); } catch (e) {} }
+
+  // Sentence-like → the Ask AI row pre-selects (Enter fires it) instead of a
+  // command. Heuristic, deliberately simple; the interaction log tells us when
+  // it mis-ranks so we can tune it.
+  var VERBS = /^(send|tell|ask|go|switch|set|make|run|open|create|show|change|move|find|delegate|put|give)\b/i;
+  function sentenceLike(q) {
+    if (q.indexOf(' ') < 0) return false;
+    return q.split(/\s+/).length >= 4 || /['"]/.test(q) || VERBS.test(q);
+  }
+
   // ---- the call --------------------------------------------------------
-  async function runAct(text) {
+  async function runAct(text, source) {
+    var seq = ++ACT_SEQ;
     var cfg = loadSettings();
     var key = apiKey();
     if (!key) { showCard('<b>No API key set.</b><br>Add one in Settings → Ask AI.'); return; }
@@ -121,40 +139,50 @@
     showCard('<span style="opacity:.7">…thinking</span>');
     var sess = liveSessions();
     var ctx = sess.length ? sess.map(function (s) { return '- ' + s.session + ' (pane ' + s.id + ')'; }).join('\n') : '(none)';
+    var tools = buildTools();
+    logAct('request', { seq: seq, q: text, source: source || 'cmd', provider: cfg.provider, model: cfg.model, tools: tools.length });
     var body = {
-      model: cfg.model, temperature: 0, tool_choice: 'required', tools: buildTools(),
+      model: cfg.model, temperature: 0, tool_choice: 'required', tools: tools,
       messages: [
         { role: 'system', content: SYS + '\n\nLive sessions:\n' + ctx },
         { role: 'user', content: text },
       ],
     };
+    var t0 = (window.performance && performance.now()) || 0;
     try {
       var r = await fetch(cfg.baseUrl + '/chat/completions', { method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var ms = Math.round(((window.performance && performance.now()) || 0) - t0);
       if (!r.ok) {
+        logAct('error', { seq: seq, status: r.status, ms: ms });
         var hint = r.status === 429 ? ' (rate limit — try a different provider/key in Settings → Ask AI)' : '';
         showCard('API error ' + r.status + hint + '.'); return;
       }
       var j = await r.json();
       var m = j.choices && j.choices[0] && j.choices[0].message;
       var call = m && m.tool_calls && m.tool_calls[0];
-      if (!call) { showCard(esc((m && m.content) || 'No action chosen.')); return; }
+      if (!call) {
+        logAct('response', { seq: seq, status: r.status, ms: ms, tool: null, content: ((m && m.content) || '').slice(0, 200) });
+        showCard(esc((m && m.content) || 'No action chosen.')); return;
+      }
       var args = {}; try { args = JSON.parse(call.function.arguments || '{}'); } catch (e) {}
-      dispatch(call.function.name, args, text);
-    } catch (e) { showCard('Network error: ' + esc(e && e.message || e)); }
+      logAct('response', { seq: seq, status: r.status, ms: ms, tool: call.function.name, args: args });
+      dispatch(call.function.name, args, text, seq);
+    } catch (e) { logAct('error', { seq: seq, err: String(e && e.message || e) }); showCard('Network error: ' + esc(e && e.message || e)); }
   }
 
-  function dispatch(name, args, originalText) {
-    if (name === 'clarify') { showClarify(args.message || 'Could you clarify?', originalText); return; }
-    if (name === 'propose_plan') { showPlan(args.steps || [], originalText); return; }
+  function dispatch(name, args, originalText, seq) {
+    if (name === 'clarify') { logAct('dispatch', { seq: seq, kind: 'clarify' }); showClarify(args.message || 'Could you clarify?', originalText, seq); return; }
+    if (name === 'propose_plan') { logAct('dispatch', { seq: seq, kind: 'plan', steps: (args.steps || []).length }); showPlan(args.steps || [], originalText); return; }
     if (name === 'go_to_session') {
       var s = liveSessions().filter(function (x) { return x.session === args.session; })[0];
-      if (!s) { showCard('Unknown session: ' + esc(args.session)); return; }
-      confirmRun({ name: 'Go to: ' + s.session, _run: function () { tv.selectPane && tv.selectPane(s.id); } }, {});
+      if (!s) { logAct('dispatch', { seq: seq, kind: 'unknown', id: 'go_to_session' }); showCard('Unknown session: ' + esc(args.session)); return; }
+      logAct('dispatch', { seq: seq, kind: 'tool', id: 'go_to_session', resolvedArgs: { session: s.session, pane: s.id } });
+      route({ id: 'go_to_session', name: 'Go to: ' + s.session, _run: function () { tv.selectPane && tv.selectPane(s.id); } }, {}, seq);
       return;
     }
     var id = UNSAN(name);
     var def = tv._internal.registries.command.get(id);
-    if (!def) { showCard('Chose an unknown command: ' + esc(id)); return; }
+    if (!def) { logAct('dispatch', { seq: seq, kind: 'unknown', id: id }); showCard('Chose an unknown command: ' + esc(id)); return; }
     // resolve a session/pane arg label → pane id if the model passed a name
     (def.args || []).forEach(function (a) {
       if ((a.type === 'session' || a.type === 'pane') && args[a.name]) {
@@ -162,7 +190,19 @@
         if (hit) args[a.name] = hit.id;
       }
     });
-    confirmRun(def, args);
+    logAct('dispatch', { seq: seq, kind: 'tool', id: id, resolvedArgs: args });
+    route(def, args, seq);
+  }
+  // Auto-run safe (non-danger) actions when the setting is on; else confirm.
+  function route(def, args, seq) {
+    if (loadSettings().autoRun && !def.danger) {
+      dismissCard();                 // clear the "…thinking" spinner; auto-run shows no card
+      logAct('result', { seq: seq, action: 'autorun', id: def.id });
+      try { execDef(def, args); tv.toast && tv.toast('⚡ ' + (def.name || def.id)); }
+      catch (e) { showCard('Command failed: ' + esc(e && e.message || e)); }
+      return;
+    }
+    confirmRun(def, args, { seq: seq, id: def.id });
   }
 
   // ---- result cards (self-contained, themable) ------------------------
@@ -182,7 +222,26 @@
       '#mcc-act-card ol{margin:6px 0 0;padding-left:20px;} #mcc-act-card code{color:var(--ttv-accent,#E8896B);}';
     document.head.appendChild(st);
   }
-  function dismissCard() { if (cardEl) { cardEl.remove(); cardEl = null; } }
+  var cardKeyHandler = null;
+  function dismissCard() {
+    if (cardKeyHandler) { document.removeEventListener('keydown', cardKeyHandler, true); cardKeyHandler = null; }
+    if (cardEl) { cardEl.remove(); cardEl = null; }
+  }
+  // Keyboard-native cards: Enter = primary, Esc = cancel (capture phase so it
+  // beats anything underneath). So Ask AI is type → Enter → Enter, no mouse.
+  function bindCardKeys(onEnter, onEsc) {
+    if (cardKeyHandler) document.removeEventListener('keydown', cardKeyHandler, true);
+    cardKeyHandler = function (e) {
+      if (e.key === 'Enter' && onEnter) { e.preventDefault(); e.stopPropagation(); onEnter(); }
+      else if (e.key === 'Escape' && onEsc) { e.preventDefault(); e.stopPropagation(); onEsc(); }
+    };
+    document.addEventListener('keydown', cardKeyHandler, true);
+  }
+  function execDef(def, args) {
+    if (typeof def._run === 'function') def._run();
+    else if (typeof def.run === 'function') def.run(args || {});
+    else if (typeof def.handler === 'function') def.handler();
+  }
   function baseCard(bodyHtml) {
     injectStyle(); dismissCard();
     var c = document.createElement('div'); c.id = 'mcc-act-card';
@@ -202,21 +261,23 @@
     if (!keys.length) return '';
     return ' <span style="opacity:.7">(' + keys.map(function (k) { return esc(k) + ': ' + esc(args[k]); }).join(', ') + ')</span>';
   }
-  function confirmRun(def, args) {
+  function confirmRun(def, args, meta) {
+    meta = meta || {};
     var c = baseCard('Run <b>' + esc(def.name || def.id) + '</b>?' + summarize(args));
     var foot = document.createElement('div'); foot.className = 'mcc-act-foot';
-    var cancel = document.createElement('button'); cancel.textContent = 'Cancel'; cancel.addEventListener('click', dismissCard);
-    var go = document.createElement('button'); go.className = 'mcc-act-go'; go.textContent = def.danger ? 'Run (danger)' : 'Run';
-    go.addEventListener('click', function () {
+    var cancel = document.createElement('button'); cancel.textContent = 'Cancel';
+    function doCancel() { logAct('result', { seq: meta.seq, action: 'cancelled', id: meta.id || def.id }); dismissCard(); }
+    function doRun() {
+      logAct('result', { seq: meta.seq, action: 'confirmed', id: meta.id || def.id });
       dismissCard();
-      try {
-        if (typeof def._run === 'function') def._run();
-        else if (typeof def.run === 'function') def.run(args || {});
-        else if (typeof def.handler === 'function') def.handler();
-        tv.toast && tv.toast('⚡ ' + (def.name || def.id));
-      } catch (e) { showCard('Command failed: ' + esc(e && e.message || e)); }
-    });
+      try { execDef(def, args); tv.toast && tv.toast('⚡ ' + (def.name || def.id)); }
+      catch (e) { showCard('Command failed: ' + esc(e && e.message || e)); }
+    }
+    cancel.addEventListener('click', doCancel);
+    var go = document.createElement('button'); go.className = 'mcc-act-go'; go.textContent = def.danger ? 'Run (danger)' : 'Run';
+    go.addEventListener('click', doRun);
     foot.appendChild(cancel); foot.appendChild(go); c.appendChild(foot);
+    bindCardKeys(doRun, doCancel);
   }
   function showPlan(steps, originalText) {
     var html = 'This looks like a task, not a one-tap action:<ol>' +
@@ -234,15 +295,18 @@
     foot.appendChild(close); if (tv._internal.registries.command.get('mcc.send')) foot.appendChild(send);
     c.appendChild(foot);
   }
-  function showClarify(message, originalText) {
+  function showClarify(message, originalText, seq) {
+    logAct('clarify', { seq: seq, q: message });
     var c = baseCard(esc(message));
     var inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'Your answer…';
     c.querySelector('.mcc-act-body').appendChild(inp);
     var foot = document.createElement('div'); foot.className = 'mcc-act-foot';
     var cancel = document.createElement('button'); cancel.textContent = 'Cancel'; cancel.addEventListener('click', dismissCard);
     var go = document.createElement('button'); go.className = 'mcc-act-go'; go.textContent = 'Answer';
-    go.addEventListener('click', function () { var a = inp.value.trim(); dismissCard(); runAct(originalText + '\n\nClarification: ' + a); });
+    function answer() { var a = inp.value.trim(); dismissCard(); runAct(originalText + '\n\nClarification: ' + a, 'clarify'); }
+    go.addEventListener('click', answer);
     foot.appendChild(cancel); foot.appendChild(go); c.appendChild(foot);
+    bindCardKeys(answer, dismissCard);
     requestAnimationFrame(function () { inp.focus(); });
   }
 
@@ -253,8 +317,34 @@
     group: 'AI',
     keywords: ['ai', 'act', 'do', 'natural language', 'assistant', 'agent', 'command'],
     args: [{ name: 'q', type: 'text', required: true, describe: 'What do you want to do?' }],
-    run: function (a) { if (a.q) runAct(a.q); },
+    run: function (a) { if (a.q) runAct(a.q, 'command'); },
   });
+
+  // ---- Ctrl-K integration: an "Ask AI: <query>" fallback row -----------
+  // Sentence-like query → priority:'top' (pre-selected, Enter fires AI);
+  // otherwise it sits below the command matches. Cmd/Ctrl-Enter always fires it
+  // (core handles that). This is the zero-friction path: Ctrl-K → type → Enter.
+  if (typeof tv.contributes.paletteSuggest === 'function') {
+    tv.contributes.paletteSuggest({
+      id: 'mcc.ai',
+      suggest: function (query) {
+        var q = (query || '').trim();
+        if (!q) return [];
+        return [{
+          id: 'mcc.ai', title: '✨ Ask AI: ' + q, hint: 'natural language → action',
+          priority: sentenceLike(q) ? 'top' : 'bottom',
+          run: function () { runAct(q, 'palette'); },
+        }];
+      },
+    });
+  }
+
+  // ---- interaction logging: every palette open / pick / run ------------
+  if (typeof tv.on === 'function') {
+    tv.on('palette-open', function () { logPal('open', {}); });
+    tv.on('command-invoked', function (e) { logPal('invoke', { id: e && e.id, q: e && e.query, suggest: !!(e && e.suggest) }); });
+    tv.on('command-run', function (e) { logPal('run', { id: e && e.id, args: e && e.args }); });
+  }
 
   // ---- Settings → Ask AI: dedicated Groq key + model ------------------
   tv.contributes.settingsTab({
@@ -315,6 +405,16 @@
       model.style.cssText = inputCss;
       model.addEventListener('change', function () { save({ model: model.value.trim() || PROVIDERS[prov.value].model }); });
       mw.appendChild(model); container.appendChild(mw);
+
+      // auto-run toggle
+      var aw = document.createElement('label');
+      aw.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;font-size:13px;color:var(--ttv-fg);cursor:pointer;';
+      var auto = document.createElement('input'); auto.type = 'checkbox'; auto.checked = !!s.autoRun;
+      auto.style.cssText = 'margin-top:2px;';
+      auto.addEventListener('change', function () { save({ autoRun: auto.checked }); });
+      var aspan = document.createElement('span');
+      aspan.innerHTML = 'Auto-run safe actions <span style="color:var(--ttv-muted)">— skip the confirm card for non-danger actions (still confirms danger ones). Type → Enter → done.</span>';
+      aw.appendChild(auto); aw.appendChild(aspan); container.appendChild(aw);
 
       prov.addEventListener('change', function () {
         save({ provider: prov.value });
