@@ -25,7 +25,7 @@ morning’s session, compose a reply (one-tap command chips above the box), spin
 up a second workspace, get a **“needs you”** status dot when a session hits a
 permission prompt, jump to it, and find any session via the pane picker.
 
-https://github.com/user-attachments/assets/d78ecbbd-73ab-4e93-a383-ce76704b703f
+https://github.com/user-attachments/assets/e6dac409-aaa4-4aa8-9d3e-420e92ab2ad4
 
 - recipe: [`workflows/day-in-the-life.mjs`](workflows/day-in-the-life.mjs) · profile [`profiles/day-start.json`](profiles/day-start.json) · poster [`day.png`](../docs/media/day.png) · [full gallery →](GALLERY.md)
 - capture it: `demos/local-capture.sh day-in-the-life` (isolated synthetic daemon — no real sessions leak)
