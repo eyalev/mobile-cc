@@ -93,33 +93,58 @@
     });
   }
 
-  // --- re-assert the tail through the post-load reflow window --------------
-  // restore() runs ONCE in the grid-loaded handler, but two things reflow the
-  // grid AFTER it and un-pin a follow pane from the bottom: auto-fit (font
-  // re-render on grid-loaded/pane-changed → row heights change → scrollHeight
+  // --- re-assert the saved position through the post-load reflow window -----
+  // restore() runs ONCE in the grid-loaded handler, but the grid keeps changing
+  // AFTER it: auto-fit (font re-render → row heights change → scrollHeight
   // changes) and the deep-scrollback prefill (prepends older rows in idle rAF
-  // chunks). Symptom: clientHeight seen shifting 488→553→603 across one load,
-  // ending slightly off the bottom. For a tail-follower we re-pin across that
-  // window — but bail the moment the user takes over with a real gesture, so
-  // we never fight someone scrolling up right after load.
-  function reassertTail(paneId) {
+  // chunks). Two failure modes this repairs:
+  //   (a) FOLLOW pane drifts off the bottom (clientHeight seen 488→553→603 in
+  //       one load) → re-pin to the tail.
+  //   (b) SCROLLED-UP pane can't reach deep history. At grid-loaded only the
+  //       fast ~200-row tail is painted, so restore() clamps a dist deeper than
+  //       the tail to scrollTop 0; the prefill then anchors that wrong position
+  //       invariant ("works till a certain point"). Once the prefill has grown
+  //       scrollHeight to cover the saved dist, re-applying dist-from-bottom
+  //       reaches the real position.
+  // Both bail the moment the user takes over with a real gesture, so we never
+  // fight a deliberate scroll.
+  function reassert(paneId, why) {
     if (Date.now() - lastGesture < GESTURE_MS) return;   // user has the wheel → hands off
-    var st = readMap()[paneId];
-    if (st && !st.follow) return;                        // only tail-followers (default = follow)
     var h = host(); if (!h) return;
-    h.scrollTop = h.scrollHeight;
+    var st = readMap()[paneId];
+    var target;
+    if (!st || st.follow) target = h.scrollHeight;                      // follow tail
+    else { target = h.scrollHeight - h.clientHeight - st.dist; if (target < 0) target = 0; }
+    h.scrollTop = target;
     diag('scroll-reassert', {
-      pane: paneId || null, set: Math.round(h.scrollTop),
-      sh: Math.round(h.scrollHeight), ch: Math.round(h.clientHeight),
+      pane: paneId || null, follow: !st || !!st.follow, dist: st ? st.dist : 0, why: why || '',
+      set: Math.round(h.scrollTop), sh: Math.round(h.scrollHeight), ch: Math.round(h.clientHeight),
     });
   }
   function scheduleReassert(paneId) {
     // Spread across the settle: rAF (layout), then catch auto-fit + the first
     // few prefill chunks. Each call is individually gesture-guarded.
-    requestAnimationFrame(function () { reassertTail(paneId); });
-    setTimeout(function () { reassertTail(paneId); }, 120);
-    setTimeout(function () { reassertTail(paneId); }, 400);
-    setTimeout(function () { reassertTail(paneId); }, 800);
+    requestAnimationFrame(function () { reassert(paneId, 'sched-raf'); });
+    setTimeout(function () { reassert(paneId, 'sched-120'); }, 120);
+    setTimeout(function () { reassert(paneId, 'sched-400'); }, 400);
+    setTimeout(function () { reassert(paneId, 'sched-800'); }, 800);
+  }
+  // The deep prefill prepends in idle rAF chunks over MANY frames (for big
+  // history, well past the 800ms schedule above). Watch scrollHeight until it
+  // stops growing, then re-apply — this is what lets a deep scrolled-up
+  // position land once all its rows exist. Re-applies on each growth too so the
+  // position tracks in as content streams (no single end-jump), gesture-guarded.
+  function reassertWhenSettled(paneId) {
+    var h = host(); if (!h) return;
+    var lastSH = -1, stable = 0, frames = 0;
+    (function step() {
+      if (Date.now() - lastGesture < GESTURE_MS) return;   // user took over → stop
+      var sh = h.scrollHeight;
+      if (sh === lastSH) { if (++stable >= 3) { reassert(paneId, 'settled'); return; } }
+      else { stable = 0; lastSH = sh; reassert(paneId, 'growing'); }
+      if (++frames < 360) requestAnimationFrame(step);     // ~6s cap
+      else reassert(paneId, 'settle-timeout');
+    })();
   }
 
   try {
@@ -131,10 +156,9 @@
   } catch (_) {}
   try { tv.on('pane-changed', function (d) { if (d && d.to) curPane = d.to; }); } catch (_) {}
   // Deep-scrollback prefill prepends ABOVE in idle rAF chunks AFTER grid-loaded;
-  // re-pin once it lands (gesture-guarded) so a follow pane stays at the tail.
+  // watch it settle then re-apply (tail for followers, deep dist for scrolled-up).
   try { tv.on('scrollback-prefill', function (d) {
-    var id = (d && d.paneId) || curPane;
-    requestAnimationFrame(function () { reassertTail(id); });
+    reassertWhenSettled((d && d.paneId) || curPane);
   }); } catch (_) {}
 
   // --- bind gesture + scrollend on the STABLE grid-host scroller ------------
