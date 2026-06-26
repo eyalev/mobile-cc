@@ -412,6 +412,16 @@
       "description": "NL command router (Ask AI…) — Groq llama-3.3-70b browser-direct, reuses STT key. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-tab-switch",
+      "name": "Tab Switching",
+      "kind": "settingsTab",
+      "source": "mobile-cc-tab-switch.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Keyboard tab switching (desktop/laptop): cycle session tabs with a chord (default Ctrl+Alt+Arrow). Positional or MRU order; selectable keybinding presets. Settings -> Tab Switching. Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-scroll-memory",
       "name": "Scroll memory",
       "kind": "internal",
