@@ -362,6 +362,16 @@
       "description": "Bundled in mobile-cc."
     },
     {
+      "id": "mobile-cc-tap-focus",
+      "name": "Tap to focus",
+      "kind": "internal",
+      "source": "mobile-cc-tap-focus.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Click the terminal to focus the Message box, with a brief focus-pulse. Desktop-mouse only. Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-toolbar",
       "name": "Toolbar",
       "kind": "headerWidget",

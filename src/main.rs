@@ -114,6 +114,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("ttyview-terminal-green.js",  include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-terminal-green.js")),
     ("ttyview-live-sync.js",       include_bytes!("../../ttyview/crates/ttyview-core/community-plugins/ttyview-live-sync.js")),
     ("mobile-cc-light-theme.js",   include_bytes!("../assets/mobile-cc-light-theme.js")),
+    ("mobile-cc-tap-focus.js",     include_bytes!("../assets/mobile-cc-tap-focus.js")),
     // toolbar LAST so its runtime discovery sees every other header-widget plugin.
     ("mobile-cc-toolbar.js",       include_bytes!("../assets/mobile-cc-toolbar.js")),
 ];
