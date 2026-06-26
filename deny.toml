@@ -23,6 +23,13 @@ ignore = [
     # upstream rustls split the crate into rustls-pki-types in newer
     # versions. Will clear when ttyview-core bumps its axum-server pin.
     "RUSTSEC-2025-0134",
+    # rsa Marvin Attack (RUSTSEC-2023-0071) — no fix available. Pulled in
+    # transitively by web-push → jwt-simple → superboring → rsa for RS256 JWT
+    # support, which mobile-cc does NOT use: VAPID signing is ES256 (ECDSA
+    # P-256) and payloads are aes128gcm/ECDH, so there's no RSA decryption of
+    # attacker-controlled input for the timing sidechannel to target. Ships with
+    # EXPERIMENTAL Web Push; revisit if an rsa fix lands or web-push drops it.
+    "RUSTSEC-2023-0071",
 ]
 
 [licenses]

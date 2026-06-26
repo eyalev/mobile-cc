@@ -50,10 +50,7 @@ fn origin_authority(origin: &str) -> Option<&str> {
 ///   2. Origin authority == Host → allow (same-origin).
 ///   3. Otherwise reject (cross-origin browser request).
 pub fn origin_allowed(headers: &HeaderMap, strict: bool) -> bool {
-    let origin = match headers
-        .get(header::ORIGIN)
-        .and_then(|v| v.to_str().ok())
-    {
+    let origin = match headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
         None => return !strict,
         Some(s) if s.is_empty() || s == "null" => return !strict,
         Some(s) => s,
@@ -121,10 +118,7 @@ pub fn is_safe_push_endpoint(endpoint: &str) -> bool {
         None => return false, // non-https (incl. http://) rejected outright
     };
     // Authority is everything before the first path / query / fragment.
-    let authority = rest
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or(rest);
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or(rest);
     if authority.is_empty() || authority.contains('@') {
         // Empty, or userinfo present (push URLs never carry credentials and it
         // muddies host parsing) → reject.
@@ -194,7 +188,10 @@ mod tests {
                 strict
             ));
             assert!(origin_allowed(
-                &h(&[("origin", "http://127.0.0.1:7800"), ("host", "127.0.0.1:7800")]),
+                &h(&[
+                    ("origin", "http://127.0.0.1:7800"),
+                    ("host", "127.0.0.1:7800")
+                ]),
                 strict
             ));
         }

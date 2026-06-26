@@ -268,10 +268,16 @@ mod tests {
         )));
         assert!(has_hidden_component(FsPath::new("/home/u/.netrc")));
         // Normal paths → allowed.
-        assert!(!has_hidden_component(FsPath::new("/home/u/project/app.apk")));
-        assert!(!has_hidden_component(FsPath::new("/home/u/Downloads/log.txt")));
+        assert!(!has_hidden_component(FsPath::new(
+            "/home/u/project/app.apk"
+        )));
+        assert!(!has_hidden_component(FsPath::new(
+            "/home/u/Downloads/log.txt"
+        )));
         // A dot mid-name (not a leading-dot component) is NOT hidden.
-        assert!(!has_hidden_component(FsPath::new("/home/u/v1.2.3/build.zip")));
+        assert!(!has_hidden_component(FsPath::new(
+            "/home/u/v1.2.3/build.zip"
+        )));
     }
 
     #[cfg(unix)]

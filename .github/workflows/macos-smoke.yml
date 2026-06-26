@@ -26,7 +26,7 @@ on:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: v0.2.0   # tab menu/recents/topics/savePins/hydrate-fix (match across workflows)
+  TTYVIEW_REF: v0.2.1   # tab menu/recents/topics/savePins/hydrate-fix (match across workflows)
   # Pin the Rust toolchain — keep in lockstep with ci.yml + release.yml (and
   # the local toolchain) so darwin builds are reproducible. Bump deliberately.
   RUST_VERSION: '1.89.0'

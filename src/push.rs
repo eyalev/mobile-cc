@@ -44,7 +44,7 @@ use ttyview_core::detectors::{SemanticEvent, SemanticHook};
 
 use base64::Engine;
 use web_push::{
-    ContentEncoding, IsahcWebPushClient, SubscriptionInfo, VapidSignatureBuilder, WebPushClient,
+    ContentEncoding, HyperWebPushClient, SubscriptionInfo, VapidSignatureBuilder, WebPushClient,
     WebPushError, WebPushMessageBuilder,
 };
 
@@ -237,7 +237,13 @@ async fn set_settings(
 }
 
 async fn test_push(Extension(s): Extension<Arc<PushState>>) -> impl IntoResponse {
-    let n = deliver(&s, "mobile-cc", "Test notification — push is working.", "test").await;
+    let n = deliver(
+        &s,
+        "mobile-cc",
+        "Test notification — push is working.",
+        "test",
+    )
+    .await;
     (StatusCode::OK, Json(serde_json::json!({ "sent": n })))
 }
 
@@ -281,13 +287,10 @@ async fn deliver(state: &Arc<PushState>, title: &str, body: &str, kind: &str) ->
     if subs.is_empty() {
         return 0;
     }
-    let client = match IsahcWebPushClient::new() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("[push] client init failed: {e}");
-            return 0;
-        }
-    };
+    // HyperWebPushClient::new() is infallible (pure-Rust hyper backend; no
+    // libcurl init that could fail) — unlike IsahcWebPushClient. The static
+    // release build uses hyper-client to avoid the libcurl C dep.
+    let client = HyperWebPushClient::new();
     let payload = serde_json::json!({
         "title": title,
         "body": body,
@@ -309,11 +312,12 @@ async fn deliver(state: &Arc<PushState>, title: &str, body: &str, kind: &str) ->
             sub.keys.p256dh.clone(),
             sub.keys.auth.clone(),
         );
-        let sig = match VapidSignatureBuilder::from_pem(state.vapid_pem.as_slice(), &info)
-            .and_then(|mut b| {
+        let sig = match VapidSignatureBuilder::from_pem(state.vapid_pem.as_slice(), &info).and_then(
+            |mut b| {
                 b.add_claim("sub", VAPID_SUBJECT);
                 b.build()
-            }) {
+            },
+        ) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("[push] vapid sign failed: {e}");

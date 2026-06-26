@@ -24,7 +24,7 @@ permissions:
 
 env:
   TTYVIEW_REPO: ttyview/ttyview
-  TTYVIEW_REF: v0.2.0   # tab menu/recents/topics/savePins/hydrate-fix (match across workflows)
+  TTYVIEW_REF: v0.2.1   # tab menu/recents/topics/savePins/hydrate-fix (match across workflows)
   # Pin the Rust toolchain — the release build is the one that SHIPS, so it's
   # the most important to make reproducible. Keep in lockstep with ci.yml and
   # macos-smoke.yml (and the local toolchain). Bump deliberately.
