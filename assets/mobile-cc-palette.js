@@ -162,7 +162,7 @@
 
   function dropPrefixed(prefix) {
     if (!REG) return;
-    [].slice.call(REG.keys()).forEach(function (k) {
+    [...REG.keys()].forEach(function (k) {
       if (k.indexOf(prefix) === 0) { var d = REG.get(k); REG.delete(k); emit('command-unregistered', d); }
     });
   }
