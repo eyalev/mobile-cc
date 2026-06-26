@@ -33,7 +33,7 @@
     var s = document.createElement('style');
     s.id = 'mcc-pn-styles';
     s.textContent =
-      '.ttv-row.mcc-pn-flash{background:color-mix(in srgb,var(--ttv-rail-accent,var(--ttv-accent,#E8896B)) 28%,transparent)!important;' +
+      '.ttv-row.mcc-pn-flash{background:color-mix(in srgb,var(--ttv-rail-accent,var(--ttv-accent,#569cd6)) 28%,transparent)!important;' +
         'transition:background-color 160ms;}' +
       // compact toolbar group: ▲ ▼ side by side, sized like the other header
       // buttons so the row never overflows a narrow phone.

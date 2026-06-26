@@ -18,7 +18,7 @@
     console.warn('[mobile-cc-push] requires apiVersion 1');
     return;
   }
-  var ACCENT = 'var(--ttv-rail-accent, #E8896B)';
+  var ACCENT = 'var(--ttv-rail-accent, #569cd6)';
 
   // ---- deep link: notification tap → focus pane -------------------------
   function selectPaneById(paneId) {

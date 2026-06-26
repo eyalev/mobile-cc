@@ -22,7 +22,7 @@
   var STORAGE = tv.storage('mobile-cc-cc-search');
   var GROQ_BASE = 'https://api.groq.com/openai/v1';
   var GROQ_MODEL = 'llama-3.3-70b-versatile';
-  var ACCENT = 'var(--ttv-rail-accent, #E8896B)';
+  var ACCENT = 'var(--ttv-rail-accent, #569cd6)';
 
   function aiEnabled() { return STORAGE.get('aiEnabled') === true; }
   function groqKey() {

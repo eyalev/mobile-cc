@@ -30,8 +30,8 @@
   var style = document.createElement('style');
   style.textContent =
     '@keyframes mccFocusFlash{' +
-      '0%{box-shadow:0 0 0 2px var(--ttv-accent,#E8896B);}' +
-      '55%{box-shadow:0 0 0 2px var(--ttv-accent,#E8896B);}' +
+      '0%{box-shadow:0 0 0 2px var(--ttv-accent,#569cd6);}' +
+      '55%{box-shadow:0 0 0 2px var(--ttv-accent,#569cd6);}' +
       '100%{box-shadow:0 0 8px 5px transparent;}' +
     '}' +
     '#input-text.mcc-focus-flash{animation:mccFocusFlash 600ms ease-out;border-radius:6px;}';

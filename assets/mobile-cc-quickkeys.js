@@ -271,8 +271,8 @@
       add.type = 'button';
       add.textContent = '+ Add key';
       add.style.cssText =
-        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#E8896B);border-radius:6px;' +
-        'background:transparent;color:var(--ttv-rail-accent-text,#E8896B);font-size:13px;' +
+        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#569cd6);border-radius:6px;' +
+        'background:transparent;color:var(--ttv-rail-accent-text,#569cd6);font-size:13px;' +
         'font-weight:600;cursor:pointer;font-family:inherit;';
       add.addEventListener('click', function () {
         var list = load();

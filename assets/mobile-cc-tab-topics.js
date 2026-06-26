@@ -285,7 +285,7 @@
     if (menu.querySelector('.mcc-menu-topic-head')) return;
     var topic = currentTopic(session);
     if (!topic) { ensureTopic(session); topic = 'summarizing…'; }
-    var line = el('div', 'padding:0 12px 8px;font-size:12px;line-height:1.4;color:var(--ttv-accent,#E8896B);white-space:normal;overflow-wrap:anywhere;', topic);
+    var line = el('div', 'padding:0 12px 8px;font-size:12px;line-height:1.4;color:var(--ttv-accent,#569cd6);white-space:normal;overflow-wrap:anywhere;', topic);
     line.className = 'mcc-menu-topic-head';
     var header = menu.firstChild;   // tab-menu's session-name row
     if (header && header.nextSibling) menu.insertBefore(line, header.nextSibling);
@@ -444,9 +444,9 @@
           var cur = subtitleSource();
           Array.prototype.forEach.call(seg.children, function (b) {
             var on = b.dataset.src === cur;
-            b.style.background = on ? 'var(--ttv-accent,#E8896B)' : 'var(--ttv-bg-elev2,#2d2d30)';
+            b.style.background = on ? 'var(--ttv-accent,#569cd6)' : 'var(--ttv-bg-elev2,#2d2d30)';
             b.style.color = on ? '#1e1e1e' : 'var(--ttv-fg)';
-            b.style.borderColor = on ? 'var(--ttv-accent,#E8896B)' : 'var(--ttv-border,#3a3a3a)';
+            b.style.borderColor = on ? 'var(--ttv-accent,#569cd6)' : 'var(--ttv-border,#3a3a3a)';
           });
           var m = SRC.filter(function (x) { return x.id === cur; })[0];
           srcHint.textContent = m ? m.hint : '';

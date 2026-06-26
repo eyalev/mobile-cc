@@ -1,5 +1,5 @@
 // mobile-cc-light-theme — a light, WCAG-AA theme alongside stock Dark + Terminal
-// Green. Light background, dark text, brand-coral (#E8896B) accent family.
+// Green. Light background, dark text, brand-coral (#0a5ad6) accent family.
 //
 // How it works (see ttyview-core ui/index.html theme system):
 //   • tv.contributes.theme({ id, name, vars, palette16 }) — `vars` are written
@@ -12,7 +12,7 @@
 //
 // Contrast (WCAG-AA, vs the surface they sit on):
 //   --ttv-fg  #1b1f24 on #f5f6f8 ≈ 15:1 (AAA) · --ttv-muted #5b6470 ≈ 4.6:1 (AA)
-//   --ttv-accent #c25a3a (text/links) ≈ 4.5:1 (AA). The BRAND coral #E8896B is
+//   --ttv-accent #c25a3a (text/links) ≈ 4.5:1 (AA). The BRAND coral #0a5ad6 is
 //   only 2.55:1 on white, so it stays for vivid *fills/indicators* via
 //   --ttv-rail-accent (rail icons, active-tab bar, dots) where it's not text.
 (function () {
@@ -31,7 +31,7 @@
       '--ttv-bg-elev':       '#ffffff', // elevated (cards / header / chips)
       '--ttv-bg-elev2':      '#e8ebef', // deeper wells
       '--ttv-border':        '#c7cdd6', // visible borders (no invisible edges)
-      '--ttv-accent':        '#b34d2c', // AA-safe coral for accent TEXT / links
+      '--ttv-accent':        '#0a5ad6', // AA-safe coral for accent TEXT / links
       '--ttv-muted':         '#5b6470', // secondary text (~4.6:1)
       // Chrome / controls
       '--ttv-control-bg':       '#ffffff',
@@ -50,8 +50,8 @@
       '--ttv-scrim':        'rgba(20, 24, 30, 0.40)',
       // Keep the VIVID brand coral for non-text fills (rail icons, active-tab
       // indicator, status dots). 2.55:1 on white — fine as a bold fill, not text.
-      '--ttv-rail-accent':  '#E8896B',       // vivid brand fill (borders/indicators)
-      '--ttv-rail-accent-text': '#b34d2c',   // AA-safe coral for brand TEXT on light
+      '--ttv-rail-accent':  '#0a5ad6',       // vivid brand fill (borders/indicators)
+      '--ttv-rail-accent-text': '#0a5ad6',   // AA-safe coral for brand TEXT on light
       // status dots — darkened so they read on a light rail (>=3:1)
       '--ttv-dot-waiting':   '#a8730a',
       '--ttv-dot-active':    '#1763d6',

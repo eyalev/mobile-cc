@@ -74,8 +74,6 @@
       }
 
       function makeChip(c) {
-        var accent = 'var(--ttv-rail-accent, #E8896B)';
-        var accentText = 'var(--ttv-rail-accent-text, #E8896B)'; // AA coral for TEXT on light
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.tabIndex = -1;                 // not focusable → tap keeps textarea focus
@@ -99,11 +97,16 @@
         // a11y: aria-label = the human label (title already carries the raw cmd
         // for the tooltip). Keeps the SR announcement readable.
         btn.setAttribute('aria-label', String(c.label || c.cmd));
+        // Single BLUE accent for the seeded launch chip (▶ …); every other chip
+        // is neutral + theme-aware. No coral anywhere; normal (compact) size.
+        var isAccent = lbl.trim().charAt(0) === '▶';
+        var accentCol = 'var(--ttv-accent, #569cd6)';
+        var chipColor = isAccent ? accentCol : 'var(--ttv-fg)';
+        var chipBorder = isAccent ? accentCol : 'var(--ttv-border, #3a3a3a)';
         btn.style.cssText =
-          'flex:none;padding:3px 10px;min-height:36px;' +
-          'display:inline-flex;align-items:center;justify-content:center;' +
-          'border:1px solid ' + accent + ';' +
-          'border-radius:8px;background:transparent;color:' + accentText + ';' +
+          'flex:none;padding:4px 10px;' +
+          'border:1px solid ' + chipBorder + ';' +
+          'border-radius:8px;background:transparent;color:' + chipColor + ';' +
           'font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;' +
           'font-family:inherit;line-height:1.2;';
         btn.addEventListener('pointerup', function (e) {
@@ -228,8 +231,8 @@
       add.type = 'button';
       add.textContent = '+ Add command';
       add.style.cssText =
-        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#E8896B);border-radius:6px;' +
-        'background:transparent;color:var(--ttv-rail-accent-text,#E8896B);font-size:13px;' +
+        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#569cd6);border-radius:6px;' +
+        'background:transparent;color:var(--ttv-rail-accent-text,#569cd6);font-size:13px;' +
         'font-weight:600;cursor:pointer;font-family:inherit;';
       add.addEventListener('click', function () {
         var list = load();
