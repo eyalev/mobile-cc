@@ -45,13 +45,11 @@
     if (document.getElementById('mcc-turns-styles')) return;
     var s = document.createElement('style');
     s.id = 'mcc-turns-styles';
+    // Per-turn TIMESTAMP only. The role TINT + turn SEPARATOR were dropped (user
+    // call: visual noise + inconsistent since only high-confidence turns get
+    // decorated). The correlation/tagging still runs to place the timestamp; the
+    // data-mcc-role/turn + .mcc-turn-start/end attributes just carry no styling.
     s.textContent =
-      // role tint (subtle, behind the cell text)
-      '.ttv-row[data-mcc-role="user"]{background:color-mix(in srgb,var(--ttv-accent,#569cd6) 10%,transparent);}' +
-      '.ttv-row[data-mcc-role="assistant"]{background:color-mix(in srgb,var(--ttv-fg,#d4d4d4) 5%,transparent);}' +
-      // turn separator — inset box-shadow draws a top rule WITHOUT changing row
-      // height (a border would desync the grid's row-height/scroll math).
-      '.ttv-row.mcc-turn-start{box-shadow:inset 0 1px 0 var(--ttv-border,#3a3a3a);}' +
       // per-turn timestamp, right-aligned after the prompt's last row. Absolute
       // → out of flow → no layout shift; its own bg masks any text underneath.
       '.ttv-row[data-mcc-ts]{position:relative;}' +
