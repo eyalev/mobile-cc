@@ -174,7 +174,11 @@ export async function setupCapture({ daemonUrl, paneId, outDir }) {
           return { onscreen };
         }, fn);
         if (!hit) throw new Error('tap target not found');
-        if (hit.onscreen) await page.waitForTimeout(520); // hold on the calm page so the filmstrip catches the ripple
+        // Dwell on the target with the marker showing BEFORE the tap fires, so a
+        // first-time viewer can read the (open menu / dialog / tab) and see where
+        // the tap is about to land. ~marker-duration + a beat → deliberate and
+        // readable, not a flash. (Was 520ms — too quick to orient on.)
+        if (hit.onscreen) await page.waitForTimeout(1200);
         await page.evaluate((s) => {
           const el = (new Function('return (' + s + ')'))()();
           if (!el) return;
