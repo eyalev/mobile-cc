@@ -122,6 +122,23 @@ else
 fi
 echo "==> active session $ACTIVE_SESSION → pane $ACTIVE_PANE"
 
+# Per-demo tab-layout overrides. tabs-projects wants 2 tabs/row (vs the
+# mobile-cc default of 3) so the cards are wide enough to show full session
+# names (api-claude1) instead of ellipsis. maxPerRow is CLIENT-authoritative
+# and mobile-cc-tabs.js force-seeds it to 3 unless its `seededPerRow` guard is
+# already set — so we PUT BOTH keys to /api/state. hydrateServerState() (which
+# runs BEFORE the plugins evaluate) writes them down to localStorage, the guard
+# makes mobile-cc-tabs.js skip its 3-force, and ttyview-tabs reads maxPerRow=2.
+# Demo-only, no app change (confirmed with mcc1, who owns the tab sizing).
+if [ "$ID" = "tabs-projects" ]; then
+  echo "==> tabs-projects: seeding maxPerRow=2 (full names, no ellipsis)"
+  curl -fsk -X PUT "http://127.0.0.1:$PORT/api/state/ttv-plugin:ttyview-tabs:settings" \
+    -H 'content-type: application/json' \
+    -d '{"rows":3,"maxPerRow":2,"mode":"pinned","recentRow":false}' >/dev/null || true
+  curl -fsk -X PUT "http://127.0.0.1:$PORT/api/state/ttv-plugin:mobile-cc-tabs:seededPerRow" \
+    -H 'content-type: application/json' -d 'true' >/dev/null || true
+fi
+
 echo "==> capturing $ID"
 ( cd "$HERE" && MOBILE_CC_URL="http://127.0.0.1:$PORT/" TTV_PANE="$ACTIVE_PANE" node runner/run-all.mjs "$ID" )
 echo "==> done"
