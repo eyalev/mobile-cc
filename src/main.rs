@@ -92,6 +92,11 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-tab-topics.js",    include_bytes!("../assets/mobile-cc-tab-topics.js")),
     ("mobile-cc-native-screenshot.js", include_bytes!("../assets/mobile-cc-native-screenshot.js")),
     ("mobile-cc-download.js",      include_bytes!("../assets/mobile-cc-download.js")),
+    // cc-markers (shared window.mccMarkers scanner) MUST precede its consumers
+    // prompt-nav + turns (load order = registration order).
+    ("mobile-cc-cc-markers.js",    include_bytes!("../assets/mobile-cc-cc-markers.js")),
+    ("mobile-cc-prompt-nav.js",    include_bytes!("../assets/mobile-cc-prompt-nav.js")),
+    ("mobile-cc-turns.js",         include_bytes!("../assets/mobile-cc-turns.js")),
     ("mobile-cc-push.js",          include_bytes!("../assets/mobile-cc-push.js")),
     // TEMP diagnostic — soft-keyboard-on-tab-switch tracer. Remove with
     // its assets/installed.json entry once the cause is pinned.

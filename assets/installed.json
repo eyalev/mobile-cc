@@ -39,7 +39,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "One-tap command chips (sends command + Enter). Seeded with \u25b6 cc \u2192 ccpc; editable in Settings \u2192 Commands. Internal to mobile-cc."
+      "description": "One-tap command chips (sends command + Enter). Seeded with ▶ cc → ccpc; editable in Settings → Commands. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-quickkeys",
@@ -49,7 +49,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Editable special-key buttons (Esc/Tab/arrows/Ctrl-*) above the Message box. Manage the list in Settings \u2192 Quick Keys; Ctrl-L dropped from the default seed. Replaces upstream ttyview-quickkeys. Internal to mobile-cc."
+      "description": "Editable special-key buttons (Esc/Tab/arrows/Ctrl-*) above the Message box. Manage the list in Settings → Quick Keys; Ctrl-L dropped from the default seed. Replaces upstream ttyview-quickkeys. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-new-tab",
@@ -59,7 +59,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Header \uff0b button \u2192 menu to create a session: blank shell, shell + Claude Code, or Claude Code in a chosen project folder (grouped). Launch command configurable in Settings \u2192 New Tab. Internal to mobile-cc."
+      "description": "Header ＋ button → menu to create a session: blank shell, shell + Claude Code, or Claude Code in a chosen project folder (grouped). Launch command configurable in Settings → New Tab. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-topics",
@@ -69,7 +69,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Header \ud83d\udccb \u2192 per-session AI summary (about + what happened). On-demand + cached (~/.cache/mobile-cc/topics) via /api/cc-session-summary; Groq BYO key. Internal to mobile-cc."
+      "description": "Header 📋 → per-session AI summary (about + what happened). On-demand + cached (~/.cache/mobile-cc/topics) via /api/cc-session-summary; Groq BYO key. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-tab-menu",
@@ -89,7 +89,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Polls /api/state for agent-set tab marks (the pink/green long-press line) and applies them live via window.ttvTabsSetMark \u2014 no reload. Set marks with the mcc-tab-color helper. Internal to mobile-cc."
+      "description": "Polls /api/state for agent-set tab marks (the pink/green long-press line) and applies them live via window.ttvTabsSetMark — no reload. Set marks with the mcc-tab-color helper. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-kbd-overlay",
@@ -109,7 +109,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Header disclosure popover to set terminal height by resizing the tmux pane's row count (own-WS resize); groups relocated font controls + Rows \u2212/+/reset. Internal to mobile-cc."
+      "description": "Header disclosure popover to set terminal height by resizing the tmux pane's row count (own-WS resize); groups relocated font controls + Rows −/+/reset. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-pinch-zoom",
@@ -119,7 +119,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Pinch to zoom the terminal area. Settings \u2192 Pinch Zoom: Sharp (font-size, crisp + pan) / Smooth (CSS transform scale + pan) / Off. Purely visual, no tmux resize. Internal to mobile-cc."
+      "description": "Pinch to zoom the terminal area. Settings → Pinch Zoom: Sharp (font-size, crisp + pan) / Smooth (CSS transform scale + pan) / Off. Purely visual, no tmux resize. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-scrollback",
@@ -129,7 +129,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Settings \u2192 Scrollback: slider/presets for how many history lines load when a pane opens (writes ttv-scrollback-rows; daemon retains up to 10000). Internal to mobile-cc."
+      "description": "Settings → Scrollback: slider/presets for how many history lines load when a pane opens (writes ttv-scrollback-rows; daemon retains up to 10000). Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-cc-search",
@@ -139,7 +139,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "\ud83d\udd0d header button: search all CC sessions (/api/cc-search, ripgrep) ranked by keyword+recency, with a parallel opt-in Groq AI pick. Jump to open tabs, preview/reopen closed sessions. Internal to mobile-cc."
+      "description": "🔍 header button: search all CC sessions (/api/cc-search, ripgrep) ranked by keyword+recency, with a parallel opt-in Groq AI pick. Jump to open tabs, preview/reopen closed sessions. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-tabs",
@@ -159,7 +159,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Tab subtitle 'Recent topic' source + a scrollable 'Recent topics' section in the tab \u22ee menu. AI summaries via Groq (BYO key), data from /api/cc-session-turns. Internal to mobile-cc."
+      "description": "Tab subtitle 'Recent topic' source + a scrollable 'Recent topics' section in the tab ⋮ menu. AI summaries via Groq (BYO key), data from /api/cc-session-turns. Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-native-screenshot",
@@ -179,7 +179,37 @@
       "version": "0.3.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Linkifies file paths + URLs in the terminal; a short tap opens an action menu \u2014 Copy always, Download for paths (/api/download, $HOME-allowlisted), Open for URLs (always the external/default browser: native ACTION_VIEW, PWA new tab). Long-press still selects for native Copy. Internal to mobile-cc."
+      "description": "Linkifies file paths + URLs in the terminal; a short tap opens an action menu — Copy always, Download for paths (/api/download, $HOME-allowlisted), Open for URLs (always the external/default browser: native ACTION_VIEW, PWA new tab). Long-press still selects for native Copy. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-cc-markers",
+      "name": "CC Markers",
+      "kind": "internal",
+      "source": "mobile-cc-cc-markers.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Shared scanner (window.mccMarkers): CC '❯'/'●' marker rows + chrome boundary. Used by Prompt Nav + Message Regions. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-prompt-nav",
+      "name": "Prompt Nav",
+      "kind": "internal",
+      "source": "mobile-cc-prompt-nav.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Jump between your own prompts in the terminal: detects CC's '❯ ' user-prompt marker rows and a floating ▲/▼ control scrolls to prev/next with an N/M pill + highlight. Excludes the live input box. Internal to mobile-cc."
+    },
+    {
+      "id": "mobile-cc-turns",
+      "name": "Message Regions",
+      "kind": "settingsTab",
+      "source": "mobile-cc-turns.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Pseudo message-containers in the terminal: correlates CC JSONL turns to row ranges; user/assistant tint + turn separators + per-turn 'when sent' timestamp. Settings → Message Regions (default ON). Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-push",
@@ -189,7 +219,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Web Push opt-in (Settings \u2192 Notifications): phone buzzes on CC permission prompts (always) + pane idle-after-activity (opt-in). Asks permission only on tap; subscribes via /api/push/* (VAPID, src/push.rs). Also handles notification\u2192tap\u2192focus-pane deep links (?pane=). Internal to mobile-cc."
+      "description": "Web Push opt-in (Settings → Notifications): phone buzzes on CC permission prompts (always) + pane idle-after-activity (opt-in). Asks permission only on tap; subscribes via /api/push/* (VAPID, src/push.rs). Also handles notification→tap→focus-pane deep links (?pane=). Internal to mobile-cc."
     },
     {
       "id": "mobile-cc-kbd-diag",
@@ -259,7 +289,7 @@
       "version": "0.1.0",
       "enabled": true,
       "installed_at": 0,
-      "description": "Bundled in mobile-cc. Web Speech by default; Groq Whisper + LLM cleanup with a BYO key. Add a Deepgram key for real-time streaming preview (works on Android) while Groq produces the final transcript (Settings \u2192 Voice Input)."
+      "description": "Bundled in mobile-cc. Web Speech by default; Groq Whisper + LLM cleanup with a BYO key. Add a Deepgram key for real-time streaming preview (works on Android) while Groq produces the final transcript (Settings → Voice Input)."
     },
     {
       "id": "ttyview-reload",
