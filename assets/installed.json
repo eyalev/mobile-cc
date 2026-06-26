@@ -102,6 +102,16 @@
       "description": "Makes the soft keyboard overlay the page (VirtualKeyboard API) instead of resizing the viewport, so opening it no longer bumps the view; lifts the input cluster above it. Internal to mobile-cc."
     },
     {
+      "id": "mobile-cc-kbd-direct",
+      "name": "Live keys",
+      "kind": "internal",
+      "source": "mobile-cc-kbd-direct.js",
+      "version": "0.1.0",
+      "enabled": true,
+      "installed_at": 0,
+      "description": "Live keys: type straight into the terminal one keystroke at a time (value-diff stream via a type=password capture field), instead of composing in the Message box. Toggle (⌁) + Settings → Live keys. Internal to mobile-cc."
+    },
+    {
       "id": "mobile-cc-term-size",
       "name": "Terminal Size",
       "kind": "headerWidget",
