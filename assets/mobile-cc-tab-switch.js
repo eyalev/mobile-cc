@@ -219,11 +219,132 @@
   } catch (_) {}
   if (tv.on) {
     tv.on('pane-changed', function (e) {
+      if (preview) cancelPreview();   // an external switch (tap a tab) ends the preview
       if (cycling) return;
       var p = ((tv.listPanes && tv.listPanes()) || []).find(function (x) { return x.id === e.to; });
       if (p) noteMru(p.session);
     });
   }
+
+  // ---- recents-view preview (mark, then Enter to choose) -------------------
+  //
+  // In the 🕘 recent view the list is recency-ordered, so actually switching
+  // mid-cycle bumps the landed session to the front and the list reshuffles
+  // under you. So in recent view the chord doesn't switch — it HIGHLIGHTS the
+  // candidate tab and waits: Enter commits, Esc cancels, the chord keeps
+  // moving the highlight, any other key dismisses. Nothing reorders until you
+  // commit (and then bumping-to-front is correct — you really did visit it).
+
+  var preview = null;        // { list:[panes], idx } while marking
+  var hlTimer = null;        // re-applies the highlight across tab re-renders
+  var idleTimer = null;      // auto-cancel if left untouched
+  var hintEl = null;
+  var IDLE_MS = 8000;
+
+  function injectStyle() {
+    if (document.getElementById('mcc-tabsw-style')) return;
+    var s = document.createElement('style');
+    s.id = 'mcc-tabsw-style';
+    s.textContent = [
+      '.ttvtab.mcc-tab-preview {',
+      '  outline: 2px solid var(--ttv-accent, #569cd6) !important;',
+      '  outline-offset: -2px;',
+      '  box-shadow: inset 0 0 0 2px var(--ttv-accent, #569cd6) !important;',
+      '  filter: brightness(1.12);',
+      '}',
+      '#mcc-tabsw-hint {',
+      '  position: fixed; z-index: 60; left: 50%; transform: translateX(-50%);',
+      '  bottom: 8px; background: var(--ttv-accent, #569cd6); color: #001018;',
+      '  font: 600 12px/1 ui-monospace, Menlo, Consolas, monospace;',
+      '  padding: 7px 12px; border-radius: 8px; pointer-events: none;',
+      '  box-shadow: 0 2px 10px rgba(0,0,0,.4); white-space: nowrap;',
+      '}',
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(s);
+  }
+
+  function curSession() {
+    return preview && preview.list[preview.idx] && preview.list[preview.idx].session;
+  }
+
+  function applyHighlight() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.ttvtab.mcc-tab-preview'),
+      function (el) { el.classList.remove('mcc-tab-preview'); }
+    );
+    var sess = curSession();
+    if (!sess) return;
+    var sel;
+    try { sel = '.ttvtab[data-session="' + (window.CSS && CSS.escape ? CSS.escape(sess) : sess) + '"]'; }
+    catch (_) { sel = null; }
+    if (!sel) return;
+    var els = document.querySelectorAll(sel);
+    Array.prototype.forEach.call(els, function (el) { el.classList.add('mcc-tab-preview'); });
+    if (els[0]) { try { els[0].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (_) {} }
+  }
+
+  function showHint() {
+    injectStyle();
+    if (!hintEl) {
+      hintEl = document.createElement('div');
+      hintEl.id = 'mcc-tabsw-hint';
+      document.body.appendChild(hintEl);
+    }
+    var sess = curSession();
+    hintEl.textContent = '→ ' + (sess || '') + '   ·   Enter to switch · Esc to cancel';
+    hintEl.style.display = '';
+  }
+
+  function startIdle() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(cancelPreview, IDLE_MS);
+  }
+
+  function startPreview(dir) {
+    var list = recentList(liveBySession());
+    if (list.length < 2) return false;
+    var cur = tv.getActivePane && tv.getActivePane();
+    var i = cur ? list.findIndex(function (p) { return p.session === cur.session; }) : -1;
+    if (i < 0) i = 0;
+    preview = { list: list, idx: i };
+    injectStyle();
+    if (hlTimer) clearInterval(hlTimer);
+    // Tab bar re-renders (dot polls, panes-updated) wipe the class; re-apply
+    // periodically. Also bail if the view leaves recent mode.
+    hlTimer = setInterval(function () {
+      if (!preview) return;
+      if (tabsMode() !== 'recent') { cancelPreview(); return; }
+      applyHighlight();
+    }, 150);
+    advancePreview(dir);           // move off the current pane to the first candidate
+    return true;
+  }
+
+  function advancePreview(dir) {
+    if (!preview) return;
+    var n = preview.list.length;
+    preview.idx = (preview.idx + dir + n) % n;
+    applyHighlight();
+    showHint();
+    startIdle();
+  }
+
+  function teardownPreview() {
+    preview = null;
+    if (hlTimer) { clearInterval(hlTimer); hlTimer = null; }
+    if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+    applyHighlight();              // preview null → clears all marks
+    if (hintEl) hintEl.style.display = 'none';
+  }
+
+  function commitPreview() {
+    if (!preview) return;
+    var pane = preview.list[preview.idx];
+    teardownPreview();             // null FIRST so the resulting pane-changed doesn't re-cancel
+    if (pane) { try { tv.selectPane(pane.id); } catch (_) {} }
+  }
+
+  function cancelPreview() { teardownPreview(); }
 
   // ---- key handling --------------------------------------------------------
 
@@ -232,10 +353,24 @@
     var c = cfg();
     if (!c.enabled) return;
     var preset = PRESETS[c.binding];
+
+    // While a recents-view preview is open, capture Enter/Esc/chord and
+    // dismiss on anything else.
+    if (preview) {
+      if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); commitPreview(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelPreview(); return; }
+      if (preset.match(e))    { e.preventDefault(); e.stopPropagation(); advancePreview(preset.dir(e)); return; }
+      if (e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta' || e.key === 'Shift') return;
+      cancelPreview();                     // any other key → dismiss, let it pass through
+      return;
+    }
+
     if (!preset.match(e)) return;
     e.preventDefault();
     e.stopPropagation();
     var dir = preset.dir(e);
+    // Recent view: mark + Enter (no reorder). Pinned/all: switch instantly.
+    if (tabsMode() === 'recent') { startPreview(dir); return; }
     if (c.order === 'mru') switchMru(dir);
     else switchPositional(dir);
   }, true);
@@ -259,7 +394,9 @@
         var intro = document.createElement('p');
         intro.style.cssText = 'color:var(--ttv-muted);font-size:12px;margin:0 0 16px;';
         intro.textContent = 'Switch session tabs from a physical keyboard (desktop/laptop). ' +
-          'Pick a key chord and how the cycle is ordered.';
+          'Pick a key chord and how the cycle is ordered. In the 🕘 recent view the ' +
+          'chord highlights a tab without switching — Enter chooses it, Esc cancels — ' +
+          'so the recency order does not reshuffle under you.';
         container.appendChild(intro);
 
         // Enable toggle.
