@@ -131,7 +131,11 @@
     input.style.cssText =
       'flex:1;min-width:0;width:100%;height:100%;box-sizing:border-box;' +
       'padding:6px 10px;background:var(--ttv-panel-bg);color:transparent;' +
-      'caret-color:var(--ttv-accent,#569cd6);' +
+      // No visible caret: the field accumulates the line but the TERMINAL owns
+      // the real cursor — a second caret advancing in a blank box read as a
+      // distracting "cursor moving while I type". Hide it; the badge is the
+      // only affordance.
+      'caret-color:transparent;' +
       'border:1px solid var(--ttv-accent,#569cd6);border-radius:6px;' +
       'font-family:ui-monospace,monospace;font-size:14px;line-height:1.4;outline:none;';
 
@@ -151,6 +155,16 @@
         selfSend('\r');
         resetBaseline('enter');
         diag('kbd-direct-enter', {});
+      } else if (e.key === 'Tab' && !e.isComposing) {
+        // Tab is reliable from a physical/soft keyboard (it's a control key,
+        // not a printable). In a password field its default is focus-move, so
+        // we MUST preventDefault and forward it ourselves — otherwise tab
+        // completion never reaches the shell. Completion rewrites the line, so
+        // resync the baseline. Shift+Tab → back-tab (CSI Z).
+        e.preventDefault();
+        selfSend(e.shiftKey ? '\x1b[Z' : '\t');
+        resetBaseline('tab');
+        diag('kbd-direct-tab', { shift: !!e.shiftKey });
       } else if (e.key === 'Backspace' && input.value === '' && prev === '') {
         // Field already empty (line start, or just after a resync): nothing to
         // diff. Send one \x7f best-effort so deleting a completion still works.
