@@ -52,10 +52,14 @@
     s.textContent =
       // per-turn timestamp, right-aligned after the prompt's last row. Absolute
       // → out of flow → no layout shift; its own bg masks any text underneath.
+      // Rendered as a high-contrast PILL (full-strength fg, bold, elevated bg +
+      // border, vertically centred) so it reads clearly over terminal text.
       '.ttv-row[data-mcc-ts]{position:relative;}' +
-      '.ttv-row[data-mcc-ts]::after{content:attr(data-mcc-ts);position:absolute;right:2px;top:0;' +
-        'font:10px/1.7 system-ui,sans-serif;color:var(--ttv-muted,#9aa);opacity:.85;pointer-events:none;' +
-        'background:var(--ttv-bg,#1e1e1e);padding:0 4px;border-radius:4px;}';
+      '.ttv-row[data-mcc-ts]::after{content:attr(data-mcc-ts);position:absolute;right:3px;top:50%;' +
+        'transform:translateY(-50%);font:600 11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;' +
+        'color:var(--ttv-fg,#d4d4d4);opacity:1;pointer-events:none;letter-spacing:.2px;' +
+        'background:var(--ttv-bg-elev2,#2a2a2a);border:1px solid var(--ttv-border,#3a3a3a);' +
+        'padding:1px 6px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.35);}';
     document.head.appendChild(s);
   }
 
