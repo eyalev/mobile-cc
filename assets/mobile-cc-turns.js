@@ -88,16 +88,21 @@
   function parseUserEntries(d) {
     var turns = d && d.turns;
     if (!Array.isArray(turns)) return [];
-    var out = [];
+    var out = [], cur = null;
     for (var i = 0; i < turns.length; i++) {
       var t = turns[i];
-      if (!t || t.type !== 'user' || !t.message) continue;
-      var txt = extractText(t.message.content);
-      var tn = norm(txt);
-      if (!tn || tn.indexOf('[cc-com]') === 0) continue;
-      out.push({ uuid: t.uuid, ts: t.timestamp, norm: tn, patterns: patternsOf(tn) });
+      if (!t || !t.message) continue;
+      if (t.type === 'user') {
+        var txt = extractText(t.message.content);
+        var tn = norm(txt);
+        if (!tn || tn.indexOf('[cc-com]') === 0) continue;   // tool-result / cc-com → not a prompt
+        cur = { uuid: t.uuid, ts: t.timestamp, norm: tn, patterns: patternsOf(tn), responseTs: null };
+        out.push(cur);
+      } else if (t.type === 'assistant' && cur && t.timestamp) {
+        cur.responseTs = t.timestamp;            // latest assistant entry in the turn = cc's reply time
+      }
     }
-    return out;                                  // oldest → newest
+    return out;                                  // oldest → newest, each w/ its cc responseTs
   }
 
   // transcript cache: { paneId, entries, at, loading }
@@ -215,7 +220,8 @@
       for (r = tn.userBlockEnd; r < tn.endRow; r++) { nTags.set(rows[r], 'assistant'); nTurn.set(rows[r], sid); }
       nStart.add(rows[tn.startRow]);
       nEnd.add(rows[lastNonBlank(rows, tn.startRow, tn.endRow)]);
-      // timestamp: 2s-stable + content-validated sticky, on the prompt's last row
+      // USER message timestamp: 2s-stable + content-validated sticky, on the
+      // prompt's last row.
       var ms = tn.entry.ts ? Date.parse(tn.entry.ts) : NaN;
       if (!isNaN(ms) && (Date.now() - ms) > TS_STABLE_MS) {
         var freshRow = rows[lastNonBlank(rows, tn.startRow, tn.userBlockEnd)];
@@ -223,6 +229,20 @@
         var stampRow = (stick && stickyValid(stick.row, host, stick.pattern)) ? stick.row : freshRow;
         stickyByUuid.set(tn.entry.uuid, { row: stampRow, pattern: tn.entry.patterns[0] || tn.entry.norm });
         nTs.set(stampRow, fmtTs(tn.entry.ts));
+      }
+      // CC (assistant) message timestamp: the turn's last assistant entry, on
+      // the assistant block's last row — so every message, user OR cc, is timed.
+      if (tn.userBlockEnd < tn.endRow && tn.entry.responseTs) {
+        var ams = Date.parse(tn.entry.responseTs);
+        if (!isNaN(ams) && (Date.now() - ams) > TS_STABLE_MS) {
+          var aFresh = rows[lastNonBlank(rows, tn.userBlockEnd, tn.endRow)];
+          var aKey = tn.entry.uuid + ':a';
+          var aPat = norm((rows[tn.userBlockEnd] && rows[tn.userBlockEnd].textContent) || '').slice(0, 24);
+          var aStick = stickyByUuid.get(aKey);
+          var aRow = (aStick && stickyValid(aStick.row, host, aStick.pattern)) ? aStick.row : aFresh;
+          stickyByUuid.set(aKey, { row: aRow, pattern: aPat });
+          if (!nTs.has(aRow)) nTs.set(aRow, fmtTs(tn.entry.responseTs));   // don't double-stamp a shared row
+        }
       }
     }
 
@@ -250,15 +270,12 @@
   }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
+  // ISO datetime in LOCAL time, without the 'T' separator: "YYYY-MM-DD HH:MM:SS".
   function fmtTs(iso) {
     var d = new Date(iso);
     if (isNaN(+d)) return '';
-    var now = new Date();
-    var sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-    var hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
-    if (sameDay) return hm;
-    var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-    return mon + ' ' + d.getDate() + ' ' + hm;
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+           pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
 
   // ---- settings toggle --------------------------------------------------
