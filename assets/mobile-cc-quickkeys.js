@@ -112,7 +112,7 @@
       var row = document.createElement('div');
       row.style.cssText =
         'display:flex;gap:3px;overflow-x:auto;-webkit-overflow-scrolling:touch;' +
-        'padding:2px 0;scrollbar-width:none;';
+        'padding:0;scrollbar-width:none;';
 
       function paint() {
         row.innerHTML = '';
@@ -132,10 +132,16 @@
         var human = k.label || k.keys;
         btn.setAttribute('aria-label', human);
         btn.title = human;
-        // Touch target: guarantee ≥36px tall / ≥40px wide regardless of the
-        // inherited accessory-button style (WCAG 2.5.5).
-        btn.style.minHeight = '36px';
+        // Compact row (user request 2026-07-02): the old ≥36px tall buttons
+        // made the strip eat too much vertical space above the Message box.
+        // Height drops to 26px with tighter padding; width stays ≥40px so
+        // the side-to-side tap target survives. The a11y touch-target
+        // guidance (WCAG 2.5.5) trades off against screen space here — the
+        // row is dense but each key remains a full-width thumb target.
+        btn.style.minHeight = '26px';
         btn.style.minWidth = '40px';
+        btn.style.padding = '2px 9px';
+        btn.style.lineHeight = '1.2';
         btn.addEventListener('pointerup', function (e) {
           if (e.button !== undefined && e.button !== 0) return;  // ignore right/middle
           if (typeof window.ttvDiag === 'function') {
