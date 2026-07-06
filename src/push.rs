@@ -237,7 +237,13 @@ async fn set_settings(
 }
 
 async fn test_push(Extension(s): Extension<Arc<PushState>>) -> impl IntoResponse {
-    let n = deliver(&s, "mobile-cc", "Test notification — push is working.", "test").await;
+    let n = deliver(
+        &s,
+        "mobile-cc",
+        "Test notification — push is working.",
+        "test",
+    )
+    .await;
     (StatusCode::OK, Json(serde_json::json!({ "sent": n })))
 }
 
@@ -309,11 +315,12 @@ async fn deliver(state: &Arc<PushState>, title: &str, body: &str, kind: &str) ->
             sub.keys.p256dh.clone(),
             sub.keys.auth.clone(),
         );
-        let sig = match VapidSignatureBuilder::from_pem(state.vapid_pem.as_slice(), &info)
-            .and_then(|mut b| {
+        let sig = match VapidSignatureBuilder::from_pem(state.vapid_pem.as_slice(), &info).and_then(
+            |mut b| {
                 b.add_claim("sub", VAPID_SUBJECT);
                 b.build()
-            }) {
+            },
+        ) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("[push] vapid sign failed: {e}");

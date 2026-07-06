@@ -386,9 +386,9 @@
           var cur = subtitleMode();
           Array.prototype.forEach.call(seg.children, function (b) {
             var on = b.dataset.mode === cur;
-            b.style.background = on ? 'var(--ttv-accent,#E8896B)' : 'var(--ttv-bg-elev2,#2d2d30)';
+            b.style.background = on ? 'var(--ttv-accent,#569cd6)' : 'var(--ttv-bg-elev2,#2d2d30)';
             b.style.color = on ? '#1e1e1e' : 'var(--ttv-fg)';
-            b.style.borderColor = on ? 'var(--ttv-accent,#E8896B)' : 'var(--ttv-border,#3a3a3a)';
+            b.style.borderColor = on ? 'var(--ttv-accent,#569cd6)' : 'var(--ttv-border,#3a3a3a)';
           });
           var m = MODES.filter(function (x) { return x.id === cur; })[0];
           modeHint.textContent = m ? m.hint : '';

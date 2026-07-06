@@ -35,7 +35,7 @@
     t.style.cssText =
       'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:1200;' +
       'background:' + (bad ? '#7a2230' : '#2d3a4a') + ';color:#fff;border:1px solid ' + (bad ? '#a83b4a' : '#41597a') + ';' +
-      'border-radius:8px;padding:8px 12px;font-size:13px;max-width:80vw;box-shadow:0 6px 24px rgba(0,0,0,.5);';
+      'border-radius:8px;padding:8px 12px;font-size:13px;max-width:80vw;box-shadow:0 6px 24px var(--ttv-shadow);';
     document.body.appendChild(t);
     setTimeout(function () { t.remove(); }, 3500);
   }
@@ -142,7 +142,7 @@
     var b = document.createElement('button');
     b.type = 'button'; b.tabIndex = -1; b.textContent = label;
     b.style.cssText =
-      'min-width:34px;height:32px;padding:0 12px;border:1px solid var(--ttv-border,#3a3a3a);' +
+      'min-width:34px;height:32px;padding:0 12px;border:1px solid var(--ttv-border,var(--ttv-border));' +
       'border-radius:6px;background:transparent;color:' + (danger ? '#fff' : 'var(--ttv-fg)') + ';font-size:14px;' +
       'cursor:pointer;font-family:inherit;line-height:1;';
     if (danger) { b.style.background = '#a83b4a'; b.style.borderColor = 'transparent'; }
@@ -164,7 +164,7 @@
     b.style.cssText =
       'display:block;width:100%;text-align:left;background:transparent;border:0;border-radius:6px;' +
       'padding:10px 12px;color:' + (danger ? '#e06c75' : 'var(--ttv-fg)') + ';cursor:pointer;font:inherit;font-size:14px;';
-    b.addEventListener('mouseenter', function () { b.style.background = 'var(--ttv-bg-elev2,#2d2d30)'; });
+    b.addEventListener('mouseenter', function () { b.style.background = 'var(--ttv-bg-elev2,var(--ttv-control-bg))'; });
     b.addEventListener('mouseleave', function () { b.style.background = 'transparent'; });
     b.addEventListener('mousedown', function (e) { e.preventDefault(); });
     b.addEventListener('click', onTap);
@@ -178,8 +178,8 @@
     menu.id = 'mcc-tabmenu';
     menu.setAttribute('role', 'menu');
     menu.style.cssText =
-      'position:fixed;z-index:1000;min-width:190px;background:var(--ttv-bg-elev,#252526);' +
-      'border:1px solid var(--ttv-border,#3a3a3a);border-radius:8px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);';
+      'position:fixed;z-index:1000;min-width:190px;background:var(--ttv-bg-elev,var(--ttv-panel-bg));' +
+      'border:1px solid var(--ttv-border,var(--ttv-border));border-radius:8px;padding:6px;box-shadow:0 6px 24px var(--ttv-shadow);';
     var hdr = document.createElement('div');
     hdr.textContent = session;
     hdr.style.cssText = 'padding:4px 12px 2px;color:var(--ttv-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
@@ -196,7 +196,7 @@
       sub.style.cssText =
         'display:block;width:100%;text-align:left;background:transparent;border:0;cursor:pointer;' +
         'padding:0 12px 8px;margin:0;font:inherit;font-size:12px;line-height:1.4;' +
-        'color:var(--ttv-accent,#E8896B);white-space:normal;overflow-wrap:anywhere;';
+        'color:var(--ttv-accent,var(--ttv-rail-accent));white-space:normal;overflow-wrap:anywhere;';
       sub.addEventListener('mousedown', function (e) { e.preventDefault(); });
       sub.addEventListener('click', function () { closeMenu(); subtitleFlow(session); });
       menu.appendChild(sub);
@@ -232,9 +232,9 @@
   // ---- modal (rename + kill-confirm) ----
   function openModal(opts) { // { title, body(modal), buttons:[{label,danger,onTap(close)}] }
     var overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding:60px 12px;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:1100;background:var(--ttv-scrim);display:flex;align-items:flex-start;justify-content:center;padding:60px 12px;';
     var modal = document.createElement('div');
-    modal.style.cssText = 'background:var(--ttv-bg-elev,#252526);border:1px solid var(--ttv-border,#3a3a3a);border-radius:10px;padding:16px;width:min(380px,92vw);box-shadow:0 8px 32px rgba(0,0,0,.5);';
+    modal.style.cssText = 'background:var(--ttv-bg-elev,var(--ttv-panel-bg));border:1px solid var(--ttv-border,var(--ttv-border));border-radius:10px;padding:16px;width:min(380px,92vw);box-shadow:0 8px 32px var(--ttv-shadow);';
     var h = document.createElement('h3'); h.textContent = opts.title; h.style.cssText = 'margin:0 0 12px;font-size:16px;color:var(--ttv-fg);';
     modal.appendChild(h);
     function close() { overlay.remove(); }
@@ -255,7 +255,7 @@
       body: function (modal) {
         inp = document.createElement('input');
         inp.type = 'text'; inp.value = session; inp.autocapitalize = 'off'; inp.autocomplete = 'off'; inp.spellcheck = false;
-        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,var(--ttv-bg));color:var(--ttv-fg);border:1px solid var(--ttv-border,var(--ttv-border));border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
         modal.appendChild(inp);
         setTimeout(function () { inp.focus(); inp.select(); }, 0);
       },
@@ -292,7 +292,7 @@
         inp.type = 'text'; inp.value = cur; inp.placeholder = 'e.g. fixing keyboard bug';
         inp.maxLength = 40;
         inp.autocapitalize = 'off'; inp.autocomplete = 'off'; inp.spellcheck = false;
-        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,var(--ttv-bg));color:var(--ttv-fg);border:1px solid var(--ttv-border,var(--ttv-border));border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
         modal.appendChild(inp);
         if (typeof window.ttvTagSuggest === 'function') {
           var row = document.createElement('div');
@@ -378,7 +378,7 @@
           groups.forEach(function (g) {
             var chip = document.createElement('button');
             chip.type = 'button'; chip.tabIndex = -1; chip.textContent = g;
-            chip.style.cssText = 'border:1px solid var(--ttv-border,#3a3a3a);border-radius:999px;background:transparent;color:var(--ttv-fg);font-size:13px;padding:5px 12px;cursor:pointer;';
+            chip.style.cssText = 'border:1px solid var(--ttv-border,var(--ttv-border));border-radius:999px;background:transparent;color:var(--ttv-fg);font-size:13px;padding:5px 12px;cursor:pointer;';
             chip.addEventListener('mousedown', function (e) { e.preventDefault(); });
             chip.addEventListener('click', function () { close(); moveToProject(session, g); });
             wrap.appendChild(chip);
@@ -391,7 +391,7 @@
         modal.appendChild(lbl);
         inp = document.createElement('input');
         inp.type = 'text'; inp.placeholder = 'project name'; inp.autocapitalize = 'off'; inp.autocomplete = 'off'; inp.spellcheck = false;
-        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,#1e1e1e);color:var(--ttv-fg);border:1px solid var(--ttv-border,#3a3a3a);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+        inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--ttv-bg,var(--ttv-bg));color:var(--ttv-fg);border:1px solid var(--ttv-border,var(--ttv-border));border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
         modal.appendChild(inp);
       },
       buttons: [
@@ -462,7 +462,7 @@
       // body.ttv-tall-tabs (always on in mobile-cc) .ttvtab-head is a real flex
       // row. Fall back to the absolute corner for embedders without it.
       var base = 'width:38px;height:38px;line-height:38px;text-align:center;background:transparent;' +
-        'border:0;color:var(--ttv-muted,#9aa);font-size:16px;cursor:pointer;border-radius:6px;opacity:0.75;';
+        'border:0;color:var(--ttv-muted,var(--ttv-muted));font-size:16px;cursor:pointer;border-radius:6px;opacity:0.75;';
       var head = t.querySelector('.ttvtab-head');
       if (head) {
         dots.style.cssText = 'flex:none;' + base;
@@ -496,7 +496,7 @@
     st.id = 'mcc-ungrouped-bottom';
     st.textContent =
       '.ttvtab-content > .ttvtab-group{order:1;}' +
-      '.ttvtab-content > .ttvtab-row{order:2;border-top:1px solid var(--ttv-border,#3a3a3a);padding-top:5px;margin-top:3px;}' +
+      '.ttvtab-content > .ttvtab-row{order:2;border-top:1px solid var(--ttv-border,var(--ttv-border));padding-top:5px;margin-top:3px;}' +
       '.ttvtab-content > .ttvtab-row + .ttvtab-row{border-top:0;padding-top:0;margin-top:0;}';
       // (The status dot + ⋮ now sit inside the .ttvtab-head flex row — name …
       // dot ⋮ — so the old absolute dot-offset hack is gone; centring is the

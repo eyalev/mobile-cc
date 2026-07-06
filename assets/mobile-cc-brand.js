@@ -19,6 +19,10 @@
   // Tracks the theme accent if it changes; #569cd6 is the stock blue.
   try {
     document.documentElement.style.setProperty('--ttv-rail-accent', 'var(--ttv-accent, #569cd6)');
+    // …and the TEXT-accent var (chips/brand text read it). The light theme
+    // defines it per-theme; on dark it was undefined → a coral fallback, so
+    // pin it to the blue accent here. Single blue accent, zero coral.
+    document.documentElement.style.setProperty('--ttv-rail-accent-text', 'var(--ttv-accent, #569cd6)');
   } catch (e) {}
 
   // Tweaks to the project-group header row (upstream ttyview-tabs),

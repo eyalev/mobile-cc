@@ -30,6 +30,11 @@ struct Cli {
     #[arg(long, value_name = "NAME")]
     tmux_socket: Option<String>,
 
+    /// muxd Unix socket path. When set, ingest panes + route input/resize
+    /// through a muxd daemon instead of tmux. Experimental, flag-gated.
+    #[arg(long, value_name = "PATH")]
+    muxd_socket: Option<String>,
+
     /// Override the config dir (default: $XDG_CONFIG_HOME/mobile-cc).
     /// Holds the bundled plugin manifest + any uploads-staging metadata.
     #[arg(long, value_name = "DIR")]
@@ -89,6 +94,7 @@ const PLUGIN_SOURCES: &[(&str, &[u8])] = &[
     ("mobile-cc-native-screenshot.js", include_bytes!("../assets/mobile-cc-native-screenshot.js")),
     ("mobile-cc-download.js",      include_bytes!("../assets/mobile-cc-download.js")),
     ("mobile-cc-push.js",          include_bytes!("../assets/mobile-cc-push.js")),
+    ("mobile-cc-light-theme.js",   include_bytes!("../assets/mobile-cc-light-theme.js")),
     // TEMP diagnostic — soft-keyboard-on-tab-switch tracer. Remove with
     // its assets/installed.json entry once the cause is pinned.
     ("mobile-cc-kbd-diag.js",      include_bytes!("../assets/mobile-cc-kbd-diag.js")),
@@ -227,6 +233,7 @@ async fn main() -> Result<()> {
     ttyview_core::cli::daemon::run_with_options_v2(ttyview_core::cli::daemon::RunOptions {
         addr: cli.bind,
         socket: cli.tmux_socket,
+        muxd_socket: cli.muxd_socket.clone(),
         config_dir: Some(config_dir),
         app_name: Some(cli.app_name),
         diag_log: Some(diag_log),

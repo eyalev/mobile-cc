@@ -127,8 +127,9 @@
       btn.type = 'button';
       btn.tabIndex = -1;                 // not focusable → tap keeps textarea focus
       btn.title = 'Attach last screenshot';
+      btn.setAttribute('aria-label', 'Attach last screenshot');
       // Camera-with-clock glyph: "the most recent capture".
-      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M3 7h3l1.5-2h9L18 7h3v12H3z"/><circle cx="12" cy="13" r="3.2"/><path d="M12 11.6v1.6l1 0.8"/></svg>';
+      btn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M3 7h3l1.5-2h9L18 7h3v12H3z"/><circle cx="12" cy="13" r="3.2"/><path d="M12 11.6v1.6l1 0.8"/></svg>';
       btn.style.color = 'var(--ttv-accent)';
       btn.style.display = 'none';        // hidden until the native bridge is confirmed
       btn.addEventListener('pointerup', function (e) {

@@ -198,9 +198,15 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.title = 'Terminal size';
+      btn.setAttribute('aria-label', 'Terminal size and font controls');
+      btn.setAttribute('aria-haspopup', 'dialog');
+      btn.setAttribute('aria-expanded', 'false');
       btn.textContent = '⇕';
       btn.style.cssText = 'cursor:pointer;';
-      btn.addEventListener('click', function () { if (pop) closePopover(); else openPopover(btn); });
+      btn.addEventListener('click', function () {
+        if (pop) { closePopover(); btn.setAttribute('aria-expanded', 'false'); }
+        else { openPopover(btn); btn.setAttribute('aria-expanded', 'true'); }
+      });
       slot.appendChild(btn);
       return function unmount() { closePopover(); btn.remove(); };
     },

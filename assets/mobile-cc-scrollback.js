@@ -7,9 +7,10 @@
 //      there's headroom; not user-tunable from here.
 //   2. Hydrate backfill — how many of those lines the client fetches
 //      when a pane opens or reconnects (`loadGrid` reads the
-//      `ttv-scrollback-rows` localStorage key, default 200). THIS is
-//      what the control below sets: raise it to scroll further back on
-//      open, lower it if a fresh open feels slow on an old phone.
+//      `ttv-scrollback-rows` localStorage key; ttyview-core falls back
+//      to 200, but mobile-cc seeds 2000 on first visit — see below).
+//      THIS is what the control below sets: raise it to scroll further
+//      back on open, lower it if a fresh open feels slow on an old phone.
 //
 // The value is a plain `ttv-` localStorage key (not plugin-scoped)
 // because ttyview-core's loadGrid consumes it directly — same pattern
@@ -22,9 +23,17 @@
   window.__mccScrollback = true;
 
   var KEY = 'ttv-scrollback-rows';
-  var DEFAULT = 200;
+  var DEFAULT = 2000;                            // mobile-cc's deeper default (core falls back to 200)
   var MIN = 50;
   var MAX = 10000;                               // matches the daemon cap mcc sets
+
+  // Seed the backfill depth on first visit. ttyview-core's loadGrid falls
+  // back to 200 when ttv-scrollback-rows is unset; mobile-cc prefers a
+  // deeper 2000-line default so scrolling back Just Works on a phone.
+  // One-time, key-absence guarded — never overrides a user's own choice.
+  try {
+    if (localStorage.getItem(KEY) === null) localStorage.setItem(KEY, String(DEFAULT));
+  } catch (e) {}
 
   function current() {
     try {

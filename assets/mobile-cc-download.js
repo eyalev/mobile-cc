@@ -45,7 +45,7 @@
     s.textContent =
       '.ttv-cell.mcc-link{text-decoration:underline;text-decoration-thickness:1px;' +
       'text-underline-offset:2px;cursor:pointer;}' +
-      '.ttv-cell.mcc-path{text-decoration-color:var(--ttv-rail-accent,var(--ttv-accent,#E8896B));}' +
+      '.ttv-cell.mcc-path{text-decoration-color:var(--ttv-rail-accent,var(--ttv-accent,#569cd6));}' +
       '.ttv-cell.mcc-url{text-decoration-color:#5B9BD5;}' +
       '#' + MENU_ID + '{position:fixed;z-index:100000;display:flex;flex-direction:column;' +
       'min-width:150px;background:var(--ttv-bg-elev2,#222);border:1px solid var(--ttv-border,#444);' +

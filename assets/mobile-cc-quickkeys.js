@@ -112,7 +112,7 @@
       var row = document.createElement('div');
       row.style.cssText =
         'display:flex;gap:3px;overflow-x:auto;-webkit-overflow-scrolling:touch;' +
-        'padding:2px 0;scrollbar-width:none;';
+        'padding:0;scrollbar-width:none;';
 
       function paint() {
         row.innerHTML = '';
@@ -127,7 +127,21 @@
         btn.type = 'button';
         btn.tabIndex = -1;                 // not focusable → tap keeps textarea focus
         btn.textContent = k.label || k.keys;
-        btn.title = k.keys;
+        // a11y: announce the human label, NOT the raw escape sequence (a screen
+        // reader would read "\x1b[A" as "escape bracket A"). Tooltip = same label.
+        var human = k.label || k.keys;
+        btn.setAttribute('aria-label', human);
+        btn.title = human;
+        // Compact row (user request 2026-07-02): the old ≥36px tall buttons
+        // made the strip eat too much vertical space above the Message box.
+        // Height drops to 26px with tighter padding; width stays ≥40px so
+        // the side-to-side tap target survives. The a11y touch-target
+        // guidance (WCAG 2.5.5) trades off against screen space here — the
+        // row is dense but each key remains a full-width thumb target.
+        btn.style.minHeight = '26px';
+        btn.style.minWidth = '40px';
+        btn.style.padding = '2px 9px';
+        btn.style.lineHeight = '1.2';
         btn.addEventListener('pointerup', function (e) {
           if (e.button !== undefined && e.button !== 0) return;  // ignore right/middle
           if (typeof window.ttvDiag === 'function') {
@@ -231,8 +245,9 @@
           del.type = 'button';
           del.textContent = '✕';
           del.title = 'Remove';
+          del.setAttribute('aria-label', 'Remove quick key');
           del.style.cssText =
-            'flex:none;width:32px;height:32px;border:1px solid var(--ttv-border,#3a3a3a);' +
+            'flex:none;width:40px;height:40px;border:1px solid var(--ttv-border,#3a3a3a);' +
             'border-radius:6px;background:transparent;color:var(--ttv-muted);' +
             'font-size:14px;cursor:pointer;';
           del.addEventListener('click', function () {
@@ -262,8 +277,8 @@
       add.type = 'button';
       add.textContent = '+ Add key';
       add.style.cssText =
-        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#E8896B);border-radius:6px;' +
-        'background:transparent;color:var(--ttv-rail-accent,#E8896B);font-size:13px;' +
+        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#569cd6);border-radius:6px;' +
+        'background:transparent;color:var(--ttv-rail-accent-text,#569cd6);font-size:13px;' +
         'font-weight:600;cursor:pointer;font-family:inherit;';
       add.addEventListener('click', function () {
         var list = load();

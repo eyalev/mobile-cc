@@ -45,6 +45,33 @@
     STORAGE.set(KEY, list);
   }
 
+  // When the user fires `/clear`, Claude Code resets its conversation, so the
+  // tab's auto-generated subtitle (a topic mined from the now-discarded
+  // transcript) is stale. Mark the active tab's subtitle "clear" so it reflects
+  // the fresh-start state. This sets a MANUAL subtitle override (it suppresses
+  // the auto-topic until cleared via the tab ⋮ → Subtitle…). Mirrors the setter
+  // path in mobile-cc-tab-menu (window.ttvTabsSetLabel, storage fallback).
+  function isClearCmd(cmd) {
+    var c = String(cmd || '').trim().toLowerCase();
+    return c === '/clear' || c === 'clear';
+  }
+  function markActiveTabCleared() {
+    var p = null;
+    try { p = (tv.getActivePane && tv.getActivePane()) || null; } catch (_) {}
+    var session = p && p.session;
+    if (!session) return;
+    if (typeof window.ttvTabsSetLabel === 'function') {
+      try { window.ttvTabsSetLabel(session, 'clear'); } catch (_) {}
+      return;
+    }
+    try {
+      var s = tv.storage('ttyview-tabs');
+      var l = s.get('labels') || {};
+      l[session] = 'clear';
+      s.set('labels', l);
+    } catch (_) {}
+  }
+
   // Set of mounted chip-row re-render callbacks. The settings tab calls
   // these after any edit so open accessory rows update live.
   var rerenders = [];
@@ -74,7 +101,6 @@
       }
 
       function makeChip(c) {
-        var accent = 'var(--ttv-rail-accent, #E8896B)';
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.tabIndex = -1;                 // not focusable → tap keeps textarea focus
@@ -95,9 +121,19 @@
             btn.appendChild(ret);
           }
         }
+        // a11y: aria-label = the human label (title already carries the raw cmd
+        // for the tooltip). Keeps the SR announcement readable.
+        btn.setAttribute('aria-label', String(c.label || c.cmd));
+        // Single BLUE accent for the seeded launch chip (▶ …); every other chip
+        // is neutral + theme-aware. No coral anywhere; normal (compact) size.
+        var isAccent = lbl.trim().charAt(0) === '▶';
+        var accentCol = 'var(--ttv-accent, #569cd6)';
+        var chipColor = isAccent ? accentCol : 'var(--ttv-fg)';
+        var chipBorder = isAccent ? accentCol : 'var(--ttv-border, #3a3a3a)';
         btn.style.cssText =
-          'flex:none;padding:3px 10px;border:1px solid ' + accent + ';' +
-          'border-radius:8px;background:transparent;color:' + accent + ';' +
+          'flex:none;padding:4px 10px;' +
+          'border:1px solid ' + chipBorder + ';' +
+          'border-radius:8px;background:transparent;color:' + chipColor + ';' +
           'font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;' +
           'font-family:inherit;line-height:1.2;';
         btn.addEventListener('pointerup', function (e) {
@@ -109,6 +145,7 @@
           if (typeof window.ttvDiag === 'function') {
             window.ttvDiag('cmd-result', { cmd: c.cmd, ok: !!ok });
           }
+          if (ok && isClearCmd(c.cmd)) markActiveTabCleared();
         });
         // Cancel desktop focus-on-mousedown (touch path is covered by tabIndex=-1).
         btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
@@ -190,8 +227,9 @@
           del.type = 'button';
           del.textContent = '✕';
           del.title = 'Remove';
+          del.setAttribute('aria-label', 'Remove command');
           del.style.cssText =
-            'flex:none;width:32px;height:32px;border:1px solid var(--ttv-border,#3a3a3a);' +
+            'flex:none;width:40px;height:40px;border:1px solid var(--ttv-border,#3a3a3a);' +
             'border-radius:6px;background:transparent;color:var(--ttv-muted);' +
             'font-size:14px;cursor:pointer;';
           del.addEventListener('click', function () {
@@ -221,8 +259,8 @@
       add.type = 'button';
       add.textContent = '+ Add command';
       add.style.cssText =
-        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#E8896B);border-radius:6px;' +
-        'background:transparent;color:var(--ttv-rail-accent,#E8896B);font-size:13px;' +
+        'padding:7px 12px;border:1px solid var(--ttv-rail-accent,#569cd6);border-radius:6px;' +
+        'background:transparent;color:var(--ttv-rail-accent-text,#569cd6);font-size:13px;' +
         'font-weight:600;cursor:pointer;font-family:inherit;';
       add.addEventListener('click', function () {
         var list = load();
