@@ -77,6 +77,21 @@ pub async fn origin_guard(req: Request, next: Next) -> Response {
 
 // ---- SSRF guard for push subscription endpoints ------------------------
 
+/// Extract an IPv4 address embedded in an IPv6 literal by one of the forms
+/// `Ipv6Addr::to_ipv4_mapped` does NOT cover: the deprecated v4-compatible
+/// `::a.b.c.d` (RFC 4291 §2.5.5.1) and the well-known NAT64 prefix
+/// `64:ff9b::a.b.c.d` (RFC 6052). Stacks that support these route to the
+/// embedded v4 address, so the v4 rules have to apply — otherwise
+/// `https://[::127.0.0.1]/` and `https://[64:ff9b::7f00:1]/` sail past a
+/// guard that rejects plain `127.0.0.1`.
+fn embedded_ipv4(o: &[u8; 16]) -> Option<std::net::Ipv4Addr> {
+    const NAT64_WK: [u8; 12] = [0x00, 0x64, 0xff, 0x9b, 0, 0, 0, 0, 0, 0, 0, 0];
+    if o[..12].iter().all(|&b| b == 0) || o[..12] == NAT64_WK {
+        return Some(std::net::Ipv4Addr::new(o[12], o[13], o[14], o[15]));
+    }
+    None
+}
+
 /// True if `ip` is a globally-routable address we'd be willing to POST to.
 /// Hand-rolled because `IpAddr::is_global` is still nightly-only.
 fn is_global_ip(ip: IpAddr) -> bool {
@@ -89,9 +104,17 @@ fn is_global_ip(ip: IpAddr) -> bool {
                 || v4.is_broadcast()
                 || v4.is_documentation()
                 || v4.is_unspecified()
+                // Multicast 224.0.0.0/4 — SSDP (239.255.255.250) and mDNS
+                // live here, i.e. real local-network targets.
+                || v4.is_multicast()
                 || o[0] == 0
                 // CGNAT 100.64.0.0/10 — the range Tailscale hands out.
-                || (o[0] == 100 && (o[1] & 0xc0) == 0x40))
+                || (o[0] == 100 && (o[1] & 0xc0) == 0x40)
+                // Benchmarking 198.18.0.0/15 (RFC 2544).
+                || (o[0] == 198 && (o[1] & 0xfe) == 18)
+                // Reserved 240.0.0.0/4 (class E). Also covers the limited
+                // broadcast address, which `is_broadcast` matches on its own.
+                || o[0] >= 240)
         }
         IpAddr::V6(v6) => {
             // Unwrap v4-mapped (::ffff:a.b.c.d) so a private v4 can't be
@@ -99,9 +122,15 @@ fn is_global_ip(ip: IpAddr) -> bool {
             if let Some(m) = v6.to_ipv4_mapped() {
                 return is_global_ip(IpAddr::V4(m));
             }
+            if v6.is_loopback() || v6.is_unspecified() {
+                return false;
+            }
             let o = v6.octets();
-            !(v6.is_loopback()
-                || v6.is_unspecified()
+            // …and the same for the v4-compatible / NAT64 forms.
+            if let Some(m) = embedded_ipv4(&o) {
+                return is_global_ip(IpAddr::V4(m));
+            }
+            !(v6.is_multicast()
                 // ULA fc00::/7
                 || (o[0] & 0xfe) == 0xfc
                 // link-local fe80::/10
@@ -231,5 +260,29 @@ mod tests {
         assert!(!is_safe_push_endpoint("https://box.local/x"));
         assert!(!is_safe_push_endpoint("https://user@evil/x"));
         assert!(!is_safe_push_endpoint("https://[::ffff:127.0.0.1]/x")); // v4-mapped loopback
+    }
+
+    #[test]
+    fn endpoint_rejects_embedded_v4_and_reserved_ranges() {
+        // IPv6 forms that carry an IPv4 address but are NOT v4-mapped, so
+        // `to_ipv4_mapped()` alone misses them.
+        assert!(!is_safe_push_endpoint("https://[::127.0.0.1]/x")); // v4-compatible loopback
+        assert!(!is_safe_push_endpoint("https://[::10.0.0.5]/x")); // v4-compatible private
+        assert!(!is_safe_push_endpoint("https://[64:ff9b::7f00:1]/x")); // NAT64 → 127.0.0.1
+        assert!(!is_safe_push_endpoint("https://[64:ff9b::c0a8:1]/x")); // NAT64 → 192.168.0.1
+
+        // Multicast — SSDP/mDNS are local-network devices, not push providers.
+        assert!(!is_safe_push_endpoint("https://239.255.255.250/x")); // SSDP
+        assert!(!is_safe_push_endpoint("https://224.0.0.1/x"));
+        assert!(!is_safe_push_endpoint("https://[ff02::1]/x")); // all-nodes link-local
+
+        // Reserved / benchmarking ranges.
+        assert!(!is_safe_push_endpoint("https://240.0.0.1/x")); // class E
+        assert!(!is_safe_push_endpoint("https://255.255.255.254/x"));
+        assert!(!is_safe_push_endpoint("https://198.18.0.1/x")); // RFC 2544
+
+        // A NAT64-prefixed *public* v4 stays allowed — the prefix itself is
+        // not the problem, the address it embeds is.
+        assert!(is_safe_push_endpoint("https://[64:ff9b::808:808]/x")); // → 8.8.8.8
     }
 }
