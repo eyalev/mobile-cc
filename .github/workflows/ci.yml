@@ -174,19 +174,29 @@ jobs:
         # feature set never lints the optional Web Push modules.
         run: cargo clippy --release --all-targets --features webpush -- -D warnings
 
-  assets:
-    name: baked JS
+  static:
+    name: baked JS + install.sh
     runs-on: ubuntu-22.04
-    # The ~8.8k lines under assets/ are include_bytes!-baked into the binary
-    # and are the entire UI, but no other job parses them — Rust embeds them
-    # as opaque bytes. A syntax error therefore ships as a silently dead
-    # plugin. Needs neither Rust nor the ttyview sibling, so it's seconds.
+    # Two things Rust CI can't see. Needs neither Rust nor the ttyview
+    # sibling, so it finishes in seconds.
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Check baked plugin JS
+        # The ~8.8k lines under assets/ are include_bytes!-baked into the
+        # binary and are the entire UI, but nothing else parses them — Rust
+        # embeds them as opaque bytes, so a syntax error ships as a silently
+        # dead plugin with no build failure anywhere.
         run: node scripts/check-assets.mjs
+
+      - name: Check install.sh preflight guards
+        # install.sh is the file most users execute (`curl | bash`), yet it was
+        # only exercised on the macOS smoke runner — the Linux path had no
+        # coverage. Asserts the two load-bearing guards: the $BIND character
+        # allowlist (it is interpolated into the systemd unit's ExecStart) and
+        # the loopback-only policy. No network, no systemd, temp prefix.
+        run: bash scripts/check-install-sh.sh
 
   audit:
     name: cargo audit + deny

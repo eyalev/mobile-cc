@@ -76,6 +76,7 @@ cargo fmt --check
 cargo clippy --release --all-targets -- -D warnings
 cargo test --release
 node scripts/check-assets.mjs        # baked plugin JS
+bash scripts/check-install-sh.sh     # install.sh preflight guards
 node demos/check.mjs                 # demos-as-tests consistency
 
 # Web Push is behind a default-off feature — the commands above do NOT
