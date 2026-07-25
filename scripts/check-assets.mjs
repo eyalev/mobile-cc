@@ -99,6 +99,73 @@ function checkNoRawStatePut(files) {
   }
 }
 
+/**
+ * 3. The Capacitor JS↔Java contract holds.
+ *
+ *    The native shell's plugin methods are reached from JS by string name, so
+ *    nothing checks them: no compiler, no bundler, no test. Rename a method in
+ *    LastScreenshotPlugin.java and the JS keeps calling the old name — the
+ *    failure surfaces only on a physical Android device, which is exactly the
+ *    device this repo has never been able to test on automatically.
+ *
+ *    Skipped silently if the Java file isn't present (the worktree may be a
+ *    partial checkout).
+ */
+function checkNativePluginContract() {
+  const javaPath = join(
+    ROOT,
+    'android-app/android/app/src/main/java/dev/mobilecc/app/LastScreenshotPlugin.java'
+  );
+  let java;
+  try {
+    java = readFileSync(javaPath, 'utf8');
+  } catch {
+    return;
+  }
+
+  // Methods the native side actually exposes to the bridge.
+  const exposed = new Set();
+  const re = /@PluginMethod[\s\S]{0,200}?public\s+void\s+([A-Za-z_$][\w$]*)\s*\(/g;
+  for (let m; (m = re.exec(java)); ) exposed.add(m[1]);
+  if (exposed.size === 0) {
+    errors.push(`${javaPath}: no @PluginMethod found — has the plugin been renamed or moved?`);
+    return;
+  }
+
+  // Resolve which identifiers actually hold the plugin before matching calls
+  // on them. Matching a bare receiver name is not good enough — an early
+  // version keyed on `p.` and flagged `p.split(...)` and `p.closest(...)`.
+  const ACCESSOR = /\b(?:nativePlugin|plugin)\(\)/.source;
+  for (const rel of ['assets/mobile-cc-native-screenshot.js', 'assets/mobile-cc-download.js']) {
+    let src;
+    try {
+      src = stripComments(readFileSync(join(ROOT, rel), 'utf8'));
+    } catch {
+      continue;
+    }
+
+    // `var p = plugin();` / `const x = nativePlugin();` → p, x are receivers.
+    const receivers = new Set(['_plugin']);
+    const bindRe = new RegExp(`\\b(?:var|let|const)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*${ACCESSOR}`, 'g');
+    for (let m; (m = bindRe.exec(src)); ) receivers.add(m[1]);
+
+    const alt = [...receivers].map((r) => r.replace(/\$/g, '\\$')).join('|');
+    const callRe = new RegExp(`(?:${ACCESSOR}|\\b(?:${alt}))\\s*\\.\\s*([A-Za-z_$][\\w$]*)\\s*\\(`, 'g');
+    for (let m; (m = callRe.exec(src)); ) {
+      const method = m[1];
+      if (/^(then|catch|finally)$/.test(method)) continue;
+      if (!exposed.has(method)) {
+        const lineNo = src.slice(0, m.index).split('\n').length;
+        errors.push(
+          `${rel}:${lineNo}: calls native plugin method '${method}', which ` +
+            `LastScreenshotPlugin.java does not expose (@PluginMethod: ` +
+            `${[...exposed].sort().join(', ')}). This fails only on a real device.`
+        );
+      }
+    }
+  }
+}
+
 const files = bakedFiles();
 if (files.length === 0) {
   console.error('assets check: found no baked .js files — is the layout still assets/*.js?');
@@ -106,6 +173,7 @@ if (files.length === 0) {
 }
 checkSyntax(files);
 checkNoRawStatePut(files);
+checkNativePluginContract();
 
 for (const e of errors) console.error(`error: ${e}`);
 console.log(`\nassets check: ${files.length} baked file(s), ${errors.length} error(s)`);
