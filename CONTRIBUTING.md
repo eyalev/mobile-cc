@@ -63,12 +63,42 @@ mobile-cc's pin of `ttyview-core` and refreshing the `include_bytes!` list.
 mobile-cc-internal plugins (like `mobile-cc-defaults.js`) live in
 `assets/` here.
 
-## Tests
+## Tests and local checks
 
-mobile-cc has no test suite of its own yet — the platform invariants are
-covered upstream by ttyview's vitest + Playwright suites. The CI workflow
-here only verifies that the binary builds and `--help` runs without
-panicking.
+Platform invariants are covered upstream by ttyview's vitest + Playwright
+suites. mobile-cc covers its own code — the `extra_api` route modules, the
+bundled-plugin manifest, and the bind guard — with unit tests, plus a set of
+consistency gates. Run all of it before opening a PR; this is exactly what CI
+runs, so a clean sweep here means a green CI:
+
+```sh
+cargo fmt --check
+cargo clippy --release --all-targets -- -D warnings
+cargo test --release
+node scripts/check-assets.mjs        # baked plugin JS
+node demos/check.mjs                 # demos-as-tests consistency
+
+# Web Push is behind a default-off feature — the commands above do NOT
+# compile src/push.rs or src/origin.rs at all. Run these too if you touch
+# either, or anything they share:
+cargo test --release --features webpush
+cargo clippy --release --all-targets --features webpush -- -D warnings
+
+# Supply chain (needs cargo-audit + cargo-deny):
+cargo audit --deny warnings --ignore RUSTSEC-2025-0134 --ignore RUSTSEC-2023-0071
+cargo deny check
+```
+
+Two things that surprise people:
+
+- **`cargo test` does not run every test.** It reports 14; with
+  `--features webpush` it reports 19. The difference is the same-origin
+  guard and the SSRF endpoint allowlist in `src/origin.rs`.
+- **The plugin JS has no bundler, linter, or test runner.** It is
+  `include_bytes!`-baked into the binary, so a syntax error produces no
+  build failure anywhere — it just ships as a dead plugin.
+  `scripts/check-assets.mjs` is the only thing standing between a stray
+  brace and a released binary. Keep it passing.
 
 When mobile-cc grows code beyond plumbing (subcommands, named-tunnel
 integration, etc.), tests should land alongside.
