@@ -174,6 +174,20 @@ jobs:
         # feature set never lints the optional Web Push modules.
         run: cargo clippy --release --all-targets --features webpush -- -D warnings
 
+  assets:
+    name: baked JS
+    runs-on: ubuntu-22.04
+    # The ~8.8k lines under assets/ are include_bytes!-baked into the binary
+    # and are the entire UI, but no other job parses them — Rust embeds them
+    # as opaque bytes. A syntax error therefore ships as a silently dead
+    # plugin. Needs neither Rust nor the ttyview sibling, so it's seconds.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Check baked plugin JS
+        run: node scripts/check-assets.mjs
+
   audit:
     name: cargo audit + deny
     runs-on: ubuntu-22.04
