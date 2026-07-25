@@ -59,6 +59,20 @@ jobs:
         working-directory: mobile-cc
         run: cargo test --release
 
+      - name: cargo test (--features webpush)
+        working-directory: mobile-cc
+        # `webpush` is default-OFF because web-push's TLS backends don't
+        # cross-compile to the release targets, so every step above skips
+        # src/push.rs + src/origin.rs entirely — ~680 lines that include the
+        # same-origin guard and the SSRF endpoint allowlist, plus the 5 tests
+        # covering them. Ubuntu *can* build the feature, so compile and run it
+        # here: without this the guards can rot unnoticed until v0.6.1 turns
+        # the feature back on.
+        # (Needs libssl-dev + pkg-config for openssl-sys, which web-push's
+        # hyper-tls backend links. Both ship in the ubuntu-22.04 runner image;
+        # if this step ever fails at the openssl-sys build script, that's why.)
+        run: cargo test --release --features webpush
+
       - name: smoke test (binary boots, --help works)
         working-directory: mobile-cc
         run: ./target/release/mobile-cc --help
@@ -153,6 +167,12 @@ jobs:
       - name: cargo clippy
         working-directory: mobile-cc
         run: cargo clippy --release --all-targets -- -D warnings
+
+      - name: cargo clippy (--features webpush)
+        working-directory: mobile-cc
+        # Same reason as the matching test step in the build job: the default
+        # feature set never lints the optional Web Push modules.
+        run: cargo clippy --release --all-targets --features webpush -- -D warnings
 
   audit:
     name: cargo audit + deny
