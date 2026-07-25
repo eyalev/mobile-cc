@@ -7,6 +7,121 @@ leaves the `0.x` pre-release range.
 
 ## [Unreleased]
 
+### Added
+
+- **Command palette.** A single entry point for everything the app can do:
+  search-as-you-type over commands, run them with one tap, and re-run what
+  you ran before (server-synced history, deduped and capped). Commands that
+  need input get an inline parameter sheet — `mcc.scrollback` picks a depth
+  from an enum, `mcc.send` takes a session plus text.
+- **Ask AI.** Describe what you want in plain language and the palette routes
+  it to the matching command, with a zero-friction suggestion row as you
+  type. Backed by any OpenAI-compatible provider (Groq, OpenAI, or a custom
+  base URL) with its own key and model field, so it no longer shares the
+  speech-to-text quota.
+- **Live keys.** Type straight into the terminal from the soft keyboard
+  instead of composing in the Message box first — plus desktop keyboard
+  passthrough to the active pane, and a chord to cycle tabs from the
+  keyboard.
+- **Draft Keeper.** An unsent Message survives a reload, a restart, or a
+  tab switch instead of being lost.
+- **Scroll memory.** Scroll position is restored across reloads, including
+  deep scrolled-up positions, rather than snapping back to the tail.
+- **Opt-in Light theme**, built on ttyview-core's CSS-var theme foundation
+  with a theme-aware ANSI palette.
+- **Desktop width control.** The whole app centers as one adjustable column
+  with readable tab cards and subtitles, not just the terminal.
+- **Prompt navigation.** ▲/▼ header buttons jump between prompts in the
+  transcript, sharing one Claude-Code marker scanner with Message Regions.
+
+### Changed
+
+- **De-orange.** Coral accents throughout the UI, the launcher icon, the
+  landing page, and the demo tap markers move to a single blue accent
+  (`#569cd6`).
+- **Scrollback backfill depth** now defaults to 2000 lines (was 200).
+- **Message Regions** show timestamps only — the role tint and separators
+  are gone; timestamps are full local ISO and are stamped on Claude's
+  replies too, in a high-contrast pill.
+- **Quick-keys row** is more compact, freeing ~12px above the Message box.
+- **Tab subtitles** follow the newest completed-turn topic, and the `/clear`
+  chip resets the active tab's subtitle.
+
+### Fixed
+
+- `Tab` sends `\t` (and `Shift+Tab` sends `CSI Z`) from Live keys, with a
+  transparent caret.
+- The prompt-nav popover no longer covers the terminal or the right rail.
+- Clearing the Message box with the × now drops the saved draft (ttyview-core
+  clears without firing `input`).
+- Stale `goto`/`run` entries are pruned from the palette (slicing a `Map`
+  iterator returned an empty list).
+- The "Claude in project" folder field accepts `~/…` paths.
+- Pinned-group vertical scrolling and WebSocket reconnection resilience.
+
+## [0.6.0] — 2026-06-26
+
+Built on `ttyview-core` v0.2.1.
+
+### Added
+
+- **VSCode-style settings search** — one search box filters settings across
+  every tab.
+
+### Changed
+
+- **Instant session ops.** New-session, auto-pin, and move-to-project now
+  reflect in well under a second (reconcile-on-create/rename fast paths; it
+  was up to ~6s). Creating "Claude in a project" auto-pins it as a project
+  group and `mkdir -p`s a brand-new folder.
+- **Web Push is not in this build.** The `web-push` crate's only TLS
+  backends are C dependencies (libcurl / OpenSSL) that don't cross-compile
+  to every release target, so push moved behind a default-off `webpush`
+  cargo feature. v0.6.1 reintroduces it with a pure-Rust rustls client.
+- **Performance** — event-driven tab dots and live-sync replace polling
+  (foreground HTTP dropped from ~70 to ~0 requests/min).
+- **Polish** — accessibility pass (aria-labels, live region), WebSocket
+  reconnection resilience (heartbeat + banner), pinned-group vertical
+  scroll fix.
+
+### Security
+
+- `/api/download` denies hidden (dotfile) paths after canonicalization,
+  covering `~/.ssh`, `~/.config/mobile-cc`, and similar in one rule.
+
+## [0.5.0] — 2026-06-23
+
+Built on `ttyview-core` v0.2.0. First release exercising the full
+supply chain end to end — minisign signatures, SLSA build provenance, and
+the Homebrew tap all published automatically.
+
+### Added
+
+- **Tab cards & menu** — name, status dot, and ⋮ on one centered row; a
+  per-tab menu (rename / kill / move-to-project / remove-from-recents);
+  collapsible multi-row recents; tall/subtitle layout with adjustable rows
+  and tabs-per-row.
+- **Per-session topics & AI tab subtitles** — a 📋 timeline of what each
+  session has been about, plus a session-throughline subtitle, generated
+  browser-direct via Groq (BYO key) from `/api/cc-session-turns` and
+  `/api/cc-tab-summary`.
+- **Session search** — 🔍 ripgrep across all Claude Code sessions
+  (`/api/cc-search`), ranked by keyword and recency, with an optional Groq
+  AI pick.
+- **Native screenshot-attach** — one-tap attach of the latest screenshot via
+  the optional Capacitor Android shell (no-op in a plain browser).
+- **Tap-a-path / URL** — linkified file paths and URLs in the terminal: tap
+  to download (`$HOME`-allowlisted) or open in the external browser.
+- **Real-time voice** — live Deepgram streaming transcription preview while
+  recording, with the Groq Whisper transcript as the final.
+
+### Fixed
+
+- Per-pane compose drafts, so a message can no longer be sent to the wrong
+  pane.
+- A `savePins` data-loss guard and hydrate-fail state-write suppression.
+- The keyboard stays down on tab switch.
+
 ## [0.4.0] — 2026-06-21
 
 ### Added
@@ -303,7 +418,11 @@ new README section. The most direct replacements:
 - `ttyview-image-paste` plugin (lands in v0.1.2, gated on upstream
   `ttyview-core` publishing the `/api/uploads` route + plugin source).
 
-[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/eyalev/mobile-cc/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/eyalev/mobile-cc/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/eyalev/mobile-cc/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/eyalev/mobile-cc/compare/v0.3.2...v0.4.0
+[0.3.2]: https://github.com/eyalev/mobile-cc/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/eyalev/mobile-cc/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/eyalev/mobile-cc/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/eyalev/mobile-cc/compare/v0.2.0...v0.2.1
