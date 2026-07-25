@@ -31,12 +31,22 @@ they're addressed.
 - Authentication / authorisation bypass in any future auth mechanism mobile-cc
   ships.
 - Remote code execution in the daemon (axum/tokio surface, plugin loading,
-  upload handling once that lands in v0.2).
+  image upload handling — shipped since v0.1.2).
 - Plugin sandbox escape, once a sandbox exists. (Plugins are eval'd in the
   page today — this is documented and the platform shape is still stabilising.)
 - Information leak via the diagnostic JSONL writer or the plugin source
   endpoints (e.g., serving files outside the plugin dir).
-- Path traversal in any endpoint that takes a filename / id.
+- Path traversal in any endpoint that takes a filename / id. `/api/download`
+  in particular: it serves host files, and only paths that canonicalise to
+  under `$HOME` and contain no hidden (dotfile) component are allowed —
+  anything that defeats either rule is in scope.
+- **Server-side request forgery** via a user-supplied URL the daemon then
+  fetches. Today that means the Web Push subscription `endpoint`, which the
+  daemon POSTs to: it must be https and resolve to a globally-routable host,
+  so anything reaching loopback, RFC1918, CGNAT/tailnet, multicast, or an
+  IPv4 address smuggled inside an IPv6 literal is in scope. (Currently behind
+  the default-off `webpush` cargo feature, so it is not in shipped binaries —
+  reports are still welcome.)
 - Anything that lets a remote party send keystrokes to a tmux session
   belonging to a user who didn't authorise it, **assuming the operator is
   running mobile-cc on its default loopback bind** (no fronting auth layer

@@ -24,9 +24,11 @@ then expose it over Tailscale and open the URL — the full four-step flow
 read the script before running it? See
 [Install options](../../README.md#install-options).
 
-> **Heads-up:** the install experience is being upgraded (binaries served
-> straight from GitHub Releases, signature + build-provenance verification, a
-> Homebrew tap). This clip will be re-recorded when that ships.
+> **Verifying what you install:** binaries come straight from GitHub Releases
+> and `install.sh` checks them in order of strength — minisign signature, then
+> GitHub build-provenance (SLSA) attestation, then SHA-256 — failing closed if
+> none of the three can be checked. There's also a Homebrew tap:
+> `brew install eyalev/tap/mobile-cc`.
 
 ---
 
