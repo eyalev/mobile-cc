@@ -254,8 +254,8 @@ gh attestation verify mobile-cc-<target>.tar.gz --repo eyalev/mobile-cc
 ```
 
 minisign signatures are present from **v0.4.0** onward; build-provenance
-attestations from the **first release after v0.4.0** (v0.4.0 was built before
-the attestation step landed).
+attestations from **v0.5.0** onward (v0.4.0 was built before the attestation
+step landed, and was backfilled with a hand-signed `.minisig` only).
 
 ### Running it manually
 
